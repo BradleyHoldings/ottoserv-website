@@ -159,12 +159,23 @@ export default function DemoPage() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a
-              href="/dashboard?demo=true"
+            <button
+              onClick={() => {
+                // Set demo mode and redirect
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('ottoserv_current_user', JSON.stringify({
+                    id: 'demo-user',
+                    name: 'Demo User', 
+                    role: 'demo',
+                    isOttoServEmployee: false
+                  }));
+                  window.location.href = '/demo/dashboard';
+                }
+              }}
               className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-lg font-semibold transition-colors"
             >
               🎭 Enter Demo Dashboard
-            </a>
+            </button>
             <a
               href="/jarvis-voice"
               className="border border-orange-400 text-orange-400 hover:bg-orange-400 hover:text-gray-900 px-8 py-4 rounded-lg font-semibold transition-colors"

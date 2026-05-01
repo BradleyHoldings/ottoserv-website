@@ -40,8 +40,30 @@ export default function CommandCenterPage() {
   const [alerts, setAlerts] = useState(mockAlerts);
   const [tasks, setTasks] = useState(mockTasks);
   const [leads, setLeads] = useState(mockLeads);
+  const [user, setUser] = useState<any>(null);
+  const router = useRouter();
 
   useEffect(() => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      router.push('/login');
+      return;
+    }
+    
+    setUser(currentUser);
+    
+    // Super admin should use admin dashboard, not command center
+    if (currentUser.role === 'super_admin') {
+      router.push('/dashboard/admin');
+      return;
+    }
+    
+    // Demo users get redirected to demo environment
+    if (currentUser.role === 'demo') {
+      router.push('/demo');
+      return;
+    }
+    
     const token = getToken() || "";
     Promise.all([
       getDashboard(token),
@@ -55,7 +77,7 @@ export default function CommandCenterPage() {
       if (leadsData) setLeads(leadsData);
       setLoading(false);
     });
-  }, []);
+  }, [router]);
 
   const inProgressProjects = mockProjects.filter((p) => p.status === "in_progress");
   const urgentTasks = tasks

@@ -90,43 +90,98 @@ export default function AggregateAnalytics() {
       )}
 
       {/* Data Source Indicator */}
-      <div className="mb-6 p-4 bg-blue-900/30 border border-blue-700 rounded-lg">
-        <div className="flex items-center space-x-2">
-          <span className="text-blue-400">📊</span>
-          <span className="text-blue-300 font-medium">
-            {viewType === 'aggregate' 
-              ? 'Showing aggregate data across ALL OttoServ clients' 
-              : `Showing data for: ${clientData[selectedClient as keyof typeof clientData]?.name || 'Unknown Client'}`
-            }
+      <div className={`mb-6 p-4 rounded-lg ${
+        viewType === 'aggregate' 
+          ? 'bg-blue-900/30 border border-blue-700'
+          : 'bg-purple-900/30 border border-purple-700'
+      }`}>
+        <div className="flex items-center space-x-3">
+          <span className="text-2xl">
+            {viewType === 'aggregate' ? '🌍' : '👤'}
           </span>
+          <div>
+            <span className={`font-bold text-lg ${
+              viewType === 'aggregate' ? 'text-blue-300' : 'text-purple-300'
+            }`}>
+              {viewType === 'aggregate' 
+                ? 'ALL CLIENTS AGGREGATE DATA' 
+                : `INDIVIDUAL CLIENT: ${clientData[selectedClient as keyof typeof clientData]?.name?.toUpperCase() || 'UNKNOWN'}`
+              }
+            </span>
+            <p className={`text-sm mt-1 ${
+              viewType === 'aggregate' ? 'text-blue-200' : 'text-purple-200'
+            }`}>
+              {viewType === 'aggregate'
+                ? 'Combined metrics across all OttoServ clients'
+                : `Showing data for ${clientData[selectedClient as keyof typeof clientData]?.name} only`
+              }
+            </p>
+          </div>
         </div>
-        <p className="text-blue-200 text-sm mt-1">
-          🔴 <strong>LIVE DATA</strong> - Real client metrics (updated in real-time)
-        </p>
+        <div className="mt-3 p-3 bg-red-900/40 border border-red-600 rounded-md">
+          <p className="text-red-200 text-sm font-medium">
+            🔴 <strong>LIVE DATA ONLY</strong> - Real client metrics (Jonathan super admin view)
+          </p>
+        </div>
+      </div>
+
+      {/* View Type Alert */}
+      <div className="mb-6 bg-gray-800 border border-gray-600 rounded-lg p-4">
+        <h3 className="text-white font-medium mb-2">📊 Analytics View Mode</h3>
+        <div className="grid md:grid-cols-2 gap-4 text-sm">
+          <div className={`p-3 rounded border ${
+            viewType === 'aggregate' 
+              ? 'bg-blue-900/40 border-blue-600 text-blue-200'
+              : 'bg-gray-700 border-gray-600 text-gray-400'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span>🌍</span>
+              <span className="font-medium">Aggregate Mode</span>
+            </div>
+            <p className="mt-1 text-xs">See combined performance across ALL OttoServ clients</p>
+          </div>
+          <div className={`p-3 rounded border ${
+            viewType === 'individual' 
+              ? 'bg-purple-900/40 border-purple-600 text-purple-200'
+              : 'bg-gray-700 border-gray-600 text-gray-400'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span>👤</span>
+              <span className="font-medium">Individual Mode</span>
+            </div>
+            <p className="mt-1 text-xs">Focus on one specific client's metrics</p>
+          </div>
+        </div>
       </div>
 
       {/* KPI Cards */}
       {viewType === 'aggregate' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 relative">
+            <div className="absolute top-2 right-2">
+              <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">🌍 ALL</span>
+            </div>
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                 <span className="text-white">💰</span>
               </div>
               <div>
-                <p className="text-gray-400 text-sm">Total Revenue</p>
+                <p className="text-gray-400 text-sm">Total Revenue (All Clients)</p>
                 <p className="text-2xl font-bold text-white">${aggregateData.totalRevenue}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 relative">
+            <div className="absolute top-2 right-2">
+              <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">🌍 ALL</span>
+            </div>
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                 <span className="text-white">👥</span>
               </div>
               <div>
-                <p className="text-gray-400 text-sm">Active Clients</p>
+                <p className="text-gray-400 text-sm">Active Clients (Platform)</p>
                 <p className="text-2xl font-bold text-white">{aggregateData.activeClients}</p>
               </div>
             </div>
@@ -184,13 +239,16 @@ export default function AggregateAnalytics() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {selectedClient && clientData[selectedClient as keyof typeof clientData] && (
             <>
-              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 relative">
+                <div className="absolute top-2 right-2">
+                  <span className="text-xs bg-purple-600 text-white px-2 py-1 rounded">👤 CLIENT</span>
+                </div>
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                     <span className="text-white">💰</span>
                   </div>
                   <div>
-                    <p className="text-gray-400 text-sm">Monthly Revenue</p>
+                    <p className="text-gray-400 text-sm">Monthly Revenue (This Client)</p>
                     <p className="text-2xl font-bold text-white">${clientData[selectedClient as keyof typeof clientData].revenue}</p>
                   </div>
                 </div>
@@ -239,9 +297,18 @@ export default function AggregateAnalytics() {
       {/* Client Comparison Table */}
       <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
         <div className="p-6 border-b border-gray-700">
-          <h2 className="text-xl font-bold text-white">
-            {viewType === 'aggregate' ? 'Client Performance Comparison' : 'Individual Client Details'}
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white">
+              {viewType === 'aggregate' ? '🌍 All Clients Performance Comparison' : '👤 Individual Client Details'}
+            </h2>
+            <span className={`text-xs px-3 py-1 rounded ${
+              viewType === 'aggregate' 
+                ? 'bg-blue-600 text-white'
+                : 'bg-purple-600 text-white'
+            }`}>
+              {viewType === 'aggregate' ? 'AGGREGATE VIEW' : 'INDIVIDUAL VIEW'}
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
