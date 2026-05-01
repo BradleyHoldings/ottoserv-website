@@ -3,47 +3,68 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Pricing — OttoServ",
-  description: "OttoServ pricing: Operations Audit, System Build, and Ongoing Operations Partner. Every engagement starts with a free discovery call.",
+  description:
+    "OttoServ pricing: Founding Partner ($500 setup + $300/mo), Growth ($1,500 setup + $800–1,500/mo), Enterprise (custom). Every plan starts with a free discovery call.",
 };
 
 const tiers = [
   {
-    name: "Operations Audit",
-    price: "$500 – $1,500",
-    description: "The right starting point for most engagements. We map your operations, find the bottlenecks, and give you a prioritized plan.",
+    name: "Founding Partner",
+    price: "$500",
+    priceLabel: "setup",
+    monthly: "+ $300/mo",
+    badge: "Limited Spots",
+    badgeColor: "text-orange-400",
+    description:
+      "For early adopters willing to give feedback and participate in a case study. You get full platform access at a founder rate — in exchange for your honest input.",
     includes: [
-      "Workflow mapping and documentation",
-      "Gap and bottleneck analysis",
-      "Prioritized recommendations",
-      "Documented process map",
+      "Operations audit",
+      "First automation build",
+      "OttoServ OS access",
+      "AI lead response (Morgan)",
+      "Feedback sessions + case study",
     ],
-    cta: "Start with a Discovery Call",
+    cta: "Apply for Founding Partner",
     highlighted: false,
   },
   {
-    name: "System Build",
-    price: "$1,500 – $5,000",
-    description: "We build the actual systems — automations, integrations, and process infrastructure — that fix the problems we identified.",
+    name: "Growth",
+    price: "$1,500",
+    priceLabel: "setup",
+    monthly: "+ $800–1,500/mo",
+    badge: "Most Popular",
+    badgeColor: "text-blue-300",
+    description:
+      "Full operations buildout for businesses ready to grow without adding headcount. Includes custom automations, AI agents, dashboard, and ongoing optimization.",
     includes: [
-      "Custom automations and integrations",
-      "Process implementation",
-      "Testing and quality assurance",
-      "Team training and handoff",
+      "Full operations buildout",
+      "Custom automations",
+      "AI agents (Morgan + more)",
+      "OttoServ OS dashboard",
+      "Ongoing optimization",
+      "Weekly AI intelligence reports",
     ],
-    cta: "Start with a Discovery Call",
+    cta: "Book a Discovery Call",
     highlighted: true,
   },
   {
-    name: "Ongoing Operations Partner",
-    price: "$500 – $2,000/mo",
-    description: "For businesses that want continuous improvement. We stay engaged, optimize over time, and handle operational issues as they arise.",
+    name: "Enterprise",
+    price: "Custom",
+    priceLabel: "",
+    monthly: "",
+    badge: "",
+    badgeColor: "",
+    description:
+      "For companies with 50+ employees. Multi-department systems, role-based access control, custom integrations, and a dedicated success manager.",
     includes: [
-      "Continuous optimization",
-      "System monitoring and maintenance",
-      "Monthly reviews and reporting",
-      "Priority support",
+      "Multi-department deployment",
+      "Role-based access control (RBAC)",
+      "Custom integrations",
+      "Dedicated success manager",
+      "SLA-backed support",
+      "Quarterly business reviews",
     ],
-    cta: "Start with a Discovery Call",
+    cta: "Contact Us",
     highlighted: false,
   },
 ];
@@ -55,8 +76,15 @@ export default function PricingPage() {
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Pricing</h1>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Every engagement starts with a free discovery call so we can scope the work accurately before committing to anything.
+          <p className="text-gray-400 text-lg max-w-xl mx-auto mb-4">
+            Every engagement starts with a free discovery call so we can scope the work accurately
+            before committing to anything.
+          </p>
+          <p className="text-gray-500 text-sm">
+            Questions? Call us at{" "}
+            <a href="tel:+14077988172" className="text-blue-400 hover:text-blue-300 transition-colors">
+              (407) 798-8172
+            </a>
           </p>
         </div>
       </section>
@@ -73,13 +101,21 @@ export default function PricingPage() {
                   : "bg-[#111827] border border-gray-800"
               }`}
             >
-              {tier.highlighted && (
-                <span className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-4">
-                  Most Popular
+              {tier.badge && (
+                <span className={`text-xs font-semibold uppercase tracking-widest mb-4 ${tier.badgeColor}`}>
+                  {tier.badge}
                 </span>
               )}
-              <h2 className="text-white font-bold text-xl mb-2">{tier.name}</h2>
-              <p className="text-blue-400 font-bold text-2xl mb-4">{tier.price}</p>
+              <h2 className="text-white font-bold text-xl mb-1">{tier.name}</h2>
+              <div className="mb-4">
+                <span className="text-blue-400 font-bold text-3xl">{tier.price}</span>
+                {tier.priceLabel && (
+                  <span className="text-gray-400 text-sm ml-1">{tier.priceLabel}</span>
+                )}
+                {tier.monthly && (
+                  <p className="text-gray-400 text-sm mt-1">{tier.monthly}</p>
+                )}
+              </div>
               <p className="text-gray-400 text-sm leading-relaxed mb-6">{tier.description}</p>
               <ul className="space-y-3 mb-8 flex-1">
                 {tier.includes.map((item) => (
@@ -103,11 +139,14 @@ export default function PricingPage() {
           ))}
         </div>
 
+        {/* Note */}
         <div className="max-w-3xl mx-auto mt-12">
           <div className="bg-[#111827] border border-gray-800 rounded-xl p-8 text-center">
             <h3 className="text-white font-semibold text-lg mb-3">A Note on Pricing</h3>
             <p className="text-gray-400 text-sm leading-relaxed">
-              These ranges reflect typical engagements, but every business is different. Scope, complexity, and the number of systems involved all affect the final cost. We will give you a clear, fixed quote after the discovery call — no surprises, no hourly billing creep.
+              These ranges reflect typical engagements — scope, complexity, and number of systems
+              involved all affect the final cost. We give you a clear, fixed quote after the
+              discovery call. No surprises, no hourly billing creep.
             </p>
           </div>
         </div>
@@ -116,16 +155,27 @@ export default function PricingPage() {
       {/* CTA */}
       <section className="py-16 px-4 bg-[#0d0d0d]">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Book a Free Discovery Call</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Every Plan Starts with a Free Discovery Call
+          </h2>
           <p className="text-gray-400 mb-8">
-            No commitment required. We will scope the work together and give you a clear proposal.
+            No commitment required. We scope the work together and give you a clear proposal before
+            anything is signed.
           </p>
-          <Link
-            href="/contact"
-            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
-          >
-            Book a Free Discovery Call
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/contact"
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
+            >
+              Book a Free Discovery Call
+            </Link>
+            <a
+              href="tel:+14077988172"
+              className="text-blue-400 hover:text-blue-300 font-semibold text-lg transition-colors"
+            >
+              Call (407) 798-8172
+            </a>
+          </div>
         </div>
       </section>
     </div>

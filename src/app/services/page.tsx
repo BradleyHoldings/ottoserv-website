@@ -3,37 +3,122 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Services — OttoServ",
-  description: "Explore OttoServ's services: Workflow Mapping, Lead Automation, Admin Automation, and System Integration.",
+  description:
+    "OttoServ services: AI Lead Response, Operations Audit, Automation Build, OttoServ OS Dashboard, TechOps, Contractor OS, Client Experience Optimization, and AI Reports.",
 };
 
 const services = [
   {
-    title: "Workflow Mapping",
+    title: "AI Lead Response",
+    tag: "Morgan AI",
     description:
-      "We document and analyze your current processes to find exactly what is slowing you down. You will get a clear picture of your operations and a prioritized roadmap for improvement.",
-    href: "/services/workflow-mapping",
-    highlights: ["Process documentation", "Bottleneck analysis", "Prioritized improvement roadmap", "Stakeholder interviews"],
+      "Morgan, our AI assistant, answers every inbound call and web inquiry 24/7 — qualifying leads, booking appointments, and notifying your team before a competitor has a chance to pick up.",
+    highlights: [
+      "Answers calls and texts instantly, 24/7",
+      "Qualifies leads with smart intake questions",
+      "Books appointments directly to your calendar",
+      "Sends lead summaries to your team in real time",
+    ],
+    cta: "Learn More",
+    href: "/contact",
   },
   {
-    title: "Lead Automation",
+    title: "Operations Audit",
+    tag: "Starting Point",
     description:
-      "Automated systems that capture, qualify, and follow up with leads without any manual effort. Stop losing revenue to slow follow-up and inconsistent outreach.",
-    href: "/services/lead-automation",
-    highlights: ["CRM integration", "Automated email & SMS follow-up", "Lead scoring", "Pipeline visibility"],
+      "We map every process in your business — intake, scheduling, job management, billing, and follow-up — and give you a prioritized roadmap for fixing what's costing you time and money.",
+    highlights: [
+      "Full workflow documentation",
+      "Gap and bottleneck analysis",
+      "Prioritized fix roadmap",
+      "Clear, actionable deliverable",
+    ],
+    cta: "Book a Discovery Call",
+    href: "/contact",
   },
   {
-    title: "Admin Automation",
+    title: "Automation Build",
+    tag: "Core Service",
     description:
-      "Eliminate the repetitive admin tasks that drain your team — scheduling, invoicing, data entry, and more. Free up hours every week for higher-value work.",
-    href: "/services/admin-automation",
-    highlights: ["Scheduling automation", "Invoice generation", "Document workflows", "Data sync between systems"],
+      "We build the automations, integrations, and workflows that make your operations run without constant manual effort — from lead intake to job completion and billing.",
+    highlights: [
+      "Custom n8n / Make / Zapier workflows",
+      "CRM and scheduling integrations",
+      "Automated follow-up sequences",
+      "Cross-platform data sync",
+    ],
+    cta: "Book a Discovery Call",
+    href: "/contact",
   },
   {
-    title: "System Integration",
+    title: "OttoServ OS Dashboard",
+    tag: "Platform",
     description:
-      "Connect your tools so data flows automatically between them. No more copy-pasting between apps or manually syncing spreadsheets.",
-    href: "/services/system-integration",
-    highlights: ["API integrations", "Zapier / Make / n8n workflows", "Database sync", "Custom connectors"],
+      "Your business command center. See every job, lead, team member, project, and revenue number in one live dashboard — purpose-built for service companies.",
+    highlights: [
+      "Jobs, projects, CRM, and billing in one view",
+      "Real-time visibility across your operation",
+      "Client portal for project updates and invoices",
+      "Mobile-friendly for on-the-go teams",
+    ],
+    cta: "See the Platform",
+    href: "/contact",
+  },
+  {
+    title: "TechOps",
+    tag: "For IT & AV Companies",
+    description:
+      "AI-powered technical operations for IT providers, MSPs, and smart home companies — AI triage, dispatch packets, knowledge base, and remote resolution workflows.",
+    highlights: [
+      "AI ticket triage and routing",
+      "Technician dispatch packets",
+      "Knowledge base automation",
+      "Remote resolution workflows",
+    ],
+    cta: "Learn About TechOps",
+    href: "/techops",
+  },
+  {
+    title: "Contractor OS",
+    tag: "For Contractors",
+    description:
+      "Everything a contractor or remodeler needs to run projects profitably — job costing, scheduling, progress billing, materials tracking, and subcontractor management.",
+    highlights: [
+      "Job costing and budget tracking",
+      "Schedule and dispatch management",
+      "Progress billing and invoice generation",
+      "Materials and vendor management",
+    ],
+    cta: "Learn More",
+    href: "/industries/contractors",
+  },
+  {
+    title: "Client Experience Optimization",
+    tag: "CXB",
+    description:
+      "We assess your entire client journey — first contact through final invoice — and build systems that make clients feel taken care of and leave five-star reviews.",
+    highlights: [
+      "Client journey assessment",
+      "Communication improvement",
+      "Automated review request system",
+      "Satisfaction tracking",
+    ],
+    cta: "Book a Discovery Call",
+    href: "/contact",
+  },
+  {
+    title: "AI Reports & Intelligence",
+    tag: "Weekly Briefings",
+    description:
+      "A weekly AI-generated brief that tells you what needs attention in your business — revenue trends, job profitability, team performance, and market insights — without you having to dig.",
+    highlights: [
+      "Weekly operations intelligence brief",
+      "Revenue and margin analysis",
+      "Lead source and conversion tracking",
+      "Pricing recommendations",
+    ],
+    cta: "Book a Discovery Call",
+    href: "/contact",
   },
 ];
 
@@ -45,7 +130,8 @@ export default function ServicesPage() {
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Our Services</h1>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            We offer a focused set of services designed to eliminate operational chaos and replace it with practical, scalable systems.
+            Eight services built for service businesses — from AI lead capture to full operations
+            automation and weekly intelligence reports.
           </p>
         </div>
       </section>
@@ -58,6 +144,9 @@ export default function ServicesPage() {
               key={service.title}
               className="bg-[#111827] border border-gray-800 rounded-xl p-8 flex flex-col"
             >
+              <span className="text-blue-400 text-xs font-semibold uppercase tracking-widest mb-3">
+                {service.tag}
+              </span>
               <h2 className="text-white font-bold text-2xl mb-4">{service.title}</h2>
               <p className="text-gray-400 leading-relaxed mb-6">{service.description}</p>
               <ul className="space-y-2 mb-8 flex-1">
@@ -72,7 +161,7 @@ export default function ServicesPage() {
                 href={service.href}
                 className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-md text-sm transition-colors text-center"
               >
-                Learn More
+                {service.cta}
               </Link>
             </div>
           ))}
@@ -83,8 +172,15 @@ export default function ServicesPage() {
       <section className="py-16 px-4 bg-[#0d0d0d]">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl font-bold text-white mb-4">Not Sure Where to Start?</h2>
-          <p className="text-gray-400 mb-8">
-            Book a free discovery call and we will help you figure out which service fits your situation best.
+          <p className="text-gray-400 mb-6">
+            Book a free discovery call and we will tell you exactly which services fit your situation.
+          </p>
+          <p className="text-gray-500 text-sm mb-8">
+            Or call us directly —{" "}
+            <a href="tel:+14077988172" className="text-blue-400 hover:text-blue-300 transition-colors">
+              (407) 798-8172
+            </a>
+            . Morgan will answer immediately.
           </p>
           <Link
             href="/contact"

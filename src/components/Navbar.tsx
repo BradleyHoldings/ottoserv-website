@@ -3,8 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 
+const industryLinks = [
+  { name: "Contractors & Remodelers", href: "/industries/contractors" },
+  { name: "Property Managers", href: "/industries/property-management" },
+  { name: "HVAC / Plumbing / Electrical", href: "/industries/trades" },
+  { name: "Smart Home & AV", href: "/industries/smart-home" },
+  { name: "IT / MSP Support", href: "/industries/it-msp" },
+  { name: "All Industries →", href: "/industries" },
+];
+
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [industriesOpen, setIndustriesOpen] = useState(false);
 
   return (
     <nav className="bg-[#0a0a0a] border-b border-gray-800 sticky top-0 z-50">
@@ -26,14 +36,43 @@ export default function Navbar() {
             <Link href="/services" className="text-gray-300 hover:text-white transition-colors text-sm">
               Services
             </Link>
+
+            {/* Industries Dropdown */}
+            <div
+              className="relative"
+              onMouseEnter={() => setIndustriesOpen(true)}
+              onMouseLeave={() => setIndustriesOpen(false)}
+            >
+              <Link
+                href="/industries"
+                className="text-gray-300 hover:text-white transition-colors text-sm flex items-center gap-1"
+              >
+                Industries
+                <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </Link>
+              {industriesOpen && (
+                <div className="absolute top-full left-0 mt-1 w-56 bg-[#111827] border border-gray-700 rounded-lg shadow-xl py-2">
+                  {industryLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-[#1f2937] transition-colors"
+                      onClick={() => setIndustriesOpen(false)}
+                    >
+                      {link.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <Link href="/how-it-works" className="text-gray-300 hover:text-white transition-colors text-sm">
               How It Works
             </Link>
             <Link href="/about" className="text-gray-300 hover:text-white transition-colors text-sm">
               About
-            </Link>
-            <Link href="/blog" className="text-gray-300 hover:text-white transition-colors text-sm">
-              Blog
             </Link>
             <Link href="/contact" className="text-gray-300 hover:text-white transition-colors text-sm">
               Contact
@@ -42,8 +81,14 @@ export default function Navbar() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
+            <a
+              href="tel:+14077988172"
+              className="text-gray-300 hover:text-blue-400 transition-colors text-sm font-medium"
+            >
+              (407) 798-8172
+            </a>
             <Link
-              href="/login"
+              href="/platform/login"
               className="text-gray-400 hover:text-white transition-colors text-sm"
             >
               Client Login
@@ -83,19 +128,38 @@ export default function Navbar() {
             <Link href="/services" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               Services
             </Link>
+            <Link href="/industries" className="text-gray-300 hover:text-white transition-colors text-sm py-1 font-medium" onClick={() => setMenuOpen(false)}>
+              Industries
+            </Link>
+            <div className="pl-4 flex flex-col gap-2">
+              {industryLinks.slice(0, -1).map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-gray-400 hover:text-white transition-colors text-xs py-0.5"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </div>
             <Link href="/how-it-works" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               How It Works
             </Link>
             <Link href="/about" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               About
             </Link>
-            <Link href="/blog" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
-              Blog
-            </Link>
             <Link href="/contact" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               Contact
             </Link>
-            <Link href="/login" className="text-gray-400 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
+            <a
+              href="tel:+14077988172"
+              className="text-blue-400 hover:text-blue-300 transition-colors text-sm py-1 font-medium"
+              onClick={() => setMenuOpen(false)}
+            >
+              (407) 798-8172
+            </a>
+            <Link href="/platform/login" className="text-gray-400 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               Client Login
             </Link>
             <Link

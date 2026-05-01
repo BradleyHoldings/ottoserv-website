@@ -22,7 +22,6 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    console.log("Contact form submitted:", formData);
     try {
       await fetch("https://n8n.ottoserv.com/webhook/contact-form", {
         method: "POST",
@@ -42,9 +41,21 @@ export default function ContactPage() {
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Get in Touch</h1>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Book a free discovery call or send us a message. We will get back to you within one business day.
+          <p className="text-gray-400 text-lg max-w-xl mx-auto mb-6">
+            Book a free discovery call or send us a message. We will get back to you within one
+            business day.
           </p>
+          {/* Prominent phone CTA */}
+          <div className="inline-flex items-center gap-3 bg-[#111827] border border-blue-600 rounded-xl px-6 py-4">
+            <span className="text-gray-400 text-sm">Call us now:</span>
+            <a
+              href="tel:+14077988172"
+              className="text-blue-400 hover:text-blue-300 font-bold text-xl transition-colors"
+            >
+              (407) 798-8172
+            </a>
+            <span className="text-gray-500 text-sm">— Morgan, our AI assistant, will answer immediately.</span>
+          </div>
         </div>
       </section>
 
@@ -155,6 +166,23 @@ export default function ContactPage() {
 
           {/* Contact Info */}
           <div className="flex flex-col gap-8">
+            {/* Phone */}
+            <div className="bg-[#111827] border border-gray-800 rounded-xl p-8">
+              <h2 className="text-white font-bold text-xl mb-4">Call or Text Us</h2>
+              <a
+                href="tel:+14077988172"
+                className="text-blue-400 hover:text-blue-300 transition-colors text-2xl font-bold block mb-3"
+              >
+                (407) 798-8172
+              </a>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Morgan, our AI assistant, answers immediately — 24 hours a day, 7 days a week. She
+                will qualify your inquiry and get you to the right person or book a discovery call
+                directly.
+              </p>
+            </div>
+
+            {/* Email */}
             <div className="bg-[#111827] border border-gray-800 rounded-xl p-8">
               <h2 className="text-white font-bold text-xl mb-4">Email Us Directly</h2>
               <a
@@ -168,25 +196,36 @@ export default function ContactPage() {
               </p>
             </div>
 
+            {/* Calendly */}
             <div className="bg-[#111827] border border-gray-800 rounded-xl p-8">
               <h2 className="text-white font-bold text-xl mb-4">Book a Discovery Call</h2>
               <p className="text-gray-400 text-sm leading-relaxed mb-6">
-                A discovery call is free, takes about 30 minutes, and gives us a chance to learn about your business and see if we are a good fit. No sales pressure, no pitch — just an honest conversation.
+                A discovery call is free, takes about 15 minutes, and gives us a chance to learn
+                about your business and where we can help. No sales pressure — just an honest
+                conversation.
               </p>
-              <div className="space-y-3 text-sm text-gray-300">
+              <div className="space-y-3 text-sm text-gray-300 mb-6">
                 <div className="flex items-start gap-2">
                   <span className="text-blue-400 mt-0.5">&#10003;</span>
                   Free, no-obligation call
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-blue-400 mt-0.5">&#10003;</span>
-                  30 minutes via Zoom or phone
+                  15 minutes via Zoom or phone
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-blue-400 mt-0.5">&#10003;</span>
                   We will tell you honestly if we can help
                 </div>
               </div>
+              <a
+                href="https://calendly.com/team-ottoserv/30min"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition"
+              >
+                Schedule Your Free Call →
+              </a>
             </div>
           </div>
         </div>
