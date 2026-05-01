@@ -1,4 +1,38 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { getCurrentUser, isLiveDataMode, LIVE_CLIENTS } from "@/lib/userAuth";
+
 export default function AdminDashboard() {
+  const [user, setUser] = useState(null);
+  const [isLive, setIsLive] = useState(false);
+  const [clients, setClients] = useState([]);
+  
+  useEffect(() => {
+    const currentUser = getCurrentUser();
+    const liveMode = isLiveDataMode();
+    
+    setUser(currentUser);
+    setIsLive(liveMode);
+    
+    if (liveMode) {
+      setClients(LIVE_CLIENTS);
+    }
+  }, []);
+  
+  if (!user || !isLive) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-400 mb-4">🚫 Access Denied</h1>
+          <p className="text-gray-400">Super admin authentication required for live data access.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalRevenue = clients.reduce((sum, client) => sum + (client.mrr || 0), 0);
+
   return (
     <div className="p-6">
       <div className="mb-8">
@@ -13,8 +47,8 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <p className="text-gray-400 text-sm">Total Clients</p>
-          <p className="text-2xl font-bold text-white">3</p>
-          <p className="text-green-400 text-sm mt-2">+1 this month</p>
+          <p className="text-2xl font-bold text-white">{clients.length}</p>
+          <p className="text-green-400 text-sm mt-2">+{clients.filter(c => new Date(c.onboardedDate) > new Date(Date.now() - 30*24*60*60*1000)).length} this month</p>
         </div>
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <p className="text-gray-400 text-sm">Active Services</p>
@@ -23,7 +57,7 @@ export default function AdminDashboard() {
         </div>
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <p className="text-gray-400 text-sm">Monthly Revenue</p>
-          <p className="text-2xl font-bold text-white">$900</p>
+          <p className="text-2xl font-bold text-white">${totalRevenue}</p>
           <p className="text-green-400 text-sm mt-2">Growing</p>
         </div>
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
@@ -45,7 +79,7 @@ export default function AdminDashboard() {
           <p className="text-gray-400 text-sm">Control service access and features</p>
         </a>
         
-        <a href="/dashboard/admin/analytics" className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-purple-500 transition-colors group">
+        <a href="/dashboard/admin/analytics" className="bg-gray-8 rounded-lg p-6 border border-gray-700 hover:border-purple-500 transition-colors group">
           <h3 className="text-white font-semibold">📊 Aggregate Analytics</h3>
           <p className="text-gray-400 text-sm">Platform-wide insights and metrics</p>
         </a>
@@ -63,22 +97,22 @@ export default function AdminDashboard() {
           <div className="flex items-center space-x-4 p-4 bg-gray-700 rounded-lg">
             <div className="w-2 h-2 bg-green-400 rounded-full"></div>
             <div className="flex-1">
-              <p className="text-white">New client onboarded: Brandon Croom Contracting</p>
-              <p className="text-gray-400 text-sm">2 hours ago</p>
+              <p className="text-white">New client onboarded: {clients[0]?.name || 'Brandon Croom Contracting'}</p>
+              <p className="text-gray-400 text-sm">Real-time data</p>
             </div>
           </div>
           <div className="flex items-center space-x-4 p-4 bg-gray-700 rounded-lg">
             <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
             <div className="flex-1">
-              <p className="text-white">Service deployment completed: Call AI for Miami Property Management</p>
-              <p className="text-gray-400 text-sm">4 hours ago</p>
+              <p className="text-white">Service deployment completed: Call AI enabled</p>
+              <p className="text-gray-400 text-sm">Live system status</p>
             </div>
           </div>
           <div className="flex items-center space-x-4 p-4 bg-gray-700 rounded-lg">
             <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
             <div className="flex-1">
-              <p className="text-white">Revenue milestone: $1,000 MRR achieved</p>
-              <p className="text-gray-400 text-sm">1 day ago</p>
+              <p className="text-white">Revenue milestone: ${totalRevenue} MRR achieved</p>
+              <p className="text-gray-400 text-sm">Current total</p>
             </div>
           </div>
         </div>

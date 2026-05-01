@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { getCurrentUser, isLiveDataMode } from "@/lib/userAuth";
 
 interface ClientInfo {
   name: string;
@@ -19,7 +20,6 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { emoji: "📊", label: "Command Center", href: "/dashboard/command-center" },
   { emoji: "🤖", label: "Ask Jarvis", href: "/dashboard/jarvis" },
-  { emoji: "👑", label: "Admin Panel", href: "/dashboard/admin" },
   { emoji: "👥", label: "Leads", href: "/dashboard/leads" },
   { emoji: "💼", label: "CRM", href: "/dashboard/crm" },
   { emoji: "🏗️", label: "Projects", href: "/dashboard/projects" },
@@ -79,7 +79,7 @@ function SidebarContent({
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         <ul className="space-y-0.5">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
             return (
@@ -137,15 +137,39 @@ function SidebarContent({
 export default function Sidebar() {
   const [client, setClient] = useState<ClientInfo | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     try {
-      const str = localStorage.getItem("ottoserv_client");
-      if (str) setClient(JSON.parse(str));
+      const currentUser = getCurrentUser();
+      const isAdminMode = isLiveDataMode();
+      
+      setUser(currentUser);
+      setIsAdmin(isAdminMode);
+      
+      if (isAdminMode) {
+        // Super admin - show admin data
+        setClient({ name: "Jonathan Bradley", business_name: "OttoServ Super Admin" });
+      } else {
+        // Regular client
+        const str = localStorage.getItem("ottoserv_client");
+        if (str) setClient(JSON.parse(str));
+      }
     } catch {
       // ignore
     }
   }, []);
+  
+  // Dynamic nav items based on user role
+  const navItems = isAdmin ? [
+    { emoji: "🔴", label: "Admin Dashboard", href: "/dashboard/admin" },
+    { emoji: "👥", label: "Manage Clients", href: "/dashboard/admin/clients" },
+    { emoji: "⚡", label: "Service Management", href: "/dashboard/admin/services" },
+    { emoji: "📊", label: "Aggregate Analytics", href: "/dashboard/admin/analytics" },
+    { emoji: "🎭", label: "Demo Environment", href: "/demo" },
+    ...NAV_ITEMS.slice(2) // Skip command center and jarvis for admin
+  ] : NAV_ITEMS;
 
   return (
     <>
