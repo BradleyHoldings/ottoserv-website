@@ -19,6 +19,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { emoji: "📊", label: "Command Center", href: "/dashboard/command-center" },
   { emoji: "🤖", label: "Ask Jarvis", href: "/dashboard/jarvis" },
+  { emoji: "👑", label: "Admin Panel", href: "/dashboard/admin" },
   { emoji: "👥", label: "Leads", href: "/dashboard/leads" },
   { emoji: "💼", label: "CRM", href: "/dashboard/crm" },
   { emoji: "🏗️", label: "Projects", href: "/dashboard/projects" },
