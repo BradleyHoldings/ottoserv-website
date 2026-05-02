@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { getCurrentUser, isLiveDataMode, LIVE_CLIENTS } from "@/lib/userAuth";
 
 export default function AdminDashboard() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
   const [isLive, setIsLive] = useState(false);
-  const [clients, setClients] = useState([]);
+  const [clients, setClients] = useState<any[]>([]);
   
   useEffect(() => {
     const currentUser = getCurrentUser();

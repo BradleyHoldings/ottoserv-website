@@ -79,7 +79,7 @@ function SidebarContent({
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         <ul className="space-y-0.5">
-          {navItems.map((item) => {
+          {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
             return (
@@ -138,7 +138,7 @@ export default function Sidebar() {
   const [client, setClient] = useState<ClientInfo | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     try {

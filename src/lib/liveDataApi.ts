@@ -195,13 +195,13 @@ export function getDataSourceIndicator(isLive: boolean, isAggregate: boolean = f
 // User Role Checks
 export function canAccessAdmin(): boolean {
   const context = getUserContext();
-  return context?.isOttoServEmployee && 
-         (context.role === 'super_admin' || context.role === 'admin');
+  return Boolean(context?.isOttoServEmployee && 
+         (context.role === 'super_admin' || context.role === 'admin'));
 }
 
 export function canAccessClient(clientId: string): boolean {
   const context = getUserContext();
-  return context?.isOttoServEmployee || context?.clientAccess.includes(clientId);
+  return Boolean(context?.isOttoServEmployee || context?.clientAccess.includes(clientId));
 }
 
 // Initialize Admin User (for Jonathan)

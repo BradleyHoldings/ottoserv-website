@@ -1,11 +1,21 @@
-import type { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "OttoServ Demo - Full Platform Preview",
-  description: "Experience the complete OttoServ platform with realistic demo data",
-};
+import { useRouter } from "next/navigation";
 
 export default function DemoPage() {
+  const router = useRouter();
+
+  const handleStartDemo = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ottoserv_current_user', JSON.stringify({
+        id: 'demo-user',
+        name: 'Demo User',
+        role: 'demo',
+        isOttoServEmployee: false
+      }));
+      router.push('/demo/dashboard');
+    }
+  };
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-gray-100">
       {/* Header */}
@@ -160,18 +170,7 @@ export default function DemoPage() {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => {
-                // Set demo mode and redirect
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem('ottoserv_current_user', JSON.stringify({
-                    id: 'demo-user',
-                    name: 'Demo User', 
-                    role: 'demo',
-                    isOttoServEmployee: false
-                  }));
-                  window.location.href = '/demo/dashboard';
-                }
-              }}
+              onClick={handleStartDemo}
               className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-lg font-semibold transition-colors"
             >
               🎭 Enter Demo Dashboard

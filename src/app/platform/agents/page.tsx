@@ -5,88 +5,16 @@ import { platformFetch } from "@/lib/platformApi";
 
 interface Agent {
   id: string;
+  agent_id: string;
   name: string;
   department: string;
   purpose: string;
   status: string;
-  allowed_tasks: string[];
-  autonomy_level: string;
+  allowed_task_types: string;
+  max_autonomy_level: string;
+  default_model: string;
+  agent_class: string;
 }
-
-const STATIC_AGENTS: Agent[] = [
-  {
-    id: "agent-sales",
-    name: "Sales Agent",
-    department: "Sales",
-    purpose: "Automates lead qualification, follow-ups, and CRM data entry.",
-    status: "active",
-    allowed_tasks: ["lead_qualification", "crm_update", "email_followup", "pipeline_report"],
-    autonomy_level: "medium",
-  },
-  {
-    id: "agent-marketing",
-    name: "Marketing Agent",
-    department: "Marketing",
-    purpose: "Manages campaign scheduling, content distribution, and analytics reporting.",
-    status: "active",
-    allowed_tasks: ["campaign_schedule", "content_publish", "analytics_report", "social_post"],
-    autonomy_level: "medium",
-  },
-  {
-    id: "agent-hr",
-    name: "HR Agent",
-    department: "Human Resources",
-    purpose: "Handles onboarding workflows, document collection, and policy reminders.",
-    status: "active",
-    allowed_tasks: ["onboarding_workflow", "document_request", "policy_reminder", "offboarding"],
-    autonomy_level: "low",
-  },
-  {
-    id: "agent-finance",
-    name: "Finance Agent",
-    department: "Finance",
-    purpose: "Processes invoices, flags anomalies, and generates expense summaries.",
-    status: "active",
-    allowed_tasks: ["invoice_processing", "expense_summary", "anomaly_detection", "budget_report"],
-    autonomy_level: "low",
-  },
-  {
-    id: "agent-it",
-    name: "IT Agent",
-    department: "IT",
-    purpose: "Manages ticket routing, system health checks, and access provisioning.",
-    status: "active",
-    allowed_tasks: ["ticket_routing", "health_check", "access_provision", "patch_notify"],
-    autonomy_level: "high",
-  },
-  {
-    id: "agent-ops",
-    name: "Operations Agent",
-    department: "Operations",
-    purpose: "Monitors workflows, tracks KPIs, and escalates bottlenecks.",
-    status: "active",
-    allowed_tasks: ["workflow_monitor", "kpi_tracking", "escalation", "capacity_report"],
-    autonomy_level: "medium",
-  },
-  {
-    id: "agent-support",
-    name: "Support Agent",
-    department: "Customer Support",
-    purpose: "Triages incoming tickets, drafts responses, and escalates critical issues.",
-    status: "inactive",
-    allowed_tasks: ["ticket_triage", "response_draft", "escalation", "satisfaction_survey"],
-    autonomy_level: "medium",
-  },
-  {
-    id: "agent-legal",
-    name: "Legal Agent",
-    department: "Legal & Compliance",
-    purpose: "Reviews contract summaries, flags compliance issues, and tracks deadlines.",
-    status: "inactive",
-    allowed_tasks: ["contract_summary", "compliance_flag", "deadline_track", "policy_update"],
-    autonomy_level: "low",
-  },
-];
 
 const AUTONOMY_COLORS: Record<string, string> = {
   low: "bg-green-900/40 text-green-400",
@@ -94,113 +22,211 @@ const AUTONOMY_COLORS: Record<string, string> = {
   high: "bg-red-900/40 text-red-400",
 };
 
+const STATUS_COLORS: Record<string, string> = {
+  active: "bg-green-900/40 text-green-400",
+  inactive: "bg-red-900/40 text-red-400",
+  pending: "bg-yellow-900/40 text-yellow-400",
+};
+
 export default function PlatformAgentsPage() {
-  const [agents, setAgents] = useState<Agent[]>(STATIC_AGENTS);
-  const [activeToggles, setActiveToggles] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(STATIC_AGENTS.map((a) => [a.id, a.status === "active"]))
-  );
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    platformFetch("/agents")
-      .then((r) => r.json())
-      .then((data) => {
-        const list: Agent[] = Array.isArray(data) ? data : (data.agents ?? []);
-        if (list.length > 0) {
-          setAgents(list);
-          setActiveToggles(Object.fromEntries(list.map((a) => [a.id, a.status === "active"])));
+    const fetchAgents = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await platformFetch("/agents");
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Handle both array and object responses
+          const agentList = Array.isArray(data) ? data : (data.agents || []);
+          setAgents(agentList);
+        } else {
+          setError(data.detail || data.error || "Failed to load agents");
         }
-      })
-      .catch(() => {
-        // Keep static fallback agents
-      });
+      } catch (err) {
+        console.error("Error fetching agents:", err);
+        setError("Unable to connect to the platform API");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAgents();
   }, []);
 
-  const toggleAgent = (id: string) => {
-    setActiveToggles((prev) => ({ ...prev, [id]: !prev[id] }));
+  const parseTaskTypes = (taskTypesString: string): string[] => {
+    try {
+      return JSON.parse(taskTypesString || "[]");
+    } catch {
+      return [];
+    }
   };
+
+  const toggleAgent = async (agentId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === "active" ? "inactive" : "active";
+      
+      const response = await platformFetch(`/agents/${agentId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (response.ok) {
+        setAgents(prev =>
+          prev.map(agent =>
+            agent.agent_id === agentId
+              ? { ...agent, status: newStatus }
+              : agent
+          )
+        );
+      } else {
+        console.error("Failed to update agent status");
+      }
+    } catch (err) {
+      console.error("Error toggling agent:", err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-white">Agents</h1>
+        </div>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-400">Loading agents...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-white">Agents</h1>
+        </div>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <p className="text-red-400 mb-4">⚠️ {error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-white text-xl font-bold">Agent Registry</h1>
-        <p className="text-gray-400 text-sm mt-0.5">
-          {agents.filter((a) => activeToggles[a.id]).length} of {agents.length} agents active
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Agents</h1>
+          <p className="text-gray-400 mt-1">
+            Manage and monitor your AI agent team ({agents.length} total)
+          </p>
+        </div>
+        <div className="text-sm text-gray-400">
+          Live Data • Updated in real-time
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-        {agents.map((agent) => {
-          const isActive = activeToggles[agent.id] ?? agent.status === "active";
-          return (
-            <div
-              key={agent.id}
-              className={`bg-[#111827] border rounded-xl p-5 flex flex-col gap-4 transition-colors ${
-                isActive ? "border-gray-800" : "border-gray-800/50 opacity-70"
-              }`}
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-white font-semibold text-sm">{agent.name}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">{agent.department}</p>
-                </div>
-                {/* Active toggle */}
-                <button
-                  onClick={() => toggleAgent(agent.id)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                    isActive ? "bg-blue-600" : "bg-gray-700"
-                  }`}
-                  role="switch"
-                  aria-checked={isActive}
-                  title={isActive ? "Deactivate agent" : "Activate agent"}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                      isActive ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Purpose */}
-              <p className="text-gray-400 text-xs leading-relaxed">{agent.purpose}</p>
-
-              {/* Autonomy level */}
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500 text-xs">Autonomy:</span>
-                <span className={`text-xs px-2 py-0.5 rounded capitalize ${AUTONOMY_COLORS[agent.autonomy_level] ?? "bg-gray-800 text-gray-400"}`}>
-                  {agent.autonomy_level}
-                </span>
-              </div>
-
-              {/* Allowed tasks */}
-              <div>
-                <p className="text-gray-500 text-xs mb-1.5">Allowed tasks</p>
-                <div className="flex flex-wrap gap-1">
-                  {agent.allowed_tasks.map((task) => (
-                    <span
-                      key={task}
-                      className="bg-gray-800 text-gray-400 text-xs px-2 py-0.5 rounded"
-                    >
-                      {task.replace(/_/g, " ")}
+      {agents.length === 0 ? (
+        <div className="text-center py-20">
+          <p className="text-gray-400 text-lg">No agents found</p>
+          <p className="text-gray-500 text-sm mt-2">
+            Agents will appear here once they are registered in the system
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-6">
+          {agents.map((agent) => (
+            <div key={agent.id} className="bg-slate-800 rounded-lg border border-slate-700 p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-3">
+                    <h3 className="text-xl font-semibold text-white">{agent.name}</h3>
+                    <span className={`px-2 py-1 text-xs rounded-full ${STATUS_COLORS[agent.status] || STATUS_COLORS.inactive}`}>
+                      {agent.status}
                     </span>
-                  ))}
+                    <span className={`px-2 py-1 text-xs rounded-full ${AUTONOMY_COLORS[agent.max_autonomy_level] || AUTONOMY_COLORS.medium}`}>
+                      {agent.max_autonomy_level} autonomy
+                    </span>
+                    {agent.agent_class && (
+                      <span className="px-2 py-1 text-xs rounded-full bg-blue-900/40 text-blue-400">
+                        {agent.agent_class}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <p className="text-gray-300 mb-4">{agent.purpose}</p>
+                  
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-400">Department:</span>
+                      <span className="text-sm text-gray-300 ml-2">{agent.department || "General"}</span>
+                    </div>
+                    
+                    <div>
+                      <span className="text-sm font-medium text-gray-400">Model:</span>
+                      <span className="text-sm text-gray-300 ml-2">{agent.default_model || "claude-sonnet-4"}</span>
+                    </div>
+                    
+                    {agent.allowed_task_types && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-400">Capabilities:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {parseTaskTypes(agent.allowed_task_types).slice(0, 6).map((task: string) => (
+                            <span
+                              key={task}
+                              className="px-2 py-1 text-xs bg-slate-700 text-slate-300 rounded"
+                            >
+                              {task.replace(/_/g, ' ')}
+                            </span>
+                          ))}
+                          {parseTaskTypes(agent.allowed_task_types).length > 6 && (
+                            <span className="px-2 py-1 text-xs bg-slate-700 text-slate-300 rounded">
+                              +{parseTaskTypes(agent.allowed_task_types).length - 6} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              {/* Status indicator */}
-              <div className="flex items-center gap-1.5 mt-auto pt-1 border-t border-gray-800">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-green-400" : "bg-gray-600"}`}
-                />
-                <span className={`text-xs ${isActive ? "text-green-400" : "text-gray-500"}`}>
-                  {isActive ? "Active" : "Inactive"}
-                </span>
+                
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => toggleAgent(agent.agent_id, agent.status)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      agent.status === "active" ? "bg-green-600" : "bg-gray-600"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        agent.status === "active" ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
