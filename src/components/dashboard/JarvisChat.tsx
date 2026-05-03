@@ -25,7 +25,9 @@ const SUGGESTED_PROMPTS = [
   "Any projects at risk?",
 ];
 
-const AI_RESPONSES = [
+const PLATFORM_URL = "https://platform.ottoserv.com";
+
+const FALLBACK_RESPONSES = [
   "Based on your current projects, Johnson Kitchen is 6 days behind schedule. I recommend scheduling a client update call and reviewing the material delivery timeline.",
   "Your revenue this month is $47,500 with $12,800 still outstanding. There are 2 overdue invoices totaling $8,400 — I recommend sending payment reminders today.",
   "You have 4 overdue tasks today. The most urgent is 'Send final invoice to Tom Carter' which is 5 days overdue. Would you like me to draft the invoice?",
@@ -56,9 +58,30 @@ export default function JarvisChat() {
     setInput("");
     setLoading(true);
 
-    await new Promise((r) => setTimeout(r, 1000 + Math.random() * 600));
+    let reply = FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
 
-    const reply = AI_RESPONSES[Math.floor(Math.random() * AI_RESPONSES.length)];
+    const platformToken = typeof window !== "undefined"
+      ? localStorage.getItem("ottoserv_platform_token")
+      : null;
+
+    if (platformToken) {
+      try {
+        const res = await fetch(`${PLATFORM_URL}/jarvis/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${platformToken}`,
+          },
+          body: JSON.stringify({ message: text.trim() }),
+          signal: AbortSignal.timeout(95000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.response) reply = data.response;
+        }
+      } catch { /* fall through to fallback */ }
+    }
+
     const aiMsg: Message = {
       id: (Date.now() + 1).toString(),
       role: "assistant",
