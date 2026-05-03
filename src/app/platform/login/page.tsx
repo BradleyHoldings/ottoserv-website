@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function PlatformLoginPage() {
-  const [formData, setFormData] = useState({ email: "", password: "", company_slug: "" });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -68,24 +68,6 @@ export default function PlatformLoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="company_slug" className="block text-sm font-medium text-gray-300 mb-1.5">
-                Company Workspace
-              </label>
-              <input
-                id="company_slug"
-                name="company_slug"
-                type="text"
-                required
-                value={formData.company_slug}
-                onChange={handleChange}
-                className="w-full border text-white rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 transition-colors"
-                style={{backgroundColor: 'var(--otto-gray-700)', borderColor: 'var(--otto-gray-600)'}}
-                placeholder="your-company"
-                autoComplete="organization"
-              />
-            </div>
-
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1.5">
                 Email

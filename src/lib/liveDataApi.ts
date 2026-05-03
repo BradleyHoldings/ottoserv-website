@@ -2,9 +2,9 @@
 // This replaces dashboardApi.ts for admin/super-admin users
 
 const LIVE_API_URL = "https://api.ottoserv.com";
-const A2A_GATEWAY_URL = "http://gateway.ottoserv.com:19002";
-const CONTRACTOR_OS_URL = "http://api.ottoserv.com:19003";
-const ENTERPRISE_PLATFORM_URL = "http://platform.ottoserv.com:19004";
+const A2A_GATEWAY_URL = "https://gateway.ottoserv.com";
+const CONTRACTOR_OS_URL = "https://api.ottoserv.com";
+const ENTERPRISE_PLATFORM_URL = "https://platform.ottoserv.com";
 
 interface UserContext {
   userId: string;

@@ -28,10 +28,14 @@ export default function LoginPage() {
         
         // Set localStorage for client-side auth system
         localStorage.setItem("ottoserv_current_user", JSON.stringify(result.user));
-        const token = result.user.role === "super_admin" ? "super_admin_token" : 
-                      result.user.role === "demo" ? "demo_token" : 
+        const token = result.user.role === "super_admin" ? "super_admin_token" :
+                      result.user.role === "demo" ? "demo_token" :
                       `client_${result.user.id}_token`;
         localStorage.setItem("ottoserv_token", token);
+        localStorage.setItem("ottoserv_client", JSON.stringify({
+          name: result.user.name,
+          business_name: result.user.company || (result.user.role === "super_admin" ? "OttoServ" : "Demo Company"),
+        }));
         
         // Redirect based on user role
         if (result.user.role === "super_admin") {
