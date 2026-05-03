@@ -60,12 +60,6 @@ export default function CommandCenterPage() {
       return;
     }
     
-    // Demo users get redirected to demo environment
-    if (currentUser.role === 'demo') {
-      router.push('/demo');
-      return;
-    }
-    
     const token = getToken() || "";
     Promise.all([
       getDashboard(token),
@@ -122,7 +116,7 @@ export default function CommandCenterPage() {
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 grid-spacing-normal section-spacing" data-jarvis-target="dashboard_overview">
+      <div className="grid grid-cols-2 md:grid-cols-4 grid-spacing-normal section-spacing" data-jarvis-target="dashboard_overview" data-demo-target="kpi-section">
         <KpiCard
           value={calculatedKpis.activeJobs}
           label="Active Tasks"
@@ -187,7 +181,7 @@ export default function CommandCenterPage() {
       </div>
 
       {/* Today Operational Snapshot */}
-      <div className="container-primary section-spacing">
+      <div className="container-primary section-spacing" data-demo-target="operational-snapshot">
         <h3 className="text-white font-semibold subsection-spacing">Today's Operational Snapshot</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 grid-spacing-normal">
           {/* Scheduled Today */}
@@ -262,7 +256,7 @@ export default function CommandCenterPage() {
       {/* Alerts & Risks + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 grid-spacing-loose section-spacing">
         {/* Alerts & Risks Panel */}
-        <div className="container-primary">
+        <div className="container-primary" data-demo-target="alerts-section">
           <h3 className="text-white font-semibold subsection-spacing">Alerts & Risks</h3>
           <div className="space-y-0">
             {EXTENDED_ALERTS.map((alert, i) => (
@@ -289,7 +283,7 @@ export default function CommandCenterPage() {
       </div>
 
       {/* Active Projects */}
-      <div className="container-primary section-spacing">
+      <div className="container-primary section-spacing" data-demo-target="active-projects">
         <div className="flex items-center justify-between subsection-spacing">
           <h3 className="text-white font-semibold">Active Projects</h3>
           <Link href="/dashboard/projects" className="text-blue-400 text-sm hover:underline">
@@ -336,7 +330,7 @@ export default function CommandCenterPage() {
       </div>
 
       {/* Urgent Tasks */}
-      <div className="container-primary">
+      <div className="container-primary" data-demo-target="tasks-section">
         <div className="flex items-center justify-between subsection-spacing">
           <h3 className="text-white font-semibold">Urgent & Overdue Tasks</h3>
           <Link href="/dashboard/tasks" className="text-blue-400 text-sm hover:underline">

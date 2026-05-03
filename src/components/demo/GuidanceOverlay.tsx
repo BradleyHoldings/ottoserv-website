@@ -63,8 +63,8 @@ export default function GuidanceOverlay({ command, onComplete }: GuidanceOverlay
   const highlightElement = (cmd: DemoCommand) => {
     if (!cmd.target) return;
 
-    // Find element by data-jarvis-target attribute
-    const element = document.querySelector(`[data-jarvis-target="${cmd.target}"]`);
+    // Find element by data-demo-target attribute
+    const element = document.querySelector(`[data-demo-target="${cmd.target}"]`);
     if (!element) {
       console.warn(`Demo target not found: ${cmd.target}`);
       return;
@@ -114,7 +114,7 @@ export default function GuidanceOverlay({ command, onComplete }: GuidanceOverlay
   const scrollToElement = (cmd: DemoCommand) => {
     if (!cmd.target) return;
 
-    const element = document.querySelector(`[data-jarvis-target="${cmd.target}"]`);
+    const element = document.querySelector(`[data-demo-target="${cmd.target}"]`);
     if (element) {
       element.scrollIntoView({ 
         behavior: 'smooth',
@@ -127,7 +127,7 @@ export default function GuidanceOverlay({ command, onComplete }: GuidanceOverlay
   const showTooltip = (cmd: DemoCommand) => {
     if (!cmd.target || !cmd.message) return;
 
-    const element = document.querySelector(`[data-jarvis-target="${cmd.target}"]`);
+    const element = document.querySelector(`[data-demo-target="${cmd.target}"]`);
     if (element) {
       showTooltipForElement(element as Element, cmd.message, cmd.position || 'top');
     }

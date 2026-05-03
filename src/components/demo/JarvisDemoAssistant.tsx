@@ -7,9 +7,10 @@ interface JarvisDemoAssistantProps {
   isVisible: boolean;
   onCommand: (command: any) => void;
   onClose: () => void;
+  autoStart?: boolean;
 }
 
-export default function JarvisDemoAssistant({ isVisible, onCommand, onClose }: JarvisDemoAssistantProps) {
+export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, autoStart }: JarvisDemoAssistantProps) {
   const [session, setSession] = useState<DemoSession | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isPaused, setIsPaused] = useState(false);
@@ -21,6 +22,7 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose }: J
     timestamp: Date;
   }>>([]);
   const chatRef = useRef<HTMLDivElement>(null);
+  const autoStartedRef = useRef(false);
 
   useEffect(() => {
     // Auto-scroll chat to bottom
@@ -29,56 +31,66 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose }: J
     }
   }, [chatMessages]);
 
+  // Auto-start when isVisible becomes true and autoStart is set, only once
+  useEffect(() => {
+    if (isVisible && autoStart && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      startDemo();
+    }
+  }, [isVisible, autoStart]);
+
   const startDemo = () => {
     const newSession = DemoSessionManager.createSession('demo-user', 'demo-account');
     setSession(newSession);
     setCurrentStep(1);
     setIsPaused(false);
-    
-    // Add welcome message
+
     setChatMessages([{
       sender: 'jarvis',
-      message: "Welcome to your OttoServ guided demo! I'm Jarvis, your AI assistant. I'll show you exactly how OttoServ transforms service businesses. Let's begin!",
+      message: DEMO_SCRIPT[0].jarvis_message,
       timestamp: new Date()
     }]);
 
-    // Execute first step
-    executeCurrentStep(1);
+    // Execute first step commands
+    DEMO_SCRIPT[0].commands.forEach((command, index) => {
+      setTimeout(() => {
+        const cmd = { ...command, session_id: newSession.id };
+        onCommand(cmd);
+      }, index * 1000);
+    });
   };
 
-  const executeCurrentStep = (stepNumber: number) => {
+  const executeCurrentStep = (stepNumber: number, activeSession: DemoSession | null) => {
     const step = DEMO_SCRIPT.find(s => s.id === stepNumber);
     if (!step) return;
 
-    // Add Jarvis message to chat
     setChatMessages(prev => [...prev, {
       sender: 'jarvis',
       message: step.jarvis_message,
       timestamp: new Date()
     }]);
 
-    // Execute step commands
     step.commands.forEach((command, index) => {
       setTimeout(() => {
-        if (session) command.session_id = session.id;
-        onCommand(command);
-      }, index * 1000); // Stagger commands
+        const cmd = { ...command, session_id: activeSession?.id || '' };
+        onCommand(cmd);
+      }, index * 1000);
     });
   };
 
   const nextStep = () => {
     if (isPaused) return;
-    
+
     if (currentStep < DEMO_SCRIPT.length) {
       const newStep = currentStep + 1;
       setCurrentStep(newStep);
-      
+
       if (session) {
         DemoSessionManager.completeStep(session.id, currentStep);
         DemoSessionManager.updateSession(session.id, { current_step: newStep });
       }
-      
-      executeCurrentStep(newStep);
+
+      executeCurrentStep(newStep, session);
     } else {
       completeDemo();
     }
@@ -86,16 +98,16 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose }: J
 
   const previousStep = () => {
     if (isPaused) return;
-    
+
     if (currentStep > 1) {
       const newStep = currentStep - 1;
       setCurrentStep(newStep);
-      
+
       if (session) {
         DemoSessionManager.updateSession(session.id, { current_step: newStep });
       }
-      
-      executeCurrentStep(newStep);
+
+      executeCurrentStep(newStep, session);
     }
   };
 
@@ -104,13 +116,10 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose }: J
     if (session) {
       DemoSessionManager.updateSession(session.id, { status: "paused" });
     }
-    
-    // Clear any active guidance
     onCommand({ action: "clear_guidance", session_id: session?.id });
-    
     setChatMessages(prev => [...prev, {
       sender: 'jarvis',
-      message: "Demo paused. Click Resume when you're ready to continue exploring OttoServ!",
+      message: "Demo paused. Click Resume when you're ready to continue.",
       timestamp: new Date()
     }]);
   };
@@ -120,29 +129,19 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose }: J
     if (session) {
       DemoSessionManager.updateSession(session.id, { status: "active" });
     }
-    
     setChatMessages(prev => [...prev, {
       sender: 'jarvis',
-      message: "Great! Let's continue exploring OttoServ. I'll show you more powerful features.",
+      message: "Let's continue.",
       timestamp: new Date()
     }]);
-    
-    executeCurrentStep(currentStep);
+    executeCurrentStep(currentStep, session);
   };
 
   const restartDemo = () => {
     setCurrentStep(1);
     setIsPaused(false);
     setChatMessages([]);
-    
-    if (session) {
-      DemoSessionManager.updateSession(session.id, { 
-        status: "active", 
-        current_step: 1,
-        metadata: { ...session.metadata, steps_completed: [] }
-      });
-    }
-    
+    autoStartedRef.current = false;
     startDemo();
   };
 
@@ -150,49 +149,43 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose }: J
     if (session) {
       DemoSessionManager.updateSession(session.id, { status: "skipped" });
     }
-    
     onCommand({ action: "clear_guidance", session_id: session?.id });
     onClose();
   };
 
   const completeDemo = () => {
     if (session) {
-      DemoSessionManager.updateSession(session.id, { 
+      DemoSessionManager.updateSession(session.id, {
         status: "completed",
         completed_at: new Date()
       });
     }
-    
     setChatMessages(prev => [...prev, {
       sender: 'jarvis',
-      message: "🎉 Demo complete! You've seen how OttoServ transforms service businesses with AI automation. Ready to experience the full power of OttoServ for your business? Contact us to get started!",
+      message: "That completes the guided tour of OttoServ. Feel free to explore, or ask me anything about what you've seen.",
       timestamp: new Date()
     }]);
-    
     onCommand({ action: "clear_guidance", session_id: session?.id });
   };
 
   const askQuestion = () => {
     if (!userQuestion.trim()) return;
-    
-    // Add user question to chat
+
     setChatMessages(prev => [...prev, {
       sender: 'user',
       message: userQuestion,
       timestamp: new Date()
     }]);
-    
-    // Generate Jarvis response (simplified AI response)
+
     const response = generateJarvisResponse(userQuestion);
-    
+
     setTimeout(() => {
       setChatMessages(prev => [...prev, {
         sender: 'jarvis',
         message: response.message,
         timestamp: new Date()
       }]);
-      
-      // If response includes highlighting, execute it
+
       if (response.highlight) {
         onCommand({
           action: "highlight_element",
@@ -203,94 +196,147 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose }: J
         });
       }
     }, 500);
-    
+
     setUserQuestion('');
   };
 
   const generateJarvisResponse = (question: string): { message: string; highlight?: string } => {
     const q = question.toLowerCase();
-    
+
     if (q.includes('lead') || q.includes('customer')) {
       return {
-        message: "Great question! OttoServ's AI captures leads from every channel - calls, forms, social media - and automatically qualifies them using advanced conversation AI. No leads slip through the cracks!",
-        highlight: "lead_pipeline"
+        message: "OttoServ captures leads from every channel — calls, forms, social media — qualifies them automatically, and moves them through the pipeline without manual follow-up.",
+        highlight: "sidebar-leads"
       };
     }
-    
-    if (q.includes('call') || q.includes('phone')) {
+    if (q.includes('automat') || q.includes('workflow')) {
       return {
-        message: "OttoServ's AI answers every call 24/7! It qualifies leads, books appointments, handles FAQ, and updates your CRM automatically. Your customers get instant responses while you focus on the work.",
-        highlight: "missed_calls"
+        message: "Automations run your business logic 24/7 — follow-up sequences, appointment reminders, invoice reminders, and more.",
+        highlight: "sidebar-automations"
       };
     }
-    
-    if (q.includes('automat') || q.includes('ai')) {
+    if (q.includes('social') || q.includes('post') || q.includes('instagram') || q.includes('facebook')) {
       return {
-        message: "OttoServ automates everything - lead capture, qualification, appointment booking, follow-ups, project updates, and client communication. It's like having a full administrative team working 24/7.",
-        highlight: "automation_activity"
+        message: "I draft and schedule social posts across Facebook, Instagram, LinkedIn, and Reddit, routing them for your approval before publishing.",
+        highlight: "sidebar-social"
       };
     }
-    
+    if (q.includes('report') || q.includes('analytic') || q.includes('revenue')) {
+      return {
+        message: "Reports give you intelligence on lead conversion, revenue trends, job profitability, and team performance — generated automatically.",
+        highlight: "sidebar-reports"
+      };
+    }
+    if (q.includes('jarvis') || q.includes('voice') || q.includes('app') || q.includes('telegram')) {
+      return {
+        message: "You can download the Jarvis app to speak with me by voice. The audio version knows everything happening in your business in real time. Since voice conversations can't take direct actions yet, anything that needs doing can be handled through text chat here or via Telegram.",
+        highlight: "sidebar-jarvis"
+      };
+    }
+    if (q.includes('alert') || q.includes('risk') || q.includes('overdue') || q.includes('budget')) {
+      return {
+        message: "I flag budget overruns, overdue invoices, stalled leads, and time-sensitive items in the Alerts & Risks section before they become problems.",
+        highlight: "alerts-section"
+      };
+    }
     if (q.includes('project') || q.includes('job')) {
       return {
-        message: "Every project is tracked with AI insights! OttoServ predicts delays, optimizes schedules, manages materials, and keeps clients updated automatically. Project management made effortless.",
-        highlight: "project_timeline"
+        message: "I track project progress, flag delays, and keep clients updated automatically. When a project falls behind I alert you and can draft the client communication.",
+        highlight: "active-projects"
       };
     }
-    
-    if (q.includes('report') || q.includes('analytic')) {
+    if (q.includes('task') || q.includes('overdue')) {
       return {
-        message: "OttoServ provides intelligent insights about your business performance. See trends, identify opportunities, and get actionable recommendations - all generated automatically by AI.",
-        highlight: "reports"
+        message: "I create and assign tasks automatically based on business activity, and escalate anything that goes overdue.",
+        highlight: "tasks-section"
       };
     }
-    
     if (q.includes('price') || q.includes('cost') || q.includes('plan')) {
       return {
-        message: "OttoServ offers flexible plans starting from $300/month for small businesses, with enterprise solutions available. The ROI is immediate - most clients see 300%+ return in the first month through automation and captured leads."
+        message: "OttoServ plans start at $300/month. Most clients see the value within the first few weeks through captured leads and automated follow-up alone."
       };
     }
-    
-    if (q.includes('integration') || q.includes('connect')) {
-      return {
-        message: "OttoServ integrates with everything! QuickBooks, Google Calendar, popular CRMs, scheduling tools, and more. We handle the setup so your existing tools work seamlessly with AI automation.",
-        highlight: "integrations"
-      };
-    }
-    
+
     return {
-      message: "That's a great question! OttoServ is designed to handle exactly those kinds of challenges through intelligent automation. The AI learns your business patterns and adapts to provide the perfect solution. Would you like to see a specific feature in action?"
+      message: "Great question! OttoServ is designed to handle exactly those kinds of challenges through intelligent automation. Would you like me to walk you through a specific section?"
     };
   };
 
-  const currentStepData = DEMO_SCRIPT.find(s => s.id === currentStep);
+  const progressPercent = Math.round((currentStep / DEMO_SCRIPT.length) * 100);
 
   if (!isVisible) return null;
 
   return (
-    <div className={`jarvis-demo-assistant ${isMinimized ? 'minimized' : ''}`}>
-      <div className="assistant-header">
-        <div className="header-left">
-          <div className="jarvis-avatar">
-            <span className="avatar-emoji">⚡</span>
+    <div
+      style={{
+        position: 'fixed',
+        right: '20px',
+        top: '80px',
+        width: '380px',
+        height: isMinimized ? '60px' : '600px',
+        background: '#1f2937',
+        border: '1px solid #374151',
+        borderRadius: '12px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        zIndex: 10000,
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'height 0.3s ease',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header */}
+      <div style={{
+        padding: '12px 16px',
+        borderBottom: isMinimized ? 'none' : '1px solid #374151',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '36px', height: '36px',
+            background: 'linear-gradient(135deg, #0084ff, #00a8ff)',
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '18px', flexShrink: 0,
+          }}>
+            ⚡
           </div>
-          <div className="header-info">
-            <h3>Jarvis Demo Assistant</h3>
-            <p>Step {currentStep} of {DEMO_SCRIPT.length}</p>
+          <div>
+            <div style={{ color: '#e2e8f0', fontSize: '14px', fontWeight: 600, lineHeight: 1.2 }}>
+              Jarvis
+            </div>
+            <div style={{ color: '#9ca3af', fontSize: '11px' }}>
+              Step {currentStep} of {DEMO_SCRIPT.length}
+            </div>
           </div>
         </div>
-        <div className="header-controls">
+        <div style={{ display: 'flex', gap: '6px' }}>
           <button
-            className="control-btn minimize"
             onClick={() => setIsMinimized(!isMinimized)}
             title={isMinimized ? "Expand" : "Minimize"}
+            style={{
+              width: '28px', height: '28px',
+              background: '#374151', border: '1px solid #4b5563',
+              borderRadius: '6px', color: '#e2e8f0',
+              cursor: 'pointer', fontSize: '12px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
           >
-            {isMinimized ? "▲" : "▼"}
+            {isMinimized ? '▲' : '▼'}
           </button>
           <button
-            className="control-btn close"
             onClick={skipDemo}
-            title="Skip Demo"
+            title="Close demo"
+            style={{
+              width: '28px', height: '28px',
+              background: '#374151', border: '1px solid #4b5563',
+              borderRadius: '6px', color: '#e2e8f0',
+              cursor: 'pointer', fontSize: '12px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
           >
             ✕
           </button>
@@ -299,293 +345,179 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose }: J
 
       {!isMinimized && (
         <>
-          <div className="assistant-body">
-            <div className="chat-area" ref={chatRef}>
-              {chatMessages.map((msg, index) => (
-                <div key={index} className={`chat-message ${msg.sender}`}>
-                  <div className="message-content">
-                    <div className="message-text">{msg.message}</div>
-                    <div className="message-time">
-                      {msg.timestamp.toLocaleTimeString()}
-                    </div>
+          {/* Progress bar */}
+          <div style={{ height: '4px', background: '#374151', flexShrink: 0 }}>
+            <div style={{
+              height: '100%',
+              width: `${progressPercent}%`,
+              background: 'linear-gradient(90deg, #0084ff, #00c6ff)',
+              transition: 'width 0.4s ease',
+              borderRadius: '0 2px 2px 0',
+            }} />
+          </div>
+
+          {/* Chat area */}
+          <div
+            ref={chatRef}
+            style={{
+              flex: 1,
+              padding: '14px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            {chatMessages.map((msg, index) => (
+              <div key={index} style={{
+                display: 'flex',
+                justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+              }}>
+                <div style={{
+                  maxWidth: '88%',
+                  background: msg.sender === 'jarvis' ? '#2d3748' : '#0084ff',
+                  borderRadius: msg.sender === 'jarvis' ? '4px 12px 12px 12px' : '12px 4px 12px 12px',
+                  padding: '10px 12px',
+                  color: '#e2e8f0',
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                }}>
+                  {msg.message}
+                  <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px', textAlign: 'right' }}>
+                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="question-area">
-              <div className="question-input">
-                <input
-                  type="text"
-                  value={userQuestion}
-                  onChange={(e) => setUserQuestion(e.target.value)}
-                  placeholder="Ask Jarvis about OttoServ..."
-                  onKeyPress={(e) => e.key === 'Enter' && askQuestion()}
-                />
-                <button onClick={askQuestion} disabled={!userQuestion.trim()}>
-                  Ask
-                </button>
               </div>
+            ))}
+          </div>
+
+          {/* Question input */}
+          <div style={{ padding: '10px 14px', borderTop: '1px solid #374151', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={userQuestion}
+                onChange={(e) => setUserQuestion(e.target.value)}
+                placeholder="Ask Jarvis anything..."
+                onKeyDown={(e) => e.key === 'Enter' && askQuestion()}
+                style={{
+                  flex: 1,
+                  padding: '7px 10px',
+                  background: '#374151',
+                  border: '1px solid #4b5563',
+                  borderRadius: '6px',
+                  color: '#e2e8f0',
+                  fontSize: '13px',
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={askQuestion}
+                disabled={!userQuestion.trim()}
+                style={{
+                  padding: '7px 14px',
+                  background: userQuestion.trim() ? '#0084ff' : '#374151',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '13px',
+                  cursor: userQuestion.trim() ? 'pointer' : 'not-allowed',
+                  opacity: userQuestion.trim() ? 1 : 0.5,
+                }}
+              >
+                Ask
+              </button>
             </div>
           </div>
 
-          <div className="assistant-controls">
+          {/* Nav controls */}
+          <div style={{ padding: '10px 14px', borderTop: '1px solid #374151', flexShrink: 0 }}>
             {!session ? (
-              <button className="control-btn primary" onClick={startDemo}>
+              <button
+                onClick={startDemo}
+                style={{
+                  width: '100%', padding: '9px',
+                  background: '#0084ff', border: 'none',
+                  borderRadius: '6px', color: 'white',
+                  fontWeight: 600, fontSize: '14px', cursor: 'pointer',
+                }}
+              >
                 Start Demo
               </button>
             ) : (
-              <>
-                <div className="control-group">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <button
-                    className="control-btn"
                     onClick={previousStep}
                     disabled={currentStep === 1 || isPaused}
+                    style={{
+                      flex: 1, padding: '8px',
+                      background: '#374151', border: '1px solid #4b5563',
+                      borderRadius: '6px', color: '#e2e8f0',
+                      fontSize: '13px', cursor: currentStep === 1 || isPaused ? 'not-allowed' : 'pointer',
+                      opacity: currentStep === 1 || isPaused ? 0.45 : 1,
+                    }}
                   >
                     Back
                   </button>
                   <button
-                    className="control-btn primary"
                     onClick={nextStep}
                     disabled={isPaused}
+                    style={{
+                      flex: 2, padding: '8px',
+                      background: isPaused ? '#374151' : '#0084ff',
+                      border: 'none', borderRadius: '6px', color: 'white',
+                      fontWeight: 600, fontSize: '13px',
+                      cursor: isPaused ? 'not-allowed' : 'pointer',
+                      opacity: isPaused ? 0.5 : 1,
+                    }}
                   >
                     {currentStep < DEMO_SCRIPT.length ? 'Next' : 'Finish'}
                   </button>
                 </div>
-                
-                <div className="control-group">
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {isPaused ? (
-                    <button className="control-btn success" onClick={resumeDemo}>
+                    <button
+                      onClick={resumeDemo}
+                      style={{
+                        flex: 1, padding: '7px',
+                        background: '#10b981', border: 'none',
+                        borderRadius: '6px', color: 'white',
+                        fontSize: '13px', cursor: 'pointer',
+                      }}
+                    >
                       Resume
                     </button>
                   ) : (
-                    <button className="control-btn warning" onClick={pauseDemo}>
+                    <button
+                      onClick={pauseDemo}
+                      style={{
+                        flex: 1, padding: '7px',
+                        background: '#374151', border: '1px solid #4b5563',
+                        borderRadius: '6px', color: '#e2e8f0',
+                        fontSize: '13px', cursor: 'pointer',
+                      }}
+                    >
                       Pause
                     </button>
                   )}
-                  <button className="control-btn" onClick={restartDemo}>
+                  <button
+                    onClick={restartDemo}
+                    style={{
+                      flex: 1, padding: '7px',
+                      background: '#374151', border: '1px solid #4b5563',
+                      borderRadius: '6px', color: '#e2e8f0',
+                      fontSize: '13px', cursor: 'pointer',
+                    }}
+                  >
                     Restart
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         </>
       )}
-
-      <style jsx>{`
-        .jarvis-demo-assistant {
-          position: fixed;
-          right: 20px;
-          top: 80px;
-          width: 380px;
-          height: ${isMinimized ? '60px' : '600px'};
-          background: #1f2937;
-          border: 1px solid #374151;
-          border-radius: 12px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-          z-index: 10000;
-          display: flex;
-          flex-direction: column;
-          transition: all 0.3s ease;
-        }
-
-        .assistant-header {
-          padding: 16px;
-          border-bottom: ${isMinimized ? 'none' : '1px solid #374151'};
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .header-left {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .jarvis-avatar {
-          width: 40px;
-          height: 40px;
-          background: linear-gradient(135deg, #0084ff, #00a8ff);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .avatar-emoji {
-          font-size: 20px;
-        }
-
-        .header-info h3 {
-          color: #e2e8f0;
-          margin: 0;
-          font-size: 16px;
-          font-weight: 600;
-        }
-
-        .header-info p {
-          color: #9ca3af;
-          margin: 0;
-          font-size: 12px;
-        }
-
-        .header-controls {
-          display: flex;
-          gap: 8px;
-        }
-
-        .control-btn {
-          padding: 8px 16px;
-          border: 1px solid #374151;
-          background: #374151;
-          color: #e2e8f0;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-          transition: all 0.2s;
-        }
-
-        .control-btn:hover {
-          background: #4b5563;
-        }
-
-        .control-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .control-btn.primary {
-          background: #0084ff;
-          border-color: #0084ff;
-          color: white;
-        }
-
-        .control-btn.primary:hover {
-          background: #0066cc;
-        }
-
-        .control-btn.success {
-          background: #10b981;
-          border-color: #10b981;
-        }
-
-        .control-btn.warning {
-          background: #f59e0b;
-          border-color: #f59e0b;
-        }
-
-        .control-btn.minimize,
-        .control-btn.close {
-          width: 32px;
-          padding: 8px;
-          text-align: center;
-        }
-
-        .assistant-body {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-
-        .chat-area {
-          flex: 1;
-          padding: 16px;
-          overflow-y: auto;
-          max-height: 400px;
-        }
-
-        .chat-message {
-          margin-bottom: 16px;
-        }
-
-        .chat-message.jarvis .message-content {
-          background: #374151;
-          margin-right: 20px;
-        }
-
-        .chat-message.user .message-content {
-          background: #0084ff;
-          margin-left: 20px;
-          text-align: right;
-        }
-
-        .message-content {
-          padding: 12px;
-          border-radius: 8px;
-          color: #e2e8f0;
-        }
-
-        .message-text {
-          font-size: 14px;
-          line-height: 1.4;
-          margin-bottom: 4px;
-        }
-
-        .message-time {
-          font-size: 11px;
-          color: #9ca3af;
-        }
-
-        .question-area {
-          padding: 16px;
-          border-top: 1px solid #374151;
-        }
-
-        .question-input {
-          display: flex;
-          gap: 8px;
-        }
-
-        .question-input input {
-          flex: 1;
-          padding: 8px 12px;
-          background: #374151;
-          border: 1px solid #4b5563;
-          border-radius: 6px;
-          color: #e2e8f0;
-          font-size: 14px;
-        }
-
-        .question-input input:focus {
-          outline: none;
-          border-color: #0084ff;
-        }
-
-        .assistant-controls {
-          padding: 16px;
-          border-top: 1px solid #374151;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .control-group {
-          display: flex;
-          gap: 8px;
-        }
-
-        .control-group .control-btn {
-          flex: 1;
-        }
-
-        /* Scrollbar styles */
-        .chat-area::-webkit-scrollbar {
-          width: 6px;
-        }
-
-        .chat-area::-webkit-scrollbar-track {
-          background: #374151;
-          border-radius: 3px;
-        }
-
-        .chat-area::-webkit-scrollbar-thumb {
-          background: #6b7280;
-          border-radius: 3px;
-        }
-      `}</style>
     </div>
   );
 }

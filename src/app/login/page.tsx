@@ -59,7 +59,7 @@ export default function LoginPage() {
         if (result.user.role === "super_admin") {
           window.location.href = "/dashboard/admin";
         } else if (result.user.role === "demo") {
-          window.location.href = "/demo/dashboard";
+          window.location.href = "/dashboard/command-center";
         } else {
           window.location.href = "/dashboard";
         }

@@ -68,186 +68,177 @@ export const DEMO_SCRIPT: DemoStep[] = [
   {
     id: 1,
     title: "Welcome to OttoServ",
-    jarvis_message: "Welcome to OttoServ. I am Jarvis, your AI operations assistant. I will walk you through how OttoServ helps capture leads, qualify prospects, book appointments, track work, and keep your business operating with less manual follow-up.",
+    jarvis_message: "Welcome to OttoServ. I'm Jarvis, your AI operations assistant. These are your live business KPIs — revenue, active jobs, new leads, and appointments. Everything updates in real time as activity happens across your business.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "dashboard_overview",
-        style: "spotlight",
-        message: "This is your OttoServ command center",
-        duration_ms: 8000
+        target: "kpi-section",
+        message: "Live business KPIs",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 12000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 2,
-    title: "Jarvis Activity",
-    jarvis_message: "This area shows what Jarvis and the OttoServ agent team are doing for the business. It gives visibility into tasks, follow-ups, automations, and completed work.",
+    title: "Operational Snapshot",
+    jarvis_message: "This is your daily operational snapshot. It shows you what needs attention right now — leads that need follow-up, work orders, project status, and team tasks. I monitor all of this automatically so nothing falls through the cracks.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "jarvis_activity",
-        style: "spotlight",
-        message: "Live agent activity and automation status",
-        duration_ms: 8000
+        target: "operational-snapshot",
+        message: "Daily operational snapshot",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 10000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 3,
-    title: "Missed Call Recovery",
-    jarvis_message: "This section shows missed calls and inbound opportunities that would normally fall through the cracks. OttoServ can respond quickly, qualify the lead, and move the opportunity forward.",
+    title: "Alerts & Risks",
+    jarvis_message: "These are the active alerts and risks I've identified for your business. Budget overruns, overdue invoices, stalled leads, and time-sensitive items are flagged here before they become problems.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "missed_calls",
-        style: "spotlight",
-        message: "Turn missed calls into qualified opportunities",
-        duration_ms: 10000
+        target: "alerts-section",
+        message: "Active alerts and risks",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 12000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 4,
-    title: "Lead Pipeline",
-    jarvis_message: "This is where leads move from new inquiry to qualified opportunity to booked appointment. The goal is to reduce slow follow-up and make sure every good lead gets handled.",
+    title: "Active Projects",
+    jarvis_message: "Here's a view of your active projects. I track progress, flag delays, and keep clients updated automatically. When a project falls behind schedule, I alert you and can draft the client communication.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "lead_pipeline",
-        style: "spotlight",
-        message: "Systematic lead progression and qualification",
-        duration_ms: 10000
+        target: "active-projects",
+        message: "Active projects overview",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 12000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 5,
-    title: "Qualified Leads",
-    jarvis_message: "Here you can see which leads have been qualified based on fit, need, urgency, budget, and next step. This keeps the owner or team focused on real opportunities instead of chasing every inquiry manually.",
+    title: "Urgent & Overdue Tasks",
+    jarvis_message: "These are your urgent and overdue tasks. I create and assign tasks automatically based on business activity — a new lead, a completed job, an unanswered email — and escalate anything overdue.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "qualified_leads",
-        style: "spotlight",
-        message: "Focus on high-quality opportunities",
-        duration_ms: 10000
+        target: "tasks-section",
+        message: "Urgent and overdue tasks",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 12000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 6,
-    title: "Appointments",
-    jarvis_message: "Once a lead is qualified, OttoServ can help book the appointment, confirm the meeting, and reduce no-shows through reminders and follow-up.",
+    title: "Leads",
+    jarvis_message: "The Leads section manages your full pipeline. When someone calls, fills out a form, or reaches out on social media, I qualify them, score them, and move them through the pipeline — from new inquiry to booked appointment — without manual follow-up.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "appointments",
-        style: "spotlight",
-        message: "Automated scheduling and confirmation",
-        duration_ms: 8000
+        target: "sidebar-leads",
+        message: "Lead pipeline management",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 10000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 7,
-    title: "Follow-Up Tasks",
-    jarvis_message: "This is where follow-up work is tracked. OttoServ helps make sure leads, customers, and internal tasks do not get forgotten.",
+    title: "Automations",
+    jarvis_message: "The Automations section is where I run your business logic — follow-up sequences, lead nurture, appointment reminders, invoice reminders, and dozens of other workflows running 24/7 in the background.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "follow_up_tasks",
-        style: "spotlight",
-        message: "Never miss a follow-up opportunity",
-        duration_ms: 8000
+        target: "sidebar-automations",
+        message: "Business automations",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 10000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 8,
-    title: "Automation Activity",
-    jarvis_message: "This shows the automated work happening behind the scenes, such as messages, status updates, task creation, reminders, and agent actions.",
+    title: "Social Media",
+    jarvis_message: "Social Media is managed through this section. I draft posts, schedule them across Facebook, Instagram, LinkedIn, and Reddit, and route them for your approval before publishing. Your brand stays active without you having to think about it.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "automation_activity",
-        style: "spotlight",
-        message: "AI working 24/7 for your business",
-        duration_ms: 10000
+        target: "sidebar-social",
+        message: "Social media management",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 12000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 9,
-    title: "Reports",
-    jarvis_message: "Reports help the business understand lead flow, response time, booked appointments, completed tasks, and where opportunities are being lost.",
+    title: "Ask Jarvis",
+    jarvis_message: "You can chat with me directly through Ask Jarvis. Type any question about your business — 'What leads need follow-up?' or 'How did revenue trend this month?' — and I'll pull the answer from live data. For quick access anywhere, you can also download the Jarvis app to speak with me by voice. The audio version knows everything happening in your business in real time and can answer any question. Since voice conversations can't take direct actions yet, anything that needs doing — sending an email, creating a task, updating a record — can be handled through text chat right here or via Telegram.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "reports",
-        style: "spotlight",
-        message: "Business intelligence and performance insights",
-        duration_ms: 8000
+        target: "sidebar-jarvis",
+        message: "Ask Jarvis — AI assistant",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 10000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 10,
-    title: "Integrations",
-    jarvis_message: "OttoServ can connect with the tools a business already uses, such as email, CRM, calendars, phone systems, forms, and messaging platforms.",
+    title: "TechOps",
+    jarvis_message: "TechOps is built for service businesses that manage technology for their clients. Submit tickets, track remote access jobs, and route high-urgency issues to me for immediate triage and response.",
     commands: [
       {
         session_id: "",
         action: "spotlight_element",
-        target: "integrations",
-        style: "spotlight",
-        message: "Connect with your existing business tools",
-        duration_ms: 8000
+        target: "sidebar-techops",
+        message: "TechOps management",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 10000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   },
   {
     id: 11,
-    title: "Demo Complete",
-    jarvis_message: "That completes the guided overview. OttoServ is designed to help service businesses respond faster, follow up consistently, qualify leads, book appointments, and operate with more visibility.",
+    title: "Reports",
+    jarvis_message: "Reports gives you intelligence on lead conversion, revenue trends, job profitability, and team performance. I generate these automatically and flag anything that needs your attention. That covers the core of OttoServ. Any questions?",
     commands: [
       {
         session_id: "",
-        action: "clear_guidance",
-        message: "Demo complete - ready for questions",
-        duration_ms: 3000
+        action: "spotlight_element",
+        target: "sidebar-reports",
+        message: "Business intelligence reports",
+        duration_ms: 12000
       }
     ],
-    duration_ms: 12000,
+    duration_ms: 14000,
     next_step_trigger: "manual"
   }
 ];

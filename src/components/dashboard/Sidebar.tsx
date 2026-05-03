@@ -99,6 +99,13 @@ function SidebarContent({
                   }`}
                   role="menuitem"
                   aria-current={isActive ? "page" : undefined}
+                  {...(item.href === "/dashboard/command-center" && { "data-demo-target": "sidebar-command-center" })}
+                  {...(item.href === "/dashboard/jarvis" && { "data-demo-target": "sidebar-jarvis" })}
+                  {...(item.href === "/dashboard/leads" && { "data-demo-target": "sidebar-leads" })}
+                  {...(item.href === "/dashboard/automations" && { "data-demo-target": "sidebar-automations" })}
+                  {...(item.href === "/dashboard/social" && { "data-demo-target": "sidebar-social" })}
+                  {...(item.href === "/dashboard/techops" && { "data-demo-target": "sidebar-techops" })}
+                  {...(item.href === "/dashboard/reports" && { "data-demo-target": "sidebar-reports" })}
                 >
                   {item.sub && (
                     <span className="text-gray-700 flex-shrink-0 text-xs">└</span>
