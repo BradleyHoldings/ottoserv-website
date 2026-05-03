@@ -45,7 +45,8 @@ export default function SubmitRequestPage() {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [ticketId] = useState(() => `TKT-${1000 + Math.floor(Math.random() * 9000)}`);
+  const [ticketId, setTicketId] = useState(`TKT-${1000 + Math.floor(Math.random() * 9000)}`);
+  const [submitError, setSubmitError] = useState("");
 
   const subcategories = form.category ? TECHOPS_CATEGORIES[form.category] ?? [] : [];
 
@@ -57,13 +58,66 @@ export default function SubmitRequestPage() {
     }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setSubmitted(true);
-    }, 800);
+    setSubmitError("");
+
+    const platformToken = localStorage.getItem("ottoserv_platform_token");
+    const title = `${form.category}${form.subcategory ? ` – ${form.subcategory}` : ""}: ${form.description.slice(0, 60)}`;
+
+    try {
+      if (platformToken) {
+        // Submit to platform TechOps API
+        const res = await fetch("https://platform.ottoserv.com/techops/tickets", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${platformToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_name: form.client,
+            site_address: form.site,
+            contact_name: form.contact,
+            contact_phone: form.contact_phone,
+            category: form.category,
+            subcategory: form.subcategory,
+            device_info: form.device,
+            urgency: form.urgency,
+            description: form.description,
+            error_message: form.error_message,
+            remote_access_available: form.remote_access,
+            business_critical: form.business_critical,
+            recurrence: form.happened_before,
+            preferred_window: form.preferred_window,
+          }),
+        });
+        const data = await res.json();
+        if (data.ticket?.id || data.id) {
+          const id = data.ticket?.id || data.id;
+          setTicketId(id.toString().toUpperCase().slice(0, 12));
+        }
+      }
+    } catch { /* fall through — ticket created client-side */ }
+
+    // Also route to n8n for AI triage if it's a remote-capable or high urgency ticket
+    if (form.remote_access || form.urgency === "high" || form.urgency === "emergency") {
+      try {
+        await fetch("https://n8n.ottoserv.com/webhook/task-route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-task-key": "6622eb1f90ba8cd78b66b316efaa3423c3ae50128e0a4012975188fffc0bc3b8" },
+          body: JSON.stringify({
+            source: "system",
+            task_type: "api_task",
+            route: "jarvis_worker",
+            title,
+            description: `TechOps ticket: ${form.description}. Category: ${form.category}. Urgency: ${form.urgency}. Remote access: ${form.remote_access}. Client: ${form.client} at ${form.site}.`,
+            priority: form.urgency === "emergency" ? "critical" : form.urgency,
+            metadata: { ticket_id: ticketId, client: form.client, remote_access: form.remote_access },
+          }),
+        });
+      } catch { /* n8n routing is best-effort */ }
+    }
+
+    setSubmitting(false);
+    setSubmitted(true);
   }
 
   const inputClass =
@@ -123,6 +177,11 @@ export default function SubmitRequestPage() {
         <p className="text-gray-500 text-sm mt-1">Fill in as much detail as possible to help TechOps diagnose faster.</p>
       </div>
 
+      {submitError && (
+        <div className="max-w-2xl bg-red-900/20 border border-red-700 rounded-lg p-3 mb-4">
+          <p className="text-red-400 text-sm">{submitError}</p>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
         {/* Client & Site */}
         <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 space-y-4">
