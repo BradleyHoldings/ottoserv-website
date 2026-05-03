@@ -26,20 +26,29 @@ export default function JarvisVoiceClient() {
             </div>
           </div>
 
-          {/* ElevenLabs Voice Widget */}
-          <div className="mb-8">
-            <iframe
-              src="https://elevenlabs.io/app/talk-to?agent_id=agent_0501kqg13ad2ej09zsyxywrb6gsz&embed=true"
-              width="100%"
-              height="400"
-              style={{
-                border: 'none',
-                borderRadius: '12px',
-                backgroundColor: '#1f2937'
-              }}
-              allow="microphone"
-              title="Talk to Jarvis"
-            />
+          {/* ElevenLabs Voice Interface */}
+          <div className="mb-8 text-center">
+            <div className="bg-gray-900/50 rounded-xl p-8 border border-gray-600">
+              <div className="mb-6">
+                <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">🎤</span>
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">Voice Chat Ready</h3>
+                <p className="text-gray-300 text-sm mb-6">Click below to start a voice conversation with Jarvis</p>
+              </div>
+              
+              <a
+                href="https://elevenlabs.io/app/talk-to?agent_id=agent_0501kqg13ad2ej09zsyxywrb6gsz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-4 px-8 rounded-lg transition-all duration-200 transform hover:scale-105"
+              >
+                <span className="text-xl">🎙️</span>
+                <span>Start Voice Chat</span>
+              </a>
+              
+              <p className="text-gray-400 text-xs mt-4">Opens in ElevenLabs (new tab)</p>
+            </div>
           </div>
 
           {/* Quick Actions */}
