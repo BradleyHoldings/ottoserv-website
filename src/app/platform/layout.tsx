@@ -133,12 +133,22 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
             </svg>
             Back to Main Site
           </Link>
-          <Link
-            href="/dashboard/command-center"
-            className="block text-sm text-blue-400 hover:text-blue-300 transition-colors mt-2"
+          <button
+            onClick={() => {
+              const raw = localStorage.getItem("ottoserv_platform_token") || "";
+              let role = "user", name = "", email = "", company = "";
+              try {
+                const p = JSON.parse(atob(raw.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+                role = p.role === "otto_internal_admin" ? "super_admin" : p.role === "owner" ? "admin" : "user";
+                name = p.name || ""; email = p.email || ""; company = p.company || "OttoServ";
+              } catch { /* use defaults */ }
+              const d = btoa(JSON.stringify({ name, email, role, company }));
+              window.location.href = `/auth/sso?d=${d}`;
+            }}
+            className="block text-sm text-blue-400 hover:text-blue-300 transition-colors mt-2 text-left w-full"
           >
             → OttoServ OS Dashboard
-          </Link>
+          </button>
         </div>
       </aside>
 

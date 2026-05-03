@@ -79,7 +79,7 @@ export default function AdminDashboard() {
           <p className="text-gray-400 text-sm">Control service access and features</p>
         </a>
         
-        <a href="/dashboard/admin/analytics" className="bg-gray-8 rounded-lg p-6 border border-gray-700 hover:border-purple-500 transition-colors group">
+        <a href="/dashboard/admin/analytics" className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-purple-500 transition-colors group">
           <h3 className="text-white font-semibold">📊 Aggregate Analytics</h3>
           <p className="text-gray-400 text-sm">Platform-wide insights and metrics</p>
         </a>
