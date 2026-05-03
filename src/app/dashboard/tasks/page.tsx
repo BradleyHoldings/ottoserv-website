@@ -45,11 +45,31 @@ const COLUMNS: Column<TaskRow>[] = [
   { key: "due_date", label: "Due Date", sortable: true },
 ];
 
+const EMPTY_TASK_FORM = { title: "", priority: "medium", assigned_to: "", due_date: "" };
+
 export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [tasks, setTasks] = useState(mockTasks);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState(EMPTY_TASK_FORM);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const newTask: Task = {
+      id: Date.now().toString(),
+      project_id: null,
+      title: form.title,
+      status: "open",
+      priority: form.priority,
+      assigned_to: form.assigned_to,
+      due_date: form.due_date,
+    };
+    setTasks((prev) => [newTask, ...prev]);
+    setForm(EMPTY_TASK_FORM);
+    setShowModal(false);
+  }
 
   useEffect(() => {
     const token = getToken();
@@ -78,10 +98,51 @@ export default function TasksPage() {
             {openCount} open · {overdueCount} overdue
           </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
           + New Task
         </button>
       </div>
+
+      {/* New Task Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111827] border border-gray-700 rounded-xl p-6 w-full max-w-lg">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-white font-semibold text-lg">New Task</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Title *</label>
+                <input required type="text" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Priority</label>
+                  <select value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="urgent">Urgent</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Due Date</label>
+                  <input type="date" value={form.due_date} onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Assigned To</label>
+                <input type="text" value={form.assigned_to} onChange={(e) => setForm((f) => ({ ...f, assigned_to: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-[#111827] border border-gray-800 rounded-xl p-4 mb-6">

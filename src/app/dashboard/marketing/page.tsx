@@ -35,16 +35,38 @@ function formatDate(iso: string) {
   });
 }
 
+const EMPTY_POST_FORM = { platform: "facebook", content: "", schedule_date: "" };
+
 export default function MarketingPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>("all");
   const [editingPost, setEditingPost] = useState<MarketingPost | null>(null);
+  const [posts, setPosts] = useState<MarketingPost[]>(mockMarketingPosts);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState(EMPTY_POST_FORM);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const newPost: MarketingPost = {
+      id: Date.now().toString(),
+      title: form.content.slice(0, 60) + (form.content.length > 60 ? "…" : ""),
+      content: form.content,
+      platform: form.platform.charAt(0).toUpperCase() + form.platform.slice(1),
+      status: form.schedule_date ? "scheduled" : "draft",
+      scheduled_for: form.schedule_date ? new Date(form.schedule_date).toISOString() : undefined,
+      likes: 0,
+      comments: 0,
+    };
+    setPosts((prev) => [newPost, ...prev]);
+    setForm(EMPTY_POST_FORM);
+    setShowModal(false);
+  }
 
   const filtered =
-    tab === "all" ? mockMarketingPosts : mockMarketingPosts.filter((p) => p.status === tab);
+    tab === "all" ? posts : posts.filter((p) => p.status === tab);
 
-  const publishedCount = mockMarketingPosts.filter((p) => p.status === "published").length;
-  const scheduledCount = mockMarketingPosts.filter((p) => p.status === "scheduled").length;
-  const draftCount = mockMarketingPosts.filter((p) => p.status === "draft").length;
+  const publishedCount = posts.filter((p) => p.status === "published").length;
+  const scheduledCount = posts.filter((p) => p.status === "scheduled").length;
+  const draftCount = posts.filter((p) => p.status === "draft").length;
 
   return (
     <div>
@@ -55,7 +77,7 @@ export default function MarketingPage() {
             {publishedCount} published · {scheduledCount} scheduled · {draftCount} drafts
           </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
           + Create Post
         </button>
       </div>
@@ -65,13 +87,13 @@ export default function MarketingPage() {
         {[
           {
             label: "Total Likes",
-            value: mockMarketingPosts.reduce((s, p) => s + p.likes, 0),
+            value: posts.reduce((s, p) => s + p.likes, 0),
             icon: "❤️",
             color: "text-red-400",
           },
           {
             label: "Total Comments",
-            value: mockMarketingPosts.reduce((s, p) => s + p.comments, 0),
+            value: posts.reduce((s, p) => s + p.comments, 0),
             icon: "💬",
             color: "text-blue-400",
           },
@@ -215,6 +237,41 @@ export default function MarketingPage() {
           </div>
         </button>
       </div>
+
+      {/* New Post Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111827] border border-gray-700 rounded-xl p-6 w-full max-w-lg">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-white font-semibold text-lg">Create Post</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Platform</label>
+                <select value={form.platform} onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                  <option value="facebook">Facebook</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="linkedin">LinkedIn</option>
+                  <option value="google">Google</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Content *</label>
+                <textarea required rows={5} value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} placeholder="Write your post content here…" className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none" />
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Schedule Date / Time (optional)</label>
+                <input type="datetime-local" value={form.schedule_date} onChange={(e) => setForm((f) => ({ ...f, schedule_date: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editingPost && (

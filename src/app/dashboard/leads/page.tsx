@@ -66,11 +66,38 @@ const TABLE_COLUMNS: Column<LeadRow>[] = [
   { key: "created_at", label: "Created", sortable: true },
 ];
 
+const EMPTY_LEAD_FORM = {
+  name: "", phone: "", email: "", service_needed: "",
+  source: "referral", budget: "",
+};
+
 export default function LeadsPage() {
   const [view, setView] = useState<"kanban" | "table">("kanban");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leads, setLeads] = useState(mockLeads);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState(EMPTY_LEAD_FORM);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const newLead: Lead = {
+      id: Date.now().toString(),
+      name: form.name,
+      phone: form.phone,
+      email: form.email,
+      service_needed: form.service_needed,
+      source: form.source,
+      budget: form.budget,
+      status: "new",
+      lead_score: 50,
+      assigned_to: "Unassigned",
+      created_at: new Date().toISOString().slice(0, 10),
+    };
+    setLeads((prev) => [newLead, ...prev]);
+    setForm(EMPTY_LEAD_FORM);
+    setShowModal(false);
+  }
 
   useEffect(() => {
     const token = getToken();
@@ -107,7 +134,7 @@ export default function LeadsPage() {
               Table
             </button>
           </div>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+          <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
             + New Lead
           </button>
         </div>
@@ -150,6 +177,58 @@ export default function LeadsPage() {
           searchPlaceholder="Search leads..."
           searchFields={["name", "email", "service_needed", "source"]}
         />
+      )}
+
+      {/* New Lead Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111827] border border-gray-700 rounded-xl p-6 w-full max-w-lg">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-white font-semibold text-lg">New Lead</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Name *</label>
+                  <input required type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Phone</label>
+                  <input type="text" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Email</label>
+                <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Service Needed</label>
+                  <input type="text" value={form.service_needed} onChange={(e) => setForm((f) => ({ ...f, service_needed: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Source</label>
+                  <select value={form.source} onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="referral">Referral</option>
+                    <option value="google">Google</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="website">Website</option>
+                    <option value="yelp">Yelp</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Budget</label>
+                <input type="text" value={form.budget} onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))} placeholder="e.g. $5,000 - $10,000" className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Lead Detail Panel */}

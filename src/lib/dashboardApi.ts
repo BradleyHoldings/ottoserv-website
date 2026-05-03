@@ -19,6 +19,7 @@ import {
 } from "./mockData";
 
 const API_URL = "https://api.ottoserv.com";
+const PLATFORM_URL = "https://platform.ottoserv.com";
 const API_KEY = "c4f8a2d9e3b7c105a6d2f8e9c4b710a5f6d2e8c9f4a710b5c6d2f8e9c4a710b5";
 
 async function fetchApi(path: string, token: string) {
@@ -40,9 +41,66 @@ async function fetchApi(path: string, token: string) {
   }
 }
 
+async function fetchPlatformApi(path: string): Promise<any> {
+  try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("ottoserv_platform_token") : null;
+    if (!token) return null;
+    const res = await fetch(`${PLATFORM_URL}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("ottoserv_token");
+}
+
+export function getPlatformToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("ottoserv_platform_token");
+}
+
+export async function getPlatformLeads() {
+  const data = await fetchPlatformApi("/crm/leads");
+  if (!data?.leads) return null;
+  return data.leads.map((l: any) => ({
+    id: l.id,
+    name: l.title,
+    phone: l.contact?.phone || "",
+    email: l.contact?.email || "",
+    source: l.source || "direct",
+    service_needed: l.description || "",
+    budget: l.estimated_value ? `$${l.estimated_value}` : "",
+    status: l.status || "new",
+    lead_score: l.urgency === "low" ? 75 : l.urgency === "high" ? 95 : 80,
+    assigned_to: l.owner_user_id || "Jonathan",
+    created_at: l.created_at?.split("T")[0] || "",
+  }));
+}
+
+export async function getPlatformSocialPosts() {
+  const data = await fetchPlatformApi("/social/posts");
+  if (!data?.posts) return null;
+  return data.posts.map((p: any) => ({
+    id: p.id,
+    content: p.content || "",
+    platform: p.platform || "facebook",
+    status: p.status === "pending_approval" ? "pending" : p.status || "draft",
+    scheduled_at: p.scheduled_at || null,
+    published_at: p.published_at || null,
+    created_by_agent: p.created_by_agent_id || null,
+    approval_status: p.status === "approved" ? "approved" : p.status === "pending_approval" ? "pending_review" : "not_submitted",
+    rejection_reason: p.rejection_reason || null,
+    media_urls: p.media_urls || [],
+    emotional_trigger: null,
+    cta: p.hashtags?.join(" ") || null,
+    engagement: null,
+  }));
 }
 
 export async function getDashboard(token: string) {
@@ -51,6 +109,8 @@ export async function getDashboard(token: string) {
 }
 
 export async function getLeads(token: string) {
+  const platformLeads = await getPlatformLeads();
+  if (platformLeads && platformLeads.length > 0) return platformLeads;
   const data = await fetchApi("/leads", token);
   return data || mockLeads;
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { mockSocialPosts, SOCIAL_PLATFORMS, SocialPost } from "@/lib/mockData";
+import { getPlatformSocialPosts } from "@/lib/dashboardApi";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -215,8 +216,14 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 
 export default function SocialPage() {
   const [activeTab, setActiveTab] = useState<Tab>("calendar");
-  const [posts, setPosts] = useState(mockSocialPosts);
+  const [posts, setPosts] = useState<SocialPost[]>(mockSocialPosts);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    getPlatformSocialPosts().then((realPosts) => {
+      if (realPosts && realPosts.length > 0) setPosts(realPosts);
+    });
+  }, []);
 
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());

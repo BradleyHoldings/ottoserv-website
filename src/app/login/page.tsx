@@ -37,6 +37,24 @@ export default function LoginPage() {
           business_name: result.user.company || (result.user.role === "super_admin" ? "OttoServ" : "Demo Company"),
         }));
         
+        // For super_admin, also fetch a platform token so OS dashboard can access real data
+        if (result.user.role === "super_admin") {
+          try {
+            const platRes = await fetch("https://platform.ottoserv.com/auth/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password }),
+            });
+            if (platRes.ok) {
+              const platData = await platRes.json();
+              if (platData.token) {
+                localStorage.setItem("ottoserv_platform_token", platData.token);
+                localStorage.setItem("ottoserv_platform_user", JSON.stringify(platData.user ?? {}));
+              }
+            }
+          } catch { /* platform login is best-effort */ }
+        }
+
         // Redirect based on user role
         if (result.user.role === "super_admin") {
           window.location.href = "/dashboard/admin";

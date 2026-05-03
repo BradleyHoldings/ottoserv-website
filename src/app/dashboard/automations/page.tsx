@@ -4,8 +4,30 @@ import { useState } from "react";
 import AutomationCard from "@/components/dashboard/AutomationCard";
 import { mockAutomations, Automation } from "@/lib/mockData";
 
+const EMPTY_AUTO_FORM = { name: "", trigger: "new_lead", action: "send_email", description: "" };
+
 export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>(mockAutomations);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState(EMPTY_AUTO_FORM);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const newAuto: Automation = {
+      id: Date.now().toString(),
+      name: form.name,
+      description: form.description,
+      status: "paused",
+      last_run: "Never",
+      next_run: null,
+      success_count: 0,
+      failure_count: 0,
+      connected_systems: [],
+    };
+    setAutomations((prev) => [newAuto, ...prev]);
+    setForm(EMPTY_AUTO_FORM);
+    setShowModal(false);
+  }
 
   function handleToggle(id: string, makeActive: boolean) {
     setAutomations((prev) =>
@@ -31,7 +53,7 @@ export default function AutomationsPage() {
             {activeCount} active · {needsAttention > 0 ? `${needsAttention} need attention` : "all systems normal"}
           </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
           + New Automation
         </button>
       </div>
@@ -71,6 +93,55 @@ export default function AutomationsPage() {
             <p className="text-orange-400/70 text-xs">
               Review the flagged automations below and check connected systems
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* New Automation Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111827] border border-gray-700 rounded-xl p-6 w-full max-w-lg">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-white font-semibold text-lg">New Automation</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Name *</label>
+                <input required type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Trigger</label>
+                  <select value={form.trigger} onChange={(e) => setForm((f) => ({ ...f, trigger: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="new_lead">New Lead</option>
+                    <option value="form_submit">Form Submit</option>
+                    <option value="job_complete">Job Complete</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="daily">Daily</option>
+                    <option value="manual">Manual</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Action</label>
+                  <select value={form.action} onChange={(e) => setForm((f) => ({ ...f, action: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="send_email">Send Email</option>
+                    <option value="send_sms">Send SMS</option>
+                    <option value="create_task">Create Task</option>
+                    <option value="notify_team">Notify Team</option>
+                    <option value="update_crm">Update CRM</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Description</label>
+                <textarea rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Save</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

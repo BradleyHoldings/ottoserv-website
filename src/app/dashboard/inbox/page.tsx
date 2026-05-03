@@ -17,18 +17,42 @@ function timeAgo(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+const EMPTY_COMPOSE_FORM = { to: "", subject: "", body: "" };
+
 export default function InboxPage() {
   const [selected, setSelected] = useState<Message>(mockMessages[0]);
   const [filter, setFilter] = useState<"all" | "unread" | "client" | "lead">("all");
+  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [showCompose, setShowCompose] = useState(false);
+  const [form, setForm] = useState(EMPTY_COMPOSE_FORM);
 
-  const filtered = mockMessages.filter((m) => {
+  function handleCompose(e: React.FormEvent) {
+    e.preventDefault();
+    const newMsg: Message = {
+      id: Date.now().toString(),
+      from: "You (Outbound)",
+      from_email: "me@ottoserv.com",
+      subject: form.subject,
+      preview: form.body.slice(0, 80),
+      body: form.body,
+      status: "read",
+      received_at: new Date().toISOString(),
+      category: "client",
+    };
+    setMessages((prev) => [newMsg, ...prev]);
+    setSelected(newMsg);
+    setForm(EMPTY_COMPOSE_FORM);
+    setShowCompose(false);
+  }
+
+  const filtered = messages.filter((m) => {
     if (filter === "unread") return m.status === "unread";
     if (filter === "client") return m.category === "client";
     if (filter === "lead") return m.category === "lead";
     return true;
   });
 
-  const unreadCount = mockMessages.filter((m) => m.status === "unread").length;
+  const unreadCount = messages.filter((m) => m.status === "unread").length;
 
   return (
     <div>
@@ -36,10 +60,10 @@ export default function InboxPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Inbox</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {unreadCount} unread · {mockMessages.length} total
+            {unreadCount} unread · {messages.length} total
           </p>
         </div>
-        <button className="touch-target mobile-touch-target keyboard-navigable px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none">
+        <button onClick={() => setShowCompose(true)} className="touch-target mobile-touch-target keyboard-navigable px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none">
           + Compose
         </button>
       </div>
@@ -190,6 +214,36 @@ export default function InboxPage() {
           </div>
         )}
       </div>
+
+      {/* Compose Modal */}
+      {showCompose && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111827] border border-gray-700 rounded-xl p-6 w-full max-w-lg">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-white font-semibold text-lg">New Message</h2>
+              <button onClick={() => setShowCompose(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleCompose} className="space-y-4">
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">To *</label>
+                <input required type="text" value={form.to} onChange={(e) => setForm((f) => ({ ...f, to: e.target.value }))} placeholder="Name or email" className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Subject *</label>
+                <input required type="text" value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Message *</label>
+                <textarea required rows={6} value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowCompose(false)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Send</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

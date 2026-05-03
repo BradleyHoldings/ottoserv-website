@@ -63,21 +63,46 @@ function padDate(n: number) {
   return String(n).padStart(2, "0");
 }
 
+const EMPTY_EVENT_FORM = {
+  title: "", type: "site_visit", start: "", end: "", location: "", client_name: "", notes: "",
+};
+
 export default function CalendarPage() {
   const [monthIdx, setMonthIdx] = useState(1); // Start on May
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
+  const [events, setEvents] = useState<CalendarEvent[]>(mockCalendarEvents);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState(EMPTY_EVENT_FORM);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const newEvent: CalendarEvent = {
+      id: Date.now().toString(),
+      title: form.title,
+      type: form.type,
+      start: form.start,
+      end: form.end || form.start,
+      location: form.location || undefined,
+      client_name: form.client_name || undefined,
+      notes: form.notes || undefined,
+      status: "scheduled",
+    };
+    setEvents((prev) => [newEvent, ...prev]);
+    setForm(EMPTY_EVENT_FORM);
+    setShowModal(false);
+  }
 
   const { label, year, month } = MONTHS[monthIdx];
   const days = buildCalendarDays(year, month);
 
   const eventsByDay: Record<string, CalendarEvent[]> = {};
-  for (const evt of mockCalendarEvents) {
+  for (const evt of events) {
     const key = getDayKey(evt.start);
     if (!eventsByDay[key]) eventsByDay[key] = [];
     eventsByDay[key].push(evt);
   }
 
-  const upcomingEvents = [...mockCalendarEvents].sort(
+  const upcomingEvents = [...events].sort(
     (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
   );
 
@@ -86,9 +111,9 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Calendar</h1>
-          <p className="text-gray-500 text-sm mt-1">{mockCalendarEvents.length} upcoming events</p>
+          <p className="text-gray-500 text-sm mt-1">{events.length} upcoming events</p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
           + New Event
         </button>
       </div>
@@ -216,6 +241,65 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      {/* New Event Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111827] border border-gray-700 rounded-xl p-6 w-full max-w-lg">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-white font-semibold text-lg">New Event</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Title *</label>
+                <input required type="text" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Type</label>
+                  <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="site_visit">Site Visit</option>
+                    <option value="client_meeting">Client Meeting</option>
+                    <option value="estimate">Estimate</option>
+                    <option value="consultation">Consultation</option>
+                    <option value="inspection">Inspection</option>
+                    <option value="delivery">Delivery</option>
+                    <option value="discovery_call">Discovery Call</option>
+                    <option value="internal">Internal</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Client Name</label>
+                  <input type="text" value={form.client_name} onChange={(e) => setForm((f) => ({ ...f, client_name: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Start *</label>
+                  <input required type="datetime-local" value={form.start} onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">End</label>
+                  <input type="datetime-local" value={form.end} onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Location</label>
+                <input type="text" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Notes</label>
+                <textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Event Detail Modal */}
       {selected && (

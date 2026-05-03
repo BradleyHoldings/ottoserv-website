@@ -42,11 +42,37 @@ function WorkOrderCard({ wo }: { wo: WorkOrder }) {
 
 const TABLE_COLUMNS_ALL = ["new", "scheduled", "in_progress", "waiting_on_parts", "completed", "invoiced"];
 
+const EMPTY_WO_FORM = {
+  client: "", property: "", description: "",
+  priority: "medium" as WorkOrder["priority"], assigned_tech: "", scheduled_date: "",
+};
+
 export default function WorkOrdersPage() {
   const [view, setView] = useState<"kanban" | "table">("kanban");
-  const kanbanOrders = mockWorkOrders.filter((wo) => wo.status !== "invoiced");
-  const total = mockWorkOrders.length;
-  const openCount = mockWorkOrders.filter((wo) => !["completed", "invoiced"].includes(wo.status)).length;
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(mockWorkOrders);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState(EMPTY_WO_FORM);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const newWO: WorkOrder = {
+      id: `WO-${Date.now().toString().slice(-4)}`,
+      client: form.client,
+      property: form.property,
+      description: form.description,
+      status: "new",
+      priority: form.priority,
+      assigned_tech: form.assigned_tech,
+      scheduled_date: form.scheduled_date,
+    };
+    setWorkOrders((prev) => [newWO, ...prev]);
+    setForm(EMPTY_WO_FORM);
+    setShowModal(false);
+  }
+
+  const kanbanOrders = workOrders.filter((wo) => wo.status !== "invoiced");
+  const total = workOrders.length;
+  const openCount = workOrders.filter((wo) => !["completed", "invoiced"].includes(wo.status)).length;
 
   return (
     <div>
@@ -70,11 +96,62 @@ export default function WorkOrdersPage() {
               Table
             </button>
           </div>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+          <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
             + Create Work Order
           </button>
         </div>
       </div>
+
+      {/* New Work Order Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111827] border border-gray-700 rounded-xl p-6 w-full max-w-lg">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-white font-semibold text-lg">New Work Order</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Client *</label>
+                  <input required type="text" value={form.client} onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Property</label>
+                  <input type="text" value={form.property} onChange={(e) => setForm((f) => ({ ...f, property: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Description *</label>
+                <textarea required rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Priority</label>
+                  <select value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as WorkOrder["priority"] }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="urgent">Urgent</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs font-medium block mb-1">Scheduled Date</label>
+                  <input type="date" value={form.scheduled_date} onChange={(e) => setForm((f) => ({ ...f, scheduled_date: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="text-gray-400 text-xs font-medium block mb-1">Assigned Tech</label>
+                <input type="text" value={form.assigned_tech} onChange={(e) => setForm((f) => ({ ...f, assigned_tech: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {view === "kanban" ? (
         <KanbanBoard<WorkOrder>
@@ -99,7 +176,7 @@ export default function WorkOrdersPage() {
               </tr>
             </thead>
             <tbody>
-              {mockWorkOrders.map((wo) => (
+              {workOrders.map((wo) => (
                 <tr key={wo.id} className="border-b border-gray-800 last:border-0 hover:bg-gray-800/30 transition-colors">
                   <td className="px-4 py-3 text-gray-400 font-mono text-xs">{wo.id}</td>
                   <td className="px-4 py-3">
