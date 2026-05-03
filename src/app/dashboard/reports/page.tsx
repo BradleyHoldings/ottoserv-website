@@ -183,7 +183,19 @@ export default function ReportsPage() {
 
   function handleExport(id: string) {
     const report = reports.find((r) => r.id === id);
-    if (report) alert(`Exporting "${report.title}" as PDF…`);
+    if (!report) return;
+    const rows = [
+      ["Title", "Type", "Status", "Last Generated", "Description"],
+      [report.title, report.type, report.status, report.last_generated || "", report.description || ""],
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${report.title.replace(/\s+/g, "_")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const filtered =

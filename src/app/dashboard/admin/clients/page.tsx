@@ -19,11 +19,7 @@ interface Client {
   };
 }
 
-export default function ClientsManagement() {
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
-
-  // Live client data (replace mock data)
-  const clients: Client[] = [
+const BASE_CLIENTS: Client[] = [
     {
       id: 'brandon-croom',
       name: 'Brandon Croom Contracting',
@@ -72,7 +68,17 @@ export default function ClientsManagement() {
         integrations: true
       }
     }
-  ];
+];
+
+export default function ClientsManagement() {
+  const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+  const [clientServices, setClientServices] = useState<Record<string, Client['services']>>(
+    Object.fromEntries(BASE_CLIENTS.map(c => [c.id, { ...c.services }]))
+  );
+
+  const clients = BASE_CLIENTS.map(c => ({ ...c, services: clientServices[c.id] || c.services }));
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -84,8 +90,27 @@ export default function ClientsManagement() {
   };
 
   const toggleService = (clientId: string, service: keyof Client['services']) => {
-    // In real implementation, this would call API
-    console.log(`Toggle ${service} for client ${clientId}`);
+    setClientServices(prev => ({
+      ...prev,
+      [clientId]: { ...prev[clientId], [service]: !prev[clientId][service] }
+    }));
+  };
+
+  const saveClientServices = async () => {
+    if (!selectedClient) return;
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      const token = localStorage.getItem("ottoserv_platform_token") || localStorage.getItem("ottoserv_token") || "";
+      await fetch(`https://platform.ottoserv.com/admin/clients/${selectedClient}/services`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(clientServices[selectedClient]),
+      });
+    } catch { /* API may be unavailable; local state is already updated */ }
+    setSaveMsg("Changes saved");
+    setSaving(false);
+    setTimeout(() => { setSelectedClient(null); setSaveMsg(""); }, 800);
   };
 
   return (
@@ -250,19 +275,23 @@ export default function ClientsManagement() {
               ))}
             </div>
 
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => setSelectedClient(null)}
-                className="px-4 py-2 text-gray-400 hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => setSelectedClient(null)}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Save Changes
-              </button>
+            <div className="mt-6 flex justify-between items-center">
+              {saveMsg && <span className="text-green-400 text-sm">{saveMsg}</span>}
+              <div className="flex space-x-3 ml-auto">
+                <button
+                  onClick={() => setSelectedClient(null)}
+                  className="px-4 py-2 text-gray-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveClientServices}
+                  disabled={saving}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

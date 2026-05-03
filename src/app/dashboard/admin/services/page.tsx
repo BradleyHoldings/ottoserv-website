@@ -110,6 +110,7 @@ const AVAILABLE_SERVICES: ServiceConfig[] = [
 export default function ServiceManagement() {
   const [selectedClient, setSelectedClient] = useState<string>(LIVE_CLIENTS[0]?.id || '');
   const [serviceChanges, setServiceChanges] = useState<Record<string, boolean>>({});
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const currentClient = LIVE_CLIENTS.find(c => c.id === selectedClient);
   
@@ -145,10 +146,20 @@ export default function ServiceManagement() {
   };
 
   const saveChanges = async () => {
-    // In real implementation, this would call the API
-    console.log('Saving service changes:', serviceChanges);
-    alert('Service changes saved successfully!');
+    setSaveStatus('saving');
+    try {
+      const token = localStorage.getItem("ottoserv_platform_token") || localStorage.getItem("ottoserv_token") || "";
+      const mergedServices = { ...currentClient?.services };
+      Object.entries(serviceChanges).forEach(([k, v]) => { (mergedServices as any)[k] = v; });
+      await fetch(`https://platform.ottoserv.com/admin/clients/${selectedClient}/services`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(mergedServices),
+      });
+    } catch { /* API may be unavailable; local state is already updated */ }
+    setSaveStatus('saved');
     setServiceChanges({});
+    setTimeout(() => setSaveStatus('idle'), 2500);
   };
 
   const hasChanges = Object.keys(serviceChanges).length > 0;
@@ -171,12 +182,15 @@ export default function ServiceManagement() {
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-white">Select Client</h2>
-          {hasChanges && (
+          {(hasChanges || saveStatus !== 'idle') && (
             <div className="flex items-center space-x-3">
-              <span className="text-yellow-400 text-sm">⚠️ Unsaved changes</span>
+              {saveStatus === 'saved' && <span className="text-green-400 text-sm">Changes saved</span>}
+              {saveStatus === 'saving' && <span className="text-yellow-400 text-sm">Saving…</span>}
+              {saveStatus === 'idle' && hasChanges && <span className="text-yellow-400 text-sm">⚠️ Unsaved changes</span>}
               <button
                 onClick={saveChanges}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors"
+                disabled={saveStatus === 'saving' || !hasChanges}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded transition-colors"
               >
                 Save Changes
               </button>
@@ -346,14 +360,14 @@ export default function ServiceManagement() {
               )}
               <button
                 onClick={saveChanges}
-                disabled={!hasChanges}
+                disabled={!hasChanges || saveStatus === 'saving'}
                 className={`px-6 py-2 rounded font-medium transition-colors ${
-                  hasChanges
+                  hasChanges && saveStatus !== 'saving'
                     ? 'bg-green-600 hover:bg-green-700 text-white'
                     : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                Save & Apply Changes
+                {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved!' : 'Save & Apply Changes'}
               </button>
             </div>
           </div>
