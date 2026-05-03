@@ -1,9 +1,57 @@
 "use client";
 
-import { loginAsJonathan, loginAsDemo } from "@/lib/userAuth";
+import { useState } from "react";
 import Link from "next/link";
 
 export default function LoginPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Set localStorage for client-side auth system
+        localStorage.setItem("ottoserv_current_user", JSON.stringify(result.user));
+        const token = result.user.role === "super_admin" ? "super_admin_token" : 
+                      result.user.role === "demo" ? "demo_token" : 
+                      `client_${result.user.id}_token`;
+        localStorage.setItem("ottoserv_token", token);
+        
+        // Redirect based on user role
+        if (result.user.role === "super_admin") {
+          window.location.href = "/dashboard/admin";
+        } else if (result.user.role === "demo") {
+          window.location.href = "/dashboard/command-center";
+        } else {
+          window.location.href = "/dashboard";
+        }
+      } else {
+        const result = await response.json();
+        setError(result.message || "Invalid credentials");
+      }
+    } catch (err) {
+      setError("Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-gray-100 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
@@ -14,79 +62,27 @@ export default function LoginPage() {
           <p className="text-gray-400">Access your AI-powered operating system</p>
         </div>
 
-        {/* Quick Login Options */}
-        <div className="space-y-4 mb-8">
-          {/* Jonathan Super Admin */}
-          <div className="bg-red-900/20 border border-red-700 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-white font-semibold flex items-center gap-2">
-                  🔴 Super Admin Access
-                </h3>
-                <p className="text-red-300 text-sm">Jonathan Bradley - Live Data Only</p>
-              </div>
+        {/* Single Login Form */}
+        <div className="bg-gray-900 rounded-lg p-8 border border-gray-700">
+          <h2 className="text-white font-semibold mb-6 text-xl">Sign In</h2>
+          
+          {error && (
+            <div className="mb-4 p-3 bg-red-900/20 border border-red-700 rounded-md">
+              <p className="text-red-300 text-sm">{error}</p>
             </div>
-            <button
-              onClick={loginAsJonathan}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
-            >
-              Login as Jonathan (LIVE DATA)
-            </button>
-            <div className="mt-2 text-xs text-red-200">
-              ✅ All client management • ✅ Aggregate analytics • ✅ Service controls • ❌ NO mock data
-            </div>
-          </div>
+          )}
 
-          {/* Demo Account */}
-          <div className="bg-orange-900/20 border border-orange-700 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-white font-semibold flex items-center gap-2">
-                  🎭 Demo Environment
-                </h3>
-                <p className="text-orange-300 text-sm">Safe testing with mock data</p>
-              </div>
-            </div>
-            <button
-              onClick={loginAsDemo}
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
-            >
-              Enter Demo Mode (MOCK DATA)
-            </button>
-            <div className="mt-2 text-xs text-orange-200">
-              ✅ All features enabled • ✅ Safe sandbox • ✅ Realistic scenarios • ❌ NO real data
-            </div>
-          </div>
-        </div>
-
-        {/* Data Separation Notice */}
-        <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6">
-          <h4 className="text-white font-medium mb-2">📊 Data Separation Policy</h4>
-          <div className="space-y-1 text-sm text-gray-300">
-            <div className="flex items-start gap-2">
-              <span className="text-red-400">🔴</span>
-              <span><strong>Super Admin:</strong> Real client data only - no mock/demo content</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-orange-400">🎭</span>
-              <span><strong>Demo Mode:</strong> Simulated data only - completely separate environment</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Traditional Login Form (for future clients) */}
-        <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
-          <h3 className="text-white font-medium mb-4">Client Login</h3>
-          <form className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">
                 Email
               </label>
               <input
                 type="email"
+                name="email"
+                required
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:border-orange-500"
                 placeholder="your@company.com"
-                disabled
               />
             </div>
 
@@ -96,27 +92,43 @@ export default function LoginPage() {
               </label>
               <input
                 type="password"
+                name="password"
+                required
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:border-orange-500"
                 placeholder="••••••••"
-                disabled
               />
             </div>
 
             <button
               type="submit"
-              disabled
-              className="w-full bg-gray-600 text-gray-400 font-medium py-2 px-4 rounded-md cursor-not-allowed"
+              disabled={isLoading}
+              className="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors"
             >
-              Coming Soon
+              {isLoading ? "Signing in..." : "Sign In"}
             </button>
           </form>
-          <div className="mt-4 text-center text-sm text-gray-400">
-            Client authentication will be enabled after first client onboarding
+        </div>
+
+        {/* Demo Credentials Helper */}
+        <div className="mt-6 bg-gray-800 border border-gray-600 rounded-lg p-4">
+          <h4 className="text-white font-medium mb-3">Demo Access</h4>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-300">Demo Account:</span>
+              <span className="text-orange-300 font-mono">demo@ottoserv.com</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-300">Password:</span>
+              <span className="text-orange-300 font-mono">demo</span>
+            </div>
           </div>
+          <p className="text-gray-400 text-xs mt-2">
+            Use these credentials to explore OttoServ with sample data
+          </p>
         </div>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          <p>Need access? <Link href="/contact" className="text-orange-400 hover:text-orange-300">Contact us</Link></p>
+          <p>Need an account? <Link href="/contact" className="text-orange-400 hover:text-orange-300">Contact us</Link></p>
         </div>
       </div>
     </div>

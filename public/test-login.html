@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OttoServ Login Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+        form { max-width: 400px; margin: 0 auto; padding: 20px; background: #333; border-radius: 8px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #666; background: #444; color: white; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0052a3; }
+        .result { margin-top: 20px; padding: 10px; border-radius: 4px; }
+        .success { background: #2d5016; border: 1px solid #4caf50; }
+        .error { background: #5d1a1a; border: 1px solid #f44336; }
+    </style>
+</head>
+<body>
+    <h1>OttoServ Login Test</h1>
+    
+    <form id="loginForm">
+        <h2>Test Login</h2>
+        <input type="email" id="email" placeholder="Email" value="demo@ottoserv.com" required>
+        <input type="password" id="password" placeholder="Password" value="demo" required>
+        <button type="submit">Login</button>
+    </form>
+    
+    <div id="result"></div>
+    
+    <div style="margin-top: 30px; padding: 15px; background: #444; border-radius: 8px;">
+        <h3>Direct API Test</h3>
+        <button onclick="testDirectAPI()">Test API Directly</button>
+        <div id="apiResult"></div>
+    </div>
+    
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = 'Logging in...';
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="success">
+                        <strong>Success!</strong><br>
+                        Logged in as: ${data.user.name}<br>
+                        Role: ${data.user.role}<br>
+                        <a href="/dashboard" style="color: #4caf50;">Go to Dashboard</a>
+                    </div>`;
+                    
+                    // Store auth data
+                    localStorage.setItem('ottoserv_token', 'demo-token-' + Date.now());
+                    localStorage.setItem('ottoserv_client', JSON.stringify(data.user));
+                    
+                } else {
+                    resultDiv.innerHTML = `<div class="error">
+                        <strong>Error:</strong><br>
+                        ${data.message || 'Login failed'}
+                    </div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">
+                    <strong>Network Error:</strong><br>
+                    ${error.message}
+                </div>`;
+            }
+        });
+        
+        async function testDirectAPI() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = 'Testing API...';
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        email: 'demo@ottoserv.com', 
+                        password: 'demo' 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `<pre style="background: #222; padding: 10px; margin-top: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>`;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div style="color: #f44336; margin-top: 10px;">Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
+import DemoModeProvider from "@/components/demo/DemoModeProvider";
 
 export default function DashboardLayout({
   children,
@@ -32,12 +33,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex" style={{backgroundColor: 'var(--otto-gray-900)'}}>
-      <Sidebar />
-      <div className="flex flex-col flex-1 min-w-0 min-h-[calc(100vh-4rem)]">
-        <Topbar />
-        <main className="flex-1 p-6 overflow-x-hidden">{children}</main>
+    <DemoModeProvider>
+      <div className="flex" style={{backgroundColor: 'var(--otto-gray-900)'}}>
+        <Sidebar />
+        <div className="flex flex-col flex-1 min-w-0 min-h-[calc(100vh-4rem)]">
+          <Topbar />
+          <main className="flex-1 p-6 overflow-x-hidden">{children}</main>
+        </div>
       </div>
-    </div>
+    </DemoModeProvider>
   );
 }

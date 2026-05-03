@@ -1,0 +1,62 @@
+127.0.0.1 - - [03/May/2026 13:32:46] "GET /temp-login.html HTTP/1.1" 200 -
+----------------------------------------
+Exception occurred during processing of request from ('66.132.195.91', 34018)
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/usr/lib/python3.12/http/server.py", line 1311, in finish_request
+    self.RequestHandlerClass(request, client_address, self,
+  File "/usr/lib/python3.12/http/server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+  File "/usr/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/usr/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/usr/lib/python3.12/http/server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socket.py", line 707, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [Errno 104] Connection reset by peer
+----------------------------------------
+66.132.195.91 - - [03/May/2026 14:39:03] "GET / HTTP/1.1" 200 -
+66.132.195.91 - - [03/May/2026 14:39:09] code 400, message Bad HTTP/0.9 request type ('\\x16\\x03\\x01\\x00î\\x01\\x00\\x00ê\\x03\\x03m£·÷©ØíÆ\\x8ef\\x11\\x9c4Ì«¨¡må..A\\x1b÷Þ3:Xæ\\x01«^')
+66.132.195.91 - - [03/May/2026 14:39:09] "\x16\x03\x01\x00î\x01\x00\x00ê\x03\x03m£·÷©ØíÆ\x8ef\x11\x9c4Ì«¨¡må..A\x1b÷Þ3:Xæ\x01«^ ¿\x8bt\x95Sþ-\x19¥´¼\x19I'" 400 -
+66.132.195.91 - - [03/May/2026 14:39:11] "GET / HTTP/1.1" 200 -
+66.132.195.91 - - [03/May/2026 14:39:12] code 505, message Invalid HTTP version (2.0)
+66.132.195.91 - - [03/May/2026 14:39:12] "PRI * HTTP/2.0" 505 -
+66.132.195.91 - - [03/May/2026 14:39:13] code 404, message File not found
+66.132.195.91 - - [03/May/2026 14:39:13] "GET /favicon.ico HTTP/1.1" 404 -
+66.132.195.91 - - [03/May/2026 14:39:19] "GET / HTTP/1.1" 200 -
+66.132.195.91 - - [03/May/2026 14:39:21] "GET /src HTTP/1.1" 301 -
+66.132.195.91 - - [03/May/2026 14:39:23] "GET /src/ HTTP/1.1" 200 -
+66.132.195.91 - - [03/May/2026 14:39:26] "GET /src/lib HTTP/1.1" 301 -
+66.132.195.91 - - [03/May/2026 14:39:28] "GET /src/lib/ HTTP/1.1" 200 -
+66.132.195.91 - - [03/May/2026 14:39:36] "GET /src/app HTTP/1.1" 301 -
+66.132.195.91 - - [03/May/2026 14:39:37] "GET /src/app/ HTTP/1.1" 200 -
+66.132.195.91 - - [03/May/2026 14:39:39] "GET /src/app/services HTTP/1.1" 301 -
+66.132.195.91 - - [03/May/2026 14:39:59] code 400, message Bad request version ('À\\x14À')
+66.132.195.91 - - [03/May/2026 14:39:59] "\x16\x03\x01\x00î\x01\x00\x00ê\x03\x03¤é¤µôN\x02U\x0f"cÅ\x9cG+\x96èä|ÄêB?ûù\x18Go©Ý\x9c\x7f Ú9ì°ÿ#\x87¨I\x95\x9bfvêÔq«5-U9¯Kõ0ñ\x8cö\x15\x11ÒÅ\x00&Ì¨Ì©À/À0À+À,À\x13À\x09À\x14À" 400 -
+66.132.195.91 - - [03/May/2026 14:40:01] code 404, message File not found
+66.132.195.91 - - [03/May/2026 14:40:01] "GET /wiki HTTP/1.1" 404 -
+172.171.243.12 - - [03/May/2026 14:40:30] code 400, message Bad request syntax ('MGLNDD_137.184.128.191_8080')
+172.171.243.12 - - [03/May/2026 14:40:30] "MGLNDD_137.184.128.191_8080" 400 -
+159.223.221.106 - - [03/May/2026 14:51:56] code 404, message File not found
+159.223.221.106 - - [03/May/2026 14:51:56] "GET /login HTTP/1.1" 404 -
+20.80.105.17 - - [03/May/2026 15:03:07] code 404, message File not found
+20.80.105.17 - - [03/May/2026 15:03:07] "GET /actuator/health HTTP/1.1" 404 -
+23.88.73.94 - - [03/May/2026 15:17:41] code 404, message File not found
+23.88.73.94 - - [03/May/2026 15:17:41] "GET http://api.ipify.org/ HTTP/1.1" 404 -
+23.88.73.94 - - [03/May/2026 15:17:41] code 404, message File not found
+23.88.73.94 - - [03/May/2026 15:17:41] "GET http://ifconfig.me/ip HTTP/1.1" 404 -
+23.88.73.94 - - [03/May/2026 15:17:41] code 404, message File not found
+23.88.73.94 - - [03/May/2026 15:17:41] "GET http://ip-api.com/line/?fields=query HTTP/1.1" 404 -
+23.88.73.94 - - [03/May/2026 15:17:41] code 501, message Unsupported method ('CONNECT')
+23.88.73.94 - - [03/May/2026 15:17:41] "CONNECT checkip.amazonaws.com:443 HTTP/1.1" 501 -
+23.88.73.94 - - [03/May/2026 15:17:42] code 404, message File not found
+23.88.73.94 - - [03/May/2026 15:17:42] "GET http://httpbin.org/ip HTTP/1.1" 404 -
+176.65.139.254 - - [03/May/2026 15:42:41] code 404, message File not found
+176.65.139.254 - - [03/May/2026 15:42:41] "GET /login HTTP/1.1" 404 -
+157.245.40.40 - - [03/May/2026 16:07:48] code 404, message File not found
+157.245.40.40 - - [03/May/2026 16:07:48] "GET /login HTTP/1.1" 404 -

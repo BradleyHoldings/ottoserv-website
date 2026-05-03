@@ -100,10 +100,10 @@ export default function Navbar() {
               (407) 798-8172
             </a>
             <Link
-              href="/platform/login"
+              href="/dashboard"
               className="text-gray-400 hover:text-white transition-colors text-sm"
             >
-              Client Login
+              OttoServ OS
             </Link>
             <Link
               href="/contact"
@@ -171,8 +171,8 @@ export default function Navbar() {
             >
               (407) 798-8172
             </a>
-            <Link href="/platform/login" className="text-gray-400 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
-              Client Login
+            <Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
+              OttoServ OS
             </Link>
             <Link
               href="/contact"

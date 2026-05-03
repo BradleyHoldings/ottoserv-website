@@ -122,7 +122,7 @@ export default function CommandCenterPage() {
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 grid-spacing-normal section-spacing">
+      <div className="grid grid-cols-2 md:grid-cols-4 grid-spacing-normal section-spacing" data-jarvis-target="dashboard_overview">
         <KpiCard
           value={calculatedKpis.activeJobs}
           label="Active Tasks"
@@ -210,7 +210,7 @@ export default function CommandCenterPage() {
           </div>
 
           {/* Leads Needing Follow-Up */}
-          <div>
+          <div data-jarvis-target="lead_pipeline">
             <p className="text-gray-400 text-xs font-medium uppercase component-spacing">Leads to Follow Up</p>
             <div className="space-y-2">
               {leadsNeedingFollowup.slice(0, 3).map((lead: any, index: number) => (
