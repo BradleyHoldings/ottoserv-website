@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * Navbar Component - Main site navigation
+ * 
+ * PRIORITY 3 IMPLEMENTATION:
+ * - Standardized navigation elements using nav-link classes
+ * - Brand color application throughout interactive states
+ * - Systematic spacing using design system scale
+ * - Consistent button treatments for CTAs
+ * - Progressive disclosure for mobile menu
+ * - Touch target compliance on mobile
+ */
+
 import { useState } from "react";
 import Link from "next/link";
 
@@ -17,9 +29,9 @@ export default function Navbar() {
   const [industriesOpen, setIndustriesOpen] = useState(false);
 
   return (
-    <nav className="bg-[#0a0a0a] border-b border-gray-800 sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+    <nav className="border-b sticky top-0 z-50 bg-hierarchy-1 border-hierarchy-1">
+      <div className="max-w-6xl mx-auto" style={{ padding: '0 var(--space-4)' }}>
+        <div className="flex items-center justify-between" style={{ height: '64px' }}>
           {/* Logo */}
           <Link
             href="/"
@@ -74,7 +86,7 @@ export default function Navbar() {
             <Link href="/about" className="text-gray-300 hover:text-white transition-colors text-sm">
               About
             </Link>
-            <Link href="/contact" className="text-gray-300 hover:text-white transition-colors text-sm">
+            <Link href="/contact" className="nav-link text-sm">
               Contact
             </Link>
           </div>
@@ -95,7 +107,7 @@ export default function Navbar() {
             </Link>
             <Link
               href="/contact"
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-md transition-colors font-medium"
+              className="btn btn-primary text-sm"
             >
               Book a Call
             </Link>

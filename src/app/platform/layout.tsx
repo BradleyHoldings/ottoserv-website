@@ -92,9 +92,9 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0a0a0a]">
+    <div className="flex min-h-screen" style={{backgroundColor: 'var(--otto-gray-900)'}}>
       {/* Sidebar */}
-      <aside className="w-64 shrink-0 bg-[#111827] border-r border-gray-800 flex flex-col">
+      <aside className="w-64 shrink-0 border-r flex flex-col" style={{backgroundColor: 'var(--otto-gray-800)', borderColor: 'var(--otto-gray-700)'}}>
         <div className="px-6 py-5 border-b border-gray-800">
           <p className="text-white font-bold text-base leading-tight">OttoServ</p>
           <p className="text-gray-500 text-xs mt-0.5">Enterprise Platform</p>
@@ -145,7 +145,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
       {/* Main area */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Top bar */}
-        <header className="bg-[#111827] border-b border-gray-800 px-6 py-3 flex items-center justify-between shrink-0">
+        <header className="border-b px-6 py-3 flex items-center justify-between shrink-0" style={{backgroundColor: 'var(--otto-gray-800)', borderColor: 'var(--otto-gray-700)'}}>
           <div>
             <p className="text-white font-semibold text-sm">{user?.company || "Company Platform"}</p>
           </div>

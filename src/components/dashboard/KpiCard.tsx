@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * KpiCard Component - Key Performance Indicator display
+ * 
+ * PRIORITY 3 IMPLEMENTATION:
+ * - Systematic spacing using design system density and spacing classes
+ * - Brand color application for trend indicators (status-success, status-error, status-neutral)
+ * - Standardized card treatment with consistent interaction behavior
+ * - Proper tabular-nums for data visualization consistency
+ * - Enhanced accessibility with keyboard navigation
+ * - Visual hierarchy through structured spacing relationships
+ */
+
 interface KpiCardProps {
   value: string | number;
   label: string;
@@ -27,21 +39,43 @@ export default function KpiCard({
 }: KpiCardProps) {
   const colors = COLOR_MAP[color] || COLOR_MAP.blue;
   const trendIcon = trendDirection === "up" ? "↑" : trendDirection === "down" ? "↓" : "—";
-  const trendColor =
-    trendDirection === "up" ? "text-green-400" : trendDirection === "down" ? "text-red-400" : "text-gray-500";
+  
+  // Use brand colors for trend indicators
+  const trendColor = 
+    trendDirection === "up" ? "status-success" : 
+    trendDirection === "down" ? "status-error" : 
+    "status-neutral";
 
   return (
     <div
       onClick={onClick}
-      className={`bg-[#111827] border ${colors.border} rounded-xl p-5 ${
-        onClick ? "cursor-pointer hover:bg-[#1a2332] transition-colors" : ""
+      className={`card density-normal ${colors.border} ${
+        onClick 
+          ? "card-interactive cursor-pointer keyboard-navigable focus:outline-none" 
+          : ""
       }`}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `${label}: ${value}${trend ? `, ${trend}` : ''}. Click for details.` : undefined}
+      onKeyDown={onClick ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      } : undefined}
     >
-      <p className={`text-3xl font-bold tabular-nums ${colors.value}`}>{value}</p>
-      <p className="text-gray-400 text-sm mt-1">{label}</p>
+      <p 
+        className={`text-3xl font-bold tabular-nums ${colors.value} component-spacing`} 
+        aria-live="polite"
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        {value}
+      </p>
+      <p className="text-gray-400 text-sm element-spacing">{label}</p>
       {trend && (
-        <p className={`text-xs mt-2 ${trendColor}`}>
-          {trendIcon} {trend}
+        <p className={`text-xs ${trendColor.split(' ')[2] || 'text-gray-400'}`} aria-live="polite">
+          <span aria-hidden="true">{trendIcon}</span> 
+          <span>{trend}</span>
         </p>
       )}
     </div>

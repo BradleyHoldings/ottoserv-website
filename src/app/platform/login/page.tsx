@@ -49,7 +49,7 @@ export default function PlatformLoginPage() {
   };
 
   return (
-    <div className="bg-[#0a0a0a] min-h-screen flex items-center justify-center px-4 py-16">
+    <div className="min-h-screen flex items-center justify-center px-4 py-16" style={{backgroundColor: 'var(--otto-gray-900)'}}>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="text-2xl font-bold text-white hover:text-blue-400 transition-colors">
@@ -60,7 +60,7 @@ export default function PlatformLoginPage() {
           <p className="text-gray-400 text-sm mt-1">Access your company&apos;s automation platform</p>
         </div>
 
-        <div className="bg-[#111827] border border-gray-800 rounded-xl p-8">
+        <div className="border rounded-xl p-8" style={{backgroundColor: 'var(--otto-gray-800)', borderColor: 'var(--otto-gray-700)'}}>
           {error && (
             <div className="mb-5 p-3 bg-red-900/30 border border-red-800 rounded-md text-red-400 text-sm">
               {error}
@@ -79,7 +79,8 @@ export default function PlatformLoginPage() {
                 required
                 value={formData.company_slug}
                 onChange={handleChange}
-                className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                className="w-full border text-white rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 transition-colors"
+                style={{backgroundColor: 'var(--otto-gray-700)', borderColor: 'var(--otto-gray-600)'}}
                 placeholder="your-company"
                 autoComplete="organization"
               />
@@ -96,7 +97,8 @@ export default function PlatformLoginPage() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                className="w-full border text-white rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 transition-colors"
+                style={{backgroundColor: 'var(--otto-gray-700)', borderColor: 'var(--otto-gray-600)'}}
                 placeholder="you@company.com"
                 autoComplete="email"
               />
@@ -113,7 +115,8 @@ export default function PlatformLoginPage() {
                 required
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                className="w-full border text-white rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 transition-colors"
+                style={{backgroundColor: 'var(--otto-gray-700)', borderColor: 'var(--otto-gray-600)'}}
                 placeholder="••••••••"
                 autoComplete="current-password"
               />

@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Source_Sans_3 as SourceSansPro, Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
-const inter = Inter({
+const sourceSansPro = SourceSansPro({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-primary",
   display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
+
+const nunitoSans = Nunito_Sans({
+  subsets: ["latin"],
+  variable: "--font-secondary",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -52,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable}`}>
+    <html lang="en" className={`${sourceSansPro.variable} ${nunitoSans.variable}`}>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0066cc" />
@@ -60,7 +68,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="OttoServ" />
       </head>
-      <body className="min-h-screen flex flex-col bg-[#0a0a0a] text-gray-100 antialiased">
+      <body className="min-h-screen flex flex-col" style={{backgroundColor: 'var(--otto-gray-900)', color: 'var(--otto-gray-50)'}}>
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />

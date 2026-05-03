@@ -32,7 +32,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex bg-[#0a0a0a]">
+    <div className="flex" style={{backgroundColor: 'var(--otto-gray-900)'}}>
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0 min-h-[calc(100vh-4rem)]">
         <Topbar />

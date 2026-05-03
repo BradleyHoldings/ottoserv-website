@@ -39,12 +39,12 @@ export default function InboxPage() {
             {unreadCount} unread · {mockMessages.length} total
           </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <button className="touch-target mobile-touch-target keyboard-navigable px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none">
           + Compose
         </button>
       </div>
 
-      <div className="flex h-[calc(100vh-220px)] min-h-[500px] gap-0 bg-[#111827] border border-gray-800 rounded-xl overflow-hidden">
+      <div className="flex h-[calc(100vh-220px)] min-h-[500px] gap-0 container-primary overflow-hidden">
         {/* Conversation List */}
         <div className="w-80 flex-shrink-0 border-r border-gray-800 flex flex-col">
           {/* Filter tabs */}
@@ -53,11 +53,13 @@ export default function InboxPage() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`flex-1 py-1 rounded text-xs font-medium transition-colors ${
+                className={`flex-1 touch-target keyboard-navigable py-2 rounded text-xs font-medium transition-colors focus:outline-none ${
                   filter === f
                     ? "bg-blue-600 text-white"
                     : "text-gray-400 hover:text-white"
                 }`}
+                aria-pressed={filter === f}
+                role="tab"
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
@@ -73,11 +75,14 @@ export default function InboxPage() {
                 <button
                   key={msg.id}
                   onClick={() => setSelected(msg)}
-                  className={`w-full text-left px-4 py-3.5 border-b border-gray-800 transition-colors ${
+                  className={`w-full text-left touch-target mobile-touch-target keyboard-navigable
+                    px-4 py-4 border-b border-gray-800 transition-colors focus:outline-none ${
                     selected?.id === msg.id
                       ? "bg-blue-900/20"
                       : "hover:bg-[#1a2230]"
                   }`}
+                  role="option"
+                  aria-selected={selected?.id === msg.id}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="flex items-center gap-2 min-w-0">

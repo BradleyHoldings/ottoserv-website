@@ -1,18 +1,744 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #f9fafb;
+  /* Primary Brand Colors */
+  --otto-blue-50: #f0f7ff;
+  --otto-blue-100: #ddeeff;
+  --otto-blue-200: #b8deff;
+  --otto-blue-300: #78c5ff;
+  --otto-blue-400: #2fa6ff;
+  --otto-blue-500: #0084ff;  /* Primary brand blue */
+  --otto-blue-600: #0066cc;
+  --otto-blue-700: #0052a3;
+  --otto-blue-800: #003d7a;
+  --otto-blue-900: #002952;
+
+  /* Operational Grays (warm-tinted) */
+  --otto-gray-50: #fafafa;
+  --otto-gray-100: #f4f4f5;
+  --otto-gray-200: #e4e4e7;
+  --otto-gray-300: #d4d4d8;
+  --otto-gray-400: #a1a1aa;
+  --otto-gray-500: #71717a;
+  --otto-gray-600: #52525b;
+  --otto-gray-700: #3f3f46;
+  --otto-gray-800: #27272a;
+  --otto-gray-900: #18181b;
+
+  /* Success/Error/Warning */
+  --otto-green-500: #10b981;
+  --otto-green-600: #059669;
+  --otto-red-500: #ef4444;
+  --otto-red-600: #dc2626;
+  --otto-amber-500: #f59e0b;
+  --otto-amber-600: #d97706;
+
+  /* Typography Scale */
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.25rem;     /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 1.875rem;   /* 30px */
+  --text-4xl: 2.25rem;    /* 36px */
+  --text-5xl: 2.813rem;   /* 45px */
+
+  /* Spacing Scale (8px base unit) */
+  --space-0: 0;
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+  --space-24: 6rem;     /* 96px */
+
+  /* Layout Variables */
+  --background: var(--otto-gray-900);
+  --foreground: var(--otto-gray-50);
+  --border: var(--otto-gray-700);
+  --bg-primary: var(--otto-gray-900);
+  --bg-secondary: var(--otto-gray-800);
+  --bg-tertiary: var(--otto-gray-700);
+  --text-primary: var(--otto-gray-50);
+  --text-secondary: var(--otto-gray-400);
+}
+
+/* Dark Mode */
+[data-theme="dark"] {
+  --otto-bg-primary: #0c0c0f;
+  --otto-bg-secondary: #16161b;
+  --otto-bg-tertiary: #21212a;
+  --otto-text-primary: #f4f4f5;
+  --otto-text-secondary: #a1a1aa;
+  --otto-border: #3f3f46;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-primary);
+  --font-secondary: var(--font-secondary);
 }
 
 body {
-  background: #0a0a0a;
-  color: #f9fafb;
-  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+  background: var(--otto-gray-900);
+  color: var(--otto-gray-50);
+  font-family: var(--font-primary), "Segoe UI", system-ui, sans-serif;
+}
+
+/* PRIORITY 2 UX IMPROVEMENTS */
+
+/* 1. ACCESSIBILITY FOCUS STATES - WCAG 2.1 AA Compliance */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--otto-blue-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Focus states for interactive elements */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--otto-blue-500);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 132, 255, 0.15);
+}
+
+/* Navigation focus enhancement */
+nav a:focus-visible {
+  background-color: rgba(0, 132, 255, 0.1);
+  outline: 2px solid var(--otto-blue-500);
+  outline-offset: -2px;
+}
+
+/* Card-based interactive elements */
+.interactive-card:focus-visible {
+  outline: 2px solid var(--otto-blue-500);
+  outline-offset: -2px;
+  transform: translateY(-1px);
+  transition: transform 0.1s ease;
+}
+
+/* 2. MOBILE TOUCH TARGETS - Minimum 44px */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Quick action buttons */
+.quick-action {
+  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+  touch-action: manipulation;
+}
+
+/* Sidebar navigation items */
+.nav-item {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+}
+
+/* Mobile-specific touch improvements */
+@media (max-width: 768px) {
+  .mobile-touch-target {
+    min-height: 48px;
+    min-width: 48px;
+    padding: var(--space-3);
+  }
+  
+  /* Increase spacing for thumb navigation */
+  .mobile-nav-item {
+    min-height: 52px;
+    margin-bottom: var(--space-1);
+  }
+}
+
+/* 3. VISUAL HIERARCHY - Card System Redesign */
+/* Primary containers - main dashboard sections */
+.container-primary {
+  background: var(--otto-gray-800);
+  border: 1px solid var(--otto-gray-700);
+  border-radius: 12px;
+  padding: var(--space-6);
+}
+
+/* Secondary containers - subsections within primary */
+.container-secondary {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: var(--space-4);
+}
+
+/* Tertiary containers - nested content areas */
+.container-tertiary {
+  background: rgba(255, 255, 255, 0.01);
+  border: none;
+  border-radius: 6px;
+  padding: var(--space-3);
+}
+
+/* Alternative background-based hierarchy */
+.bg-hierarchy-1 { background: var(--otto-gray-800); }
+.bg-hierarchy-2 { background: rgba(255, 255, 255, 0.03); }
+.bg-hierarchy-3 { background: rgba(255, 255, 255, 0.01); }
+
+/* Border hierarchy for subtle separation */
+.border-hierarchy-1 { border: 1px solid var(--otto-gray-700); }
+.border-hierarchy-2 { border: 1px solid rgba(255, 255, 255, 0.08); }
+.border-hierarchy-3 { border: 1px solid rgba(255, 255, 255, 0.04); }
+
+/* Interactive state improvements */
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Keyboard navigation indicators */
+.keyboard-navigable {
+  position: relative;
+}
+
+.keyboard-navigable:focus-visible::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid var(--otto-blue-500);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Screen reader support */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :focus-visible {
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+  }
+  
+  .container-primary {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .hover-lift:hover {
+    transform: none;
+  }
+  
+  .interactive-card:focus-visible {
+    transform: none;
+  }
+}
+
+/* ============================================ */
+/* PRIORITY 3 POLISH & COMPONENT STANDARDIZATION */
+/* ============================================ */
+
+/* 1. SYSTEMATIC SPACING - Visual Hierarchy Implementation */
+/* Container spacing standards using 8px-based scale */
+.section-spacing {
+  margin-bottom: var(--space-6); /* 24px between major sections */
+}
+
+.subsection-spacing {
+  margin-bottom: var(--space-4); /* 16px between subsections */
+}
+
+.component-spacing {
+  margin-bottom: var(--space-3); /* 12px between components */
+}
+
+.element-spacing {
+  margin-bottom: var(--space-2); /* 8px between elements */
+}
+
+/* Grid spacing standards */
+.grid-spacing-tight { gap: var(--space-2); } /* 8px */
+.grid-spacing-normal { gap: var(--space-4); } /* 16px */
+.grid-spacing-loose { gap: var(--space-6); } /* 24px */
+
+/* Content density classes for information hierarchy */
+.density-compact {
+  padding: var(--space-2) var(--space-3);
+  gap: var(--space-1);
+}
+
+.density-normal {
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+}
+
+.density-comfortable {
+  padding: var(--space-4) var(--space-6);
+  gap: var(--space-3);
+}
+
+/* 2. BRAND COLOR APPLICATION - OttoServ Palette Throughout */
+/* Status color system using brand colors */
+.status-success {
+  background-color: rgba(16, 185, 129, 0.1); /* --otto-green-500 with opacity */
+  border-color: var(--otto-green-500);
+  color: var(--otto-green-500);
+}
+
+.status-warning {
+  background-color: rgba(245, 158, 11, 0.1); /* --otto-amber-500 with opacity */
+  border-color: var(--otto-amber-500);
+  color: var(--otto-amber-500);
+}
+
+.status-error {
+  background-color: rgba(239, 68, 68, 0.1); /* --otto-red-500 with opacity */
+  border-color: var(--otto-red-500);
+  color: var(--otto-red-500);
+}
+
+.status-info {
+  background-color: rgba(0, 132, 255, 0.1); /* --otto-blue-500 with opacity */
+  border-color: var(--otto-blue-500);
+  color: var(--otto-blue-500);
+}
+
+.status-neutral {
+  background-color: rgba(113, 113, 122, 0.1); /* --otto-gray-500 with opacity */
+  border-color: var(--otto-gray-500);
+  color: var(--otto-gray-400);
+}
+
+/* Interactive state colors using brand palette */
+.interactive-primary {
+  background-color: var(--otto-blue-500);
+  border-color: var(--otto-blue-500);
+  color: white;
+}
+
+.interactive-primary:hover {
+  background-color: var(--otto-blue-600);
+  border-color: var(--otto-blue-600);
+}
+
+.interactive-primary:active {
+  background-color: var(--otto-blue-700);
+  border-color: var(--otto-blue-700);
+}
+
+.interactive-primary:disabled {
+  background-color: var(--otto-gray-600);
+  border-color: var(--otto-gray-600);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.interactive-secondary {
+  background-color: transparent;
+  border: 1px solid var(--otto-gray-600);
+  color: var(--otto-gray-300);
+}
+
+.interactive-secondary:hover {
+  background-color: var(--otto-gray-800);
+  border-color: var(--otto-gray-500);
+  color: var(--otto-gray-200);
+}
+
+.interactive-ghost {
+  background-color: transparent;
+  border: none;
+  color: var(--otto-gray-400);
+  padding: var(--space-2) var(--space-3);
+}
+
+.interactive-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--otto-gray-300);
+}
+
+/* 3. COMPONENT STANDARDIZATION - Consistent Interactions */
+
+/* Button System - Unified across all components */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid transparent;
+  touch-action: manipulation;
+  min-height: 44px;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--otto-blue-500);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background-color: var(--otto-blue-500);
+  border-color: var(--otto-blue-500);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--otto-blue-600);
+  border-color: var(--otto-blue-600);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--otto-gray-600);
+  color: var(--otto-gray-300);
+}
+
+.btn-secondary:hover {
+  background-color: var(--otto-gray-800);
+  border-color: var(--otto-gray-500);
+  color: var(--otto-gray-200);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  border: none;
+  color: var(--otto-gray-400);
+  padding: var(--space-2) var(--space-3);
+}
+
+.btn-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--otto-gray-300);
+}
+
+.btn-danger {
+  background-color: var(--otto-red-500);
+  border-color: var(--otto-red-500);
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: var(--otto-red-600);
+  border-color: var(--otto-red-600);
+}
+
+.btn-sm {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  min-height: 36px;
+}
+
+.btn-lg {
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--text-base);
+  min-height: 48px;
+}
+
+/* Badge System - Consistent status indicators */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 4px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.badge-primary {
+  background-color: rgba(0, 132, 255, 0.1);
+  border-color: var(--otto-blue-500);
+  color: var(--otto-blue-500);
+}
+
+.badge-success {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: var(--otto-green-500);
+  color: var(--otto-green-500);
+}
+
+.badge-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: var(--otto-amber-500);
+  color: var(--otto-amber-500);
+}
+
+.badge-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: var(--otto-red-500);
+  color: var(--otto-red-500);
+}
+
+.badge-neutral {
+  background-color: rgba(113, 113, 122, 0.1);
+  border-color: var(--otto-gray-500);
+  color: var(--otto-gray-400);
+}
+
+.badge-sm {
+  padding: var(--space-1);
+  font-size: 10px;
+}
+
+.badge-lg {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+/* Card System Enhancement - Consistent treatments */
+.card {
+  background: var(--otto-gray-800);
+  border: 1px solid var(--otto-gray-700);
+  border-radius: 8px;
+  padding: var(--space-4);
+  transition: all 0.15s ease;
+}
+
+.card-interactive {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.card-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--otto-gray-600);
+}
+
+.card-flat {
+  background: transparent;
+  border: 1px solid var(--otto-gray-700);
+  box-shadow: none;
+}
+
+.card-elevated {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--otto-gray-600);
+}
+
+/* Form Element Standardization */
+.input {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--otto-gray-600);
+  border-radius: 4px;
+  background-color: var(--otto-gray-800);
+  color: var(--otto-gray-50);
+  font-size: var(--text-base);
+  line-height: 1.4;
+  transition: all 0.15s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--otto-blue-500);
+  box-shadow: 0 0 0 3px rgba(0, 132, 255, 0.1);
+}
+
+.input:disabled {
+  background-color: var(--otto-gray-700);
+  color: var(--otto-gray-500);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.input-error {
+  border-color: var(--otto-red-500);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Navigation Standardization */
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--otto-gray-400);
+  text-decoration: none;
+  transition: all 0.15s ease;
+  min-height: 44px;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--otto-gray-300);
+}
+
+.nav-link.active {
+  background-color: rgba(0, 132, 255, 0.1);
+  color: var(--otto-blue-400);
+  border: 1px solid rgba(0, 132, 255, 0.2);
+}
+
+/* Data Visualization Consistency */
+.chart-container {
+  background: var(--otto-gray-800);
+  border: 1px solid var(--otto-gray-700);
+  border-radius: 8px;
+  padding: var(--space-4);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--otto-gray-400);
+}
+
+.chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 4. PROGRESSIVE DISCLOSURE - Role-based visibility */
+/* Information hierarchy classes */
+.priority-critical {
+  order: -10;
+  opacity: 1;
+}
+
+.priority-high {
+  order: -5;
+  opacity: 1;
+}
+
+.priority-medium {
+  order: 0;
+  opacity: 0.9;
+}
+
+.priority-low {
+  order: 5;
+  opacity: 0.7;
+}
+
+.priority-contextual {
+  order: 10;
+  opacity: 0.6;
+}
+
+/* Context-aware visibility */
+.role-admin .admin-only { display: block; }
+.role-user .admin-only { display: none; }
+
+.role-manager .manager-level { display: block; }
+.role-user .manager-level { display: none; }
+
+/* Information density controls */
+.density-minimal .secondary-info { display: none; }
+.density-standard .secondary-info { display: block; opacity: 0.8; }
+.density-detailed .secondary-info { display: block; opacity: 1; }
+
+/* Cognitive load reduction */
+.section-collapsible {
+  transition: all 0.3s ease;
+}
+
+.section-collapsible.collapsed {
+  height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* Focus modes for reduced distraction */
+.focus-mode .non-essential {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.focus-mode .essential {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Mobile responsive progressive disclosure */
+@media (max-width: 768px) {
+  .mobile-hide-secondary .secondary-info {
+    display: none;
+  }
+  
+  .mobile-compact .component-spacing {
+    margin-bottom: var(--space-2);
+  }
+  
+  .mobile-compact .subsection-spacing {
+    margin-bottom: var(--space-3);
+  }
+}
+
+/* Accessibility enhancements for progressive disclosure */
+.disclosure-content[aria-hidden="true"] {
+  display: none;
+}
+
+.disclosure-content[aria-hidden="false"] {
+  display: block;
+  animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Performance optimizations */
+@media (prefers-reduced-motion: reduce) {
+  .section-collapsible,
+  .disclosure-content {
+    transition: none;
+    animation: none;
+  }
 }

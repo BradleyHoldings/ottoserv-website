@@ -160,7 +160,7 @@ const pricing = [
 
 export default function Home() {
   return (
-    <div className="bg-[#0a0a0a]">
+    <div style={{backgroundColor: 'var(--otto-gray-900)'}}>
       {/* Hero */}
       <section className="py-20 md:py-32 px-4">
         <div className="max-w-6xl mx-auto text-center">

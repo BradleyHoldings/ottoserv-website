@@ -115,14 +115,14 @@ export default function CommandCenterPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="density-comfortable">
+      <div className="section-spacing">
         <h1 className="text-2xl font-bold text-white">Command Center</h1>
-        <p className="text-gray-500 text-sm mt-1">Thursday, April 30, 2026</p>
+        <p className="text-gray-500 text-sm element-spacing">Thursday, April 30, 2026</p>
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 grid-spacing-normal section-spacing">
         <KpiCard
           value={calculatedKpis.activeJobs}
           label="Active Tasks"
@@ -182,17 +182,17 @@ export default function CommandCenterPage() {
       </div>
 
       {/* Business Brief */}
-      <div className="mb-6">
+      <div className="section-spacing">
         <BusinessBrief brief={(brief as any)?.content || "OttoServ platform operational with real data from live business metrics."} />
       </div>
 
       {/* Today Operational Snapshot */}
-      <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 mb-6">
-        <h3 className="text-white font-semibold mb-4">Today's Operational Snapshot</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="container-primary section-spacing">
+        <h3 className="text-white font-semibold subsection-spacing">Today's Operational Snapshot</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 grid-spacing-normal">
           {/* Scheduled Today */}
           <div>
-            <p className="text-gray-400 text-xs font-medium uppercase mb-2">Scheduled Today</p>
+            <p className="text-gray-400 text-xs font-medium uppercase component-spacing">Scheduled Today</p>
             {todayEvents.length === 0 ? (
               <p className="text-gray-600 text-sm">Nothing scheduled</p>
             ) : (
@@ -211,7 +211,7 @@ export default function CommandCenterPage() {
 
           {/* Leads Needing Follow-Up */}
           <div>
-            <p className="text-gray-400 text-xs font-medium uppercase mb-2">Leads to Follow Up</p>
+            <p className="text-gray-400 text-xs font-medium uppercase component-spacing">Leads to Follow Up</p>
             <div className="space-y-2">
               {leadsNeedingFollowup.slice(0, 3).map((lead: any, index: number) => (
                 <div key={lead.id || index} className="flex items-start gap-2 text-sm">
@@ -227,7 +227,7 @@ export default function CommandCenterPage() {
 
           {/* Invoices Needing Action */}
           <div>
-            <p className="text-gray-400 text-xs font-medium uppercase mb-2">Invoices Needing Action</p>
+            <p className="text-gray-400 text-xs font-medium uppercase component-spacing">Invoices Needing Action</p>
             <div className="space-y-2">
               {overdueInvoices.map((inv: any, index: number) => (
                 <div key={inv.id || index} className="flex items-start gap-2 text-sm">
@@ -243,7 +243,7 @@ export default function CommandCenterPage() {
 
           {/* AI Completed Work */}
           <div>
-            <p className="text-gray-400 text-xs font-medium uppercase mb-2">AI Completed Today</p>
+            <p className="text-gray-400 text-xs font-medium uppercase component-spacing">AI Completed Today</p>
             <div className="space-y-2">
               {mockAgentActivity
                 .filter((a) => a.status === "completed")
@@ -260,10 +260,10 @@ export default function CommandCenterPage() {
       </div>
 
       {/* Alerts & Risks + Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 grid-spacing-loose section-spacing">
         {/* Alerts & Risks Panel */}
-        <div className="bg-[#111827] border border-gray-800 rounded-xl p-6">
-          <h3 className="text-white font-semibold mb-4">Alerts & Risks</h3>
+        <div className="container-primary">
+          <h3 className="text-white font-semibold subsection-spacing">Alerts & Risks</h3>
           <div className="space-y-0">
             {EXTENDED_ALERTS.map((alert, i) => (
               <div
@@ -289,8 +289,8 @@ export default function CommandCenterPage() {
       </div>
 
       {/* Active Projects */}
-      <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="container-primary section-spacing">
+        <div className="flex items-center justify-between subsection-spacing">
           <h3 className="text-white font-semibold">Active Projects</h3>
           <Link href="/dashboard/projects" className="text-blue-400 text-sm hover:underline">
             View all →
@@ -336,8 +336,8 @@ export default function CommandCenterPage() {
       </div>
 
       {/* Urgent Tasks */}
-      <div className="bg-[#111827] border border-gray-800 rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="container-primary">
+        <div className="flex items-center justify-between subsection-spacing">
           <h3 className="text-white font-semibold">Urgent & Overdue Tasks</h3>
           <Link href="/dashboard/tasks" className="text-blue-400 text-sm hover:underline">
             View all →

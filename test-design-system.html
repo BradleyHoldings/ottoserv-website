@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OttoServ Design System Test</title>
+    <style>
+        /* Import CSS custom properties from globals.css */
+        @import url('./src/app/globals.css');
+        
+        body {
+            font-family: var(--font-primary, 'Source Sans Pro', 'Segoe UI', system-ui, sans-serif);
+            background-color: var(--otto-gray-900);
+            color: var(--otto-gray-50);
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem;
+        }
+        
+        .test-section {
+            background: var(--otto-gray-800);
+            border: 1px solid var(--otto-gray-700);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .test-button {
+            background: var(--otto-blue-500);
+            color: white;
+            border: none;
+            padding: var(--space-3) var(--space-6);
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-right: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .test-button:hover {
+            background: var(--otto-blue-600);
+        }
+        
+        .test-input {
+            background: var(--otto-gray-700);
+            border: 1px solid var(--otto-gray-600);
+            color: var(--otto-gray-50);
+            padding: var(--space-3);
+            border-radius: 4px;
+            font-size: var(--text-base);
+            margin-bottom: 1rem;
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .color-box {
+            height: 60px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        
+        h1 { 
+            font-family: var(--font-secondary, 'Nunito Sans', 'Source Sans Pro', system-ui, sans-serif);
+            font-size: var(--text-4xl);
+            line-height: 1.1;
+            font-weight: 700;
+        }
+        
+        h2 { 
+            font-family: var(--font-secondary, 'Nunito Sans', 'Source Sans Pro', system-ui, sans-serif);
+            font-size: var(--text-2xl);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>OttoServ Design System Test</h1>
+    
+    <div class="test-section">
+        <h2>Typography Test</h2>
+        <p>Primary font (Source Sans Pro): The quick brown fox jumps over the lazy dog.</p>
+        <h3 style="font-family: var(--font-secondary);">Secondary font (Nunito Sans): This is a heading with personality</h3>
+        <p style="font-size: var(--text-sm);">Small text (14px)</p>
+        <p style="font-size: var(--text-base);">Base text (16px)</p>
+        <p style="font-size: var(--text-lg);">Large text (18px)</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Color Test</h2>
+        <div class="color-palette">
+            <div class="color-box" style="background: var(--otto-blue-500); color: white;">Primary Blue</div>
+            <div class="color-box" style="background: var(--otto-gray-800); color: var(--otto-gray-50);">Gray 800</div>
+            <div class="color-box" style="background: var(--otto-gray-700); color: var(--otto-gray-50);">Gray 700</div>
+            <div class="color-box" style="background: var(--otto-gray-900); color: var(--otto-gray-50); border: 1px solid var(--otto-gray-700);">Gray 900</div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Component Test</h2>
+        <button class="test-button">Primary Button</button>
+        <button class="test-button" style="background: var(--otto-gray-700);">Secondary Button</button>
+        <br>
+        <input type="text" class="test-input" placeholder="Test input field" />
+        <br>
+        <button class="test-button" style="background: var(--otto-green-500);">Success Button</button>
+        <button class="test-button" style="background: var(--otto-red-500);">Error Button</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Spacing Test</h2>
+        <div style="padding: var(--space-4); margin-bottom: var(--space-4); background: var(--otto-gray-700);">
+            Space-4 (16px) padding
+        </div>
+        <div style="padding: var(--space-6); margin-bottom: var(--space-6); background: var(--otto-gray-700);">
+            Space-6 (24px) padding
+        </div>
+        <div style="padding: var(--space-8); background: var(--otto-gray-700);">
+            Space-8 (32px) padding
+        </div>
+    </div>
+</body>
+</html>

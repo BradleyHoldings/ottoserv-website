@@ -113,7 +113,7 @@ export default async function BlogPostPage({
   if (!post) notFound();
 
   return (
-    <div className="bg-[#0a0a0a] min-h-screen">
+    <div className="min-h-screen" style={{backgroundColor: 'var(--otto-gray-900)'}}>
       <section className="py-20 px-4">
         <div className="max-w-3xl mx-auto">
           <Link href="/blog" className="text-blue-400 hover:text-blue-300 text-sm mb-8 inline-block transition-colors">
@@ -124,7 +124,8 @@ export default async function BlogPostPage({
             {post.tags.map((tag) => (
               <span
                 key={tag}
-                className="bg-[#1f2937] text-gray-400 text-xs px-2.5 py-1 rounded-full"
+                className="text-xs px-2.5 py-1 rounded-full"
+                style={{backgroundColor: 'var(--otto-gray-700)', color: 'var(--otto-gray-400)'}}
               >
                 {tag}
               </span>

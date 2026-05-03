@@ -35,7 +35,7 @@ const posts = [
 
 export default function BlogPage() {
   return (
-    <div className="bg-[#0a0a0a] min-h-screen">
+    <div className="min-h-screen" style={{backgroundColor: 'var(--otto-gray-900)'}}>
       {/* Header */}
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto text-center">
@@ -52,13 +52,15 @@ export default function BlogPage() {
           {posts.map((post) => (
             <article
               key={post.slug}
-              className="bg-[#111827] border border-gray-800 rounded-xl p-8 flex flex-col"
+              className="rounded-xl p-8 flex flex-col border"
+              style={{backgroundColor: 'var(--otto-gray-800)', borderColor: 'var(--otto-gray-700)'}}
             >
               <div className="flex gap-2 mb-4">
                 {post.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="bg-[#1f2937] text-gray-400 text-xs px-2.5 py-1 rounded-full"
+                    className="text-xs px-2.5 py-1 rounded-full"
+                    style={{backgroundColor: 'var(--otto-gray-700)', color: 'var(--otto-gray-400)'}}
                   >
                     {tag}
                   </span>
