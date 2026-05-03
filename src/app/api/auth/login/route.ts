@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 const getUsers = () => {
   return {
     "jonathan@ottoservco.com": {
-      password: process.env.JONATHAN_PASSWORD || "temp-admin-2026",
+      password: process.env.JONATHAN_PASSWORD || "ottoserv123",
       user: {
         id: 'jonathan-bradley',
         name: 'Jonathan Bradley',
