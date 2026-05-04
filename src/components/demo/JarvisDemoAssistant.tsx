@@ -196,18 +196,9 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
     setChatMessages([{ sender: 'jarvis', message: DEMO_SCRIPT[0].jarvis_message, timestamp: new Date() }]);
     fireStepCommands(DEMO_SCRIPT[0], sess);
 
-    // Show mic hint callout for 6 seconds
+    // Show mic hint callout for 8 seconds (visual only — no second voice)
     setShowMicHint(true);
-    setTimeout(() => setShowMicHint(false), 6000);
-
-    // Add mic intro message after first message has a moment to breathe
-    setTimeout(() => {
-      setChatMessages(prev => [...prev, {
-        sender: 'jarvis',
-        message: 'You can speak with me at any time — tap the 🎤 microphone button below to ask questions by voice.',
-        timestamp: new Date(),
-      }]);
-    }, 2000);
+    setTimeout(() => setShowMicHint(false), 8000);
   };
 
   const goToStep = (stepNumber: number) => {
