@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DemoCommand } from '@/lib/demoSystem';
 
 interface GuidanceOverlayProps {
@@ -10,34 +10,41 @@ interface GuidanceOverlayProps {
 
 interface HighlightInfo {
   element: Element;
-  originalStyle: string;
   rect: DOMRect;
 }
 
 export default function GuidanceOverlay({ command, onComplete }: GuidanceOverlayProps) {
-  const [activeHighlight, setActiveHighlight] = useState<HighlightInfo | null>(null);
   const [tooltip, setTooltip] = useState<{
-    message: string;
-    x: number;
-    y: number;
-    position: string;
+    message: string; x: number; y: number; position: string;
   } | null>(null);
+  const activeElementRef = useRef<Element | null>(null);
+  const backdropRef = useRef<HTMLDivElement | null>(null);
+  const completionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!command) return;
 
+    // Clear completion timer from previous command
+    if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+
     executeCommand(command);
 
-    // Auto-complete after duration
     if (command.duration_ms && onComplete) {
-      const timer = setTimeout(() => {
+      completionTimerRef.current = setTimeout(() => {
         clearGuidance();
         onComplete();
       }, command.duration_ms);
-
-      return () => clearTimeout(timer);
     }
+
+    return () => {
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+    };
   }, [command]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => clearGuidance();
+  }, []);
 
   const executeCommand = (cmd: DemoCommand) => {
     switch (cmd.action) {
@@ -47,251 +54,174 @@ export default function GuidanceOverlay({ command, onComplete }: GuidanceOverlay
         highlightElement(cmd);
         break;
       case 'scroll_to_element':
-        scrollToElement(cmd);
-        break;
-      case 'show_tooltip':
-        showTooltip(cmd);
+        scrollToTarget(cmd.target!);
         break;
       case 'clear_guidance':
         clearGuidance();
         break;
-      default:
-        console.log(`Demo command: ${cmd.action}`, cmd);
     }
+  };
+
+  const removeBackdrop = () => {
+    if (backdropRef.current) {
+      backdropRef.current.remove();
+      backdropRef.current = null;
+    }
+    // Also sweep any stragglers (e.g. from hot reloads)
+    document.querySelectorAll('.jarvis-overlay-backdrop').forEach(el => el.remove());
+  };
+
+  const clearGuidance = () => {
+    if (activeElementRef.current) {
+      activeElementRef.current.classList.remove(
+        'jarvis-highlight', 'jarvis-spotlight-target', 'jarvis-pulse'
+      );
+      activeElementRef.current = null;
+    }
+    removeBackdrop();
+    setTooltip(null);
+  };
+
+  const scrollToTarget = (target: string) => {
+    const el = document.querySelector(`[data-demo-target="${target}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  };
+
+  const placeBackdrop = (rect: DOMRect) => {
+    removeBackdrop();
+
+    const pad = 8;
+    const l = Math.max(0, rect.left - pad);
+    const t = Math.max(0, rect.top - pad);
+    const r = Math.min(window.innerWidth, rect.right + pad);
+    const b = Math.min(window.innerHeight, rect.bottom + pad);
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'jarvis-overlay-backdrop';
+    Object.assign(backdrop.style, {
+      position: 'fixed',
+      inset: '0',
+      background: 'rgba(0,0,0,0.72)',
+      zIndex: '9990',
+      pointerEvents: 'none',
+      // Punch a rectangular hole where the target lives
+      clipPath: `polygon(
+        0% 0%, 0% 100%,
+        ${l}px 100%, ${l}px ${t}px,
+        ${r}px ${t}px, ${r}px ${b}px,
+        ${l}px ${b}px, ${l}px 100%,
+        100% 100%, 100% 0%
+      )`,
+    });
+    document.body.appendChild(backdrop);
+    backdropRef.current = backdrop;
+  };
+
+  const placeTooltip = (rect: DOMRect, message: string, position: string) => {
+    let x = rect.left + rect.width / 2;
+    let y: number;
+    const pos = position || 'bottom';
+
+    switch (pos) {
+      case 'top':    y = rect.top - 12; break;
+      case 'bottom': y = rect.bottom + 12; break;
+      case 'left':   x = rect.left - 12; y = rect.top + rect.height / 2; break;
+      case 'right':  x = rect.right + 12; y = rect.top + rect.height / 2; break;
+      default:       y = rect.bottom + 12;
+    }
+    setTooltip({ message, x, y, position: pos });
   };
 
   const highlightElement = (cmd: DemoCommand) => {
     if (!cmd.target) return;
 
-    // Find element by data-demo-target attribute
-    const element = document.querySelector(`[data-demo-target="${cmd.target}"]`);
-    if (!element) {
-      console.warn(`Demo target not found: ${cmd.target}`);
+    const el = document.querySelector(`[data-demo-target="${cmd.target}"]`);
+    if (!el) {
+      console.warn(`[Demo] Target not found: ${cmd.target}`);
       return;
     }
 
-    // Clear previous highlight
+    // Clear any previous highlight immediately
     clearGuidance();
 
-    const rect = element.getBoundingClientRect();
-    const originalStyle = element.getAttribute('style') || '';
+    // Mark the element so clearGuidance can clean it up later
+    activeElementRef.current = el;
 
-    // Apply highlight style based on command
-    let highlightClass = '';
-    switch (cmd.action) {
-      case 'highlight_element':
-        highlightClass = 'jarvis-highlight';
-        break;
-      case 'spotlight_element':
-        highlightClass = 'jarvis-spotlight';
-        break;
-      case 'pulse_element':
-        highlightClass = 'jarvis-pulse';
-        break;
-    }
+    // Scroll the element into view — smooth scroll takes ~300-500ms
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
 
-    element.classList.add(highlightClass);
-    
-    setActiveHighlight({
-      element: element as Element,
-      originalStyle,
-      rect
-    });
+    // Wait for scroll to settle, then capture the real viewport position
+    setTimeout(() => {
+      if (!activeElementRef.current || activeElementRef.current !== el) return; // stepped away
 
-    // Show tooltip if message provided
-    if (cmd.message) {
-      showTooltipForElement(element as Element, cmd.message, cmd.position || 'top');
-    }
+      const rect = el.getBoundingClientRect();
 
-    // Scroll element into view
-    element.scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'center',
-      inline: 'nearest'
-    });
+      if (cmd.action === 'spotlight_element') {
+        // Spotlight: backdrop with hole. Add a subtle glow ring instead of box-shadow
+        // (box-shadow is clipped by overflow:hidden parents like the sidebar).
+        el.classList.add('jarvis-spotlight-target');
+        placeBackdrop(rect);
+      } else if (cmd.action === 'highlight_element') {
+        el.classList.add('jarvis-highlight');
+      } else {
+        el.classList.add('jarvis-pulse');
+      }
+
+      if (cmd.message) {
+        placeTooltip(rect, cmd.message, cmd.position || 'bottom');
+      }
+    }, 500);
   };
-
-  const scrollToElement = (cmd: DemoCommand) => {
-    if (!cmd.target) return;
-
-    const element = document.querySelector(`[data-demo-target="${cmd.target}"]`);
-    if (element) {
-      element.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'nearest'
-      });
-    }
-  };
-
-  const showTooltip = (cmd: DemoCommand) => {
-    if (!cmd.target || !cmd.message) return;
-
-    const element = document.querySelector(`[data-demo-target="${cmd.target}"]`);
-    if (element) {
-      showTooltipForElement(element as Element, cmd.message, cmd.position || 'top');
-    }
-  };
-
-  const showTooltipForElement = (element: Element, message: string, position: string) => {
-    const rect = element.getBoundingClientRect();
-    let x = rect.left + rect.width / 2;
-    let y = rect.top;
-
-    switch (position) {
-      case 'bottom':
-        y = rect.bottom + 10;
-        break;
-      case 'left':
-        x = rect.left - 10;
-        y = rect.top + rect.height / 2;
-        break;
-      case 'right':
-        x = rect.right + 10;
-        y = rect.top + rect.height / 2;
-        break;
-      default: // 'top'
-        y = rect.top - 10;
-    }
-
-    setTooltip({ message, x, y, position });
-  };
-
-  const clearGuidance = () => {
-    // Remove highlight classes
-    if (activeHighlight) {
-      activeHighlight.element.classList.remove(
-        'jarvis-highlight',
-        'jarvis-spotlight', 
-        'jarvis-pulse'
-      );
-    }
-
-    setActiveHighlight(null);
-    setTooltip(null);
-
-    // Clear any existing overlays
-    const existingOverlays = document.querySelectorAll('.jarvis-overlay-backdrop');
-    existingOverlays.forEach(overlay => overlay.remove());
-  };
-
-  // Create spotlight backdrop for spotlight_element
-  useEffect(() => {
-    if (command?.action === 'spotlight_element' && activeHighlight) {
-      const backdrop = document.createElement('div');
-      backdrop.className = 'jarvis-overlay-backdrop';
-      backdrop.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 9998;
-        pointer-events: none;
-      `;
-
-      // Create spotlight hole
-      const rect = activeHighlight.rect;
-      backdrop.style.clipPath = `circle(${Math.max(rect.width, rect.height) * 0.6}px at ${rect.left + rect.width/2}px ${rect.top + rect.height/2}px)`;
-      backdrop.style.clipPath = `polygon(0% 0%, 0% 100%, ${rect.left}px 100%, ${rect.left}px ${rect.top}px, ${rect.right}px ${rect.top}px, ${rect.right}px ${rect.bottom}px, ${rect.left}px ${rect.bottom}px, ${rect.left}px 100%, 100% 100%, 100% 0%)`;
-
-      document.body.appendChild(backdrop);
-    }
-  }, [activeHighlight, command]);
 
   return (
     <>
-      {/* Tooltip */}
       {tooltip && (
         <div
-          className="jarvis-tooltip"
           style={{
             position: 'fixed',
             left: tooltip.x,
             top: tooltip.y,
-            transform: tooltip.position === 'top' || tooltip.position === 'bottom' 
-              ? 'translateX(-50%)' 
-              : tooltip.position === 'left' 
-                ? 'translateX(-100%)'
-                : 'none',
-            zIndex: 10001,
-            background: '#1f2937',
+            transform: (tooltip.position === 'top' || tooltip.position === 'bottom')
+              ? 'translateX(-50%)'
+              : tooltip.position === 'left' ? 'translate(-100%, -50%)' : 'translateY(-50%)',
+            zIndex: 10002,
+            background: '#111827',
             color: 'white',
-            padding: '12px 16px',
+            padding: '10px 14px',
             borderRadius: '8px',
-            fontSize: '14px',
-            maxWidth: '300px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
-            border: '1px solid #374151'
+            fontSize: '13px',
+            maxWidth: '260px',
+            lineHeight: '1.5',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            border: '1px solid #374151',
+            pointerEvents: 'none',
           }}
         >
           {tooltip.message}
-          <div
-            className="tooltip-arrow"
-            style={{
-              position: 'absolute',
-              width: 0,
-              height: 0,
-              borderStyle: 'solid',
-              ...(tooltip.position === 'top' && {
-                top: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                borderWidth: '8px 8px 0 8px',
-                borderColor: '#1f2937 transparent transparent transparent'
-              }),
-              ...(tooltip.position === 'bottom' && {
-                bottom: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                borderWidth: '0 8px 8px 8px',
-                borderColor: 'transparent transparent #1f2937 transparent'
-              })
-            }}
-          />
         </div>
       )}
 
-      {/* CSS Styles for highlights */}
       <style jsx global>{`
+        .jarvis-spotlight-target {
+          position: relative;
+          z-index: 9991 !important;
+          outline: 2px solid rgba(0, 132, 255, 0.8) !important;
+          outline-offset: 4px;
+          border-radius: 6px;
+          transition: outline 0.2s ease;
+        }
         .jarvis-highlight {
-          position: relative;
           outline: 3px solid #0084ff !important;
           outline-offset: 2px;
           border-radius: 4px;
-          transition: all 0.3s ease;
         }
-
-        .jarvis-spotlight {
-          position: relative;
-          outline: 3px solid #0084ff !important;
-          outline-offset: 2px;
-          border-radius: 4px;
-          z-index: 9999 !important;
-          transition: all 0.3s ease;
-          box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.8) !important;
-        }
-
         .jarvis-pulse {
-          position: relative;
-          animation: jarvis-pulse-animation 2s infinite;
+          animation: jarvis-pulse-ring 1.8s ease-out infinite;
         }
-
-        @keyframes jarvis-pulse-animation {
-          0% {
-            box-shadow: 0 0 0 0 rgba(0, 132, 255, 0.7);
-          }
-          70% {
-            box-shadow: 0 0 0 10px rgba(0, 132, 255, 0);
-          }
-          100% {
-            box-shadow: 0 0 0 0 rgba(0, 132, 255, 0);
-          }
-        }
-
-        .jarvis-tooltip {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        @keyframes jarvis-pulse-ring {
+          0%   { box-shadow: 0 0 0 0 rgba(0,132,255,0.7); }
+          70%  { box-shadow: 0 0 0 10px rgba(0,132,255,0); }
+          100% { box-shadow: 0 0 0 0 rgba(0,132,255,0); }
         }
       `}</style>
     </>
