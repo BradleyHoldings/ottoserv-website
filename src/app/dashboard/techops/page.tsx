@@ -61,7 +61,7 @@ export default function TechOpsDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Recent Tickets */}
-        <div className="lg:col-span-2 bg-[#111827] border border-gray-800 rounded-xl overflow-hidden">
+        <div className="lg:col-span-2 bg-[#111827] border border-gray-800 rounded-xl overflow-hidden" data-demo-target="techops-tickets">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
             <h2 className="text-white font-semibold">Recent Tickets</h2>
             <Link href="/dashboard/techops/tickets" className="text-blue-400 hover:text-blue-300 text-sm transition-colors">

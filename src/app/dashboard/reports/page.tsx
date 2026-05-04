@@ -204,7 +204,7 @@ export default function ReportsPage() {
   const generatingCount = reports.filter((r) => r.status === "generating").length;
 
   return (
-    <div>
+    <div data-demo-target="reports-dashboards">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Reports</h1>

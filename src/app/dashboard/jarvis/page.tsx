@@ -23,7 +23,7 @@ export default function JarvisPage() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 bg-[#111827] border border-gray-800 rounded-xl p-6 flex flex-col">
+      <div className="flex-1 min-h-0 bg-[#111827] border border-gray-800 rounded-xl p-6 flex flex-col" data-demo-target="jarvis-chat-area">
         <JarvisChat />
       </div>
     </div>

@@ -28,10 +28,10 @@ export interface DemoSession {
 
 export interface DemoCommand {
   session_id: string;
-  action: 
+  action:
     | "start_demo"
     | "highlight_element"
-    | "spotlight_element" 
+    | "spotlight_element"
     | "pulse_element"
     | "scroll_to_element"
     | "show_tooltip"
@@ -39,6 +39,7 @@ export interface DemoCommand {
     | "open_modal"
     | "close_modal"
     | "clear_guidance"
+    | "navigate_to"
     | "next_demo_step"
     | "previous_demo_step"
     | "pause_demo"
@@ -49,6 +50,7 @@ export interface DemoCommand {
   style?: "highlight" | "spotlight" | "pulse";
   message?: string;
   duration_ms?: number;
+  delay_ms?: number;
   position?: "top" | "bottom" | "left" | "right";
   metadata?: any;
 }
@@ -148,97 +150,73 @@ export const DEMO_SCRIPT: DemoStep[] = [
   {
     id: 6,
     title: "Leads",
-    jarvis_message: "The Leads section manages your full pipeline. When someone calls, fills out a form, or reaches out on social media, I qualify them, score them, and move them through the pipeline — from new inquiry to booked appointment — without manual follow-up.",
+    jarvis_message: "Let me show you the Leads pipeline. Every inquiry from every channel — calls, forms, web, social — lands here. I qualify leads automatically, score them by conversion likelihood, and move them through eight stages from first contact to won deal without manual follow-up.",
     commands: [
-      {
-        session_id: "",
-        action: "spotlight_element",
-        target: "sidebar-leads",
-        message: "Lead pipeline management",
-        duration_ms: 12000
-      }
+      { session_id: "", action: "spotlight_element", target: "sidebar-leads", message: "Opening Leads...", delay_ms: 0 },
+      { session_id: "", action: "navigate_to", target: "/dashboard/leads", delay_ms: 1800 },
+      { session_id: "", action: "spotlight_element", target: "leads-pipeline", message: "Full lead pipeline — 8 stages from inquiry to won", duration_ms: 12000, delay_ms: 3200 },
     ],
-    duration_ms: 14000,
+    duration_ms: 17000,
     next_step_trigger: "manual"
   },
   {
     id: 7,
     title: "Automations",
-    jarvis_message: "The Automations section is where I run your business logic — follow-up sequences, lead nurture, appointment reminders, invoice reminders, and dozens of other workflows running 24/7 in the background.",
+    jarvis_message: "Here are your Automations — the business logic running 24/7 in the background. Every card here is a live workflow: follow-up sequences, appointment reminders, invoice reminders, lead nurture. When a trigger fires, I act immediately without anyone having to remember.",
     commands: [
-      {
-        session_id: "",
-        action: "spotlight_element",
-        target: "sidebar-automations",
-        message: "Business automations",
-        duration_ms: 12000
-      }
+      { session_id: "", action: "spotlight_element", target: "sidebar-automations", message: "Opening Automations...", delay_ms: 0 },
+      { session_id: "", action: "navigate_to", target: "/dashboard/automations", delay_ms: 1800 },
+      { session_id: "", action: "spotlight_element", target: "automations-list", message: "Live automations running your business logic 24/7", duration_ms: 12000, delay_ms: 3200 },
     ],
-    duration_ms: 14000,
+    duration_ms: 17000,
     next_step_trigger: "manual"
   },
   {
     id: 8,
     title: "Social Media",
-    jarvis_message: "Social Media is managed through this section. I draft posts, schedule them across Facebook, Instagram, LinkedIn, and Reddit, and route them for your approval before publishing. Your brand stays active without you having to think about it.",
+    jarvis_message: "This is your Social Media hub. I draft content, schedule posts across Facebook, Instagram, LinkedIn, and Reddit, and route everything for your approval before it publishes. Your brand stays active without you having to think about it.",
     commands: [
-      {
-        session_id: "",
-        action: "spotlight_element",
-        target: "sidebar-social",
-        message: "Social media management",
-        duration_ms: 12000
-      }
+      { session_id: "", action: "spotlight_element", target: "sidebar-social", message: "Opening Social Media...", delay_ms: 0 },
+      { session_id: "", action: "navigate_to", target: "/dashboard/social", delay_ms: 1800 },
+      { session_id: "", action: "spotlight_element", target: "social-tabs", message: "Calendar, approval queue, published posts, and drafts", duration_ms: 12000, delay_ms: 3200 },
     ],
-    duration_ms: 14000,
+    duration_ms: 17000,
     next_step_trigger: "manual"
   },
   {
     id: 9,
     title: "Ask Jarvis",
-    jarvis_message: "You can chat with me directly through Ask Jarvis. Type any question about your business — 'What leads need follow-up?' or 'How did revenue trend this month?' — and I'll pull the answer from live data. For quick access anywhere, you can also download the Jarvis app to speak with me by voice. The audio version knows everything happening in your business in real time and can answer any question. Since voice conversations can't take direct actions yet, anything that needs doing — sending an email, creating a task, updating a record — can be handled through text chat right here or via Telegram.",
+    jarvis_message: "This is where you talk to me directly. Ask anything — what leads need follow-up, how revenue trended this month, what's overdue — and I'll pull the answer from live data. You can also download the Jarvis app to speak with me by voice. The audio version knows everything happening in your business in real time. Since voice conversations can't take direct actions yet, anything that needs doing — sending an email, creating a task, updating a record — can be handled right here in text chat, or via Telegram.",
     commands: [
-      {
-        session_id: "",
-        action: "spotlight_element",
-        target: "sidebar-jarvis",
-        message: "Ask Jarvis — AI assistant",
-        duration_ms: 12000
-      }
+      { session_id: "", action: "spotlight_element", target: "sidebar-jarvis", message: "Opening Ask Jarvis...", delay_ms: 0 },
+      { session_id: "", action: "navigate_to", target: "/dashboard/jarvis", delay_ms: 1800 },
+      { session_id: "", action: "spotlight_element", target: "jarvis-chat-area", message: "Ask me anything about your business — live data, any question", duration_ms: 12000, delay_ms: 3200 },
     ],
-    duration_ms: 14000,
+    duration_ms: 17000,
     next_step_trigger: "manual"
   },
   {
     id: 10,
     title: "TechOps",
-    jarvis_message: "TechOps is built for service businesses that manage technology for their clients. Submit tickets, track remote access jobs, and route high-urgency issues to me for immediate triage and response.",
+    jarvis_message: "TechOps is built for businesses that manage technology for their clients. Tickets are triaged by AI the moment they come in — most are resolved without human intervention. High-urgency issues get escalated to you immediately with full context.",
     commands: [
-      {
-        session_id: "",
-        action: "spotlight_element",
-        target: "sidebar-techops",
-        message: "TechOps management",
-        duration_ms: 12000
-      }
+      { session_id: "", action: "spotlight_element", target: "sidebar-techops", message: "Opening TechOps...", delay_ms: 0 },
+      { session_id: "", action: "navigate_to", target: "/dashboard/techops", delay_ms: 1800 },
+      { session_id: "", action: "spotlight_element", target: "techops-tickets", message: "AI-triaged tickets — most resolved without human intervention", duration_ms: 12000, delay_ms: 3200 },
     ],
-    duration_ms: 14000,
+    duration_ms: 17000,
     next_step_trigger: "manual"
   },
   {
     id: 11,
     title: "Reports",
-    jarvis_message: "Reports gives you intelligence on lead conversion, revenue trends, job profitability, and team performance. I generate these automatically and flag anything that needs your attention. That covers the core of OttoServ. Any questions?",
+    jarvis_message: "And finally, Reports. Four executive dashboards — Owner, Project, Operations, and Sales — all built from live data and updated automatically. I flag anything trending in the wrong direction so you see problems before they compound. That's the full platform. Any questions?",
     commands: [
-      {
-        session_id: "",
-        action: "spotlight_element",
-        target: "sidebar-reports",
-        message: "Business intelligence reports",
-        duration_ms: 12000
-      }
+      { session_id: "", action: "spotlight_element", target: "sidebar-reports", message: "Opening Reports...", delay_ms: 0 },
+      { session_id: "", action: "navigate_to", target: "/dashboard/reports", delay_ms: 1800 },
+      { session_id: "", action: "spotlight_element", target: "reports-dashboards", message: "Owner, Project, Operations, and Sales dashboards — all live data", duration_ms: 12000, delay_ms: 3200 },
     ],
-    duration_ms: 14000,
+    duration_ms: 17000,
     next_step_trigger: "manual"
   }
 ];

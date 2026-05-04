@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/lib/userAuth';
 import { DemoSessionManager, DemoCommand } from '@/lib/demoSystem';
 import JarvisDemoAssistant from './JarvisDemoAssistant';
@@ -29,6 +30,7 @@ interface DemoModeProviderProps {
 }
 
 export default function DemoModeProvider({ children }: DemoModeProviderProps) {
+  const router = useRouter();
   const [isDemoUser, setIsDemoUser] = useState(false);
   const [isDemoActive, setIsDemoActive] = useState(false);
   const [currentCommand, setCurrentCommand] = useState<DemoCommand | null>(null);
@@ -40,6 +42,22 @@ export default function DemoModeProvider({ children }: DemoModeProviderProps) {
     const isDemo = DemoSessionManager.isDemo(user);
     setIsDemoUser(isDemo);
   }, []);
+
+  // Detect clicks on data-demo-target elements and broadcast to JarvisDemoAssistant
+  useEffect(() => {
+    if (!isDemoActive) return;
+
+    const handleClick = (e: MouseEvent) => {
+      const el = (e.target as Element).closest('[data-demo-target]');
+      if (!el) return;
+      const target = el.getAttribute('data-demo-target');
+      if (!target) return;
+      window.dispatchEvent(new CustomEvent('jarvis:section-click', { detail: { target } }));
+    };
+
+    document.addEventListener('click', handleClick, { capture: true });
+    return () => document.removeEventListener('click', handleClick, { capture: true });
+  }, [isDemoActive]);
 
   const startDemo = () => {
     setIsDemoActive(true);
@@ -54,6 +72,15 @@ export default function DemoModeProvider({ children }: DemoModeProviderProps) {
   };
 
   const executeCommand = (command: DemoCommand) => {
+    if (command.action === 'navigate_to' && command.target) {
+      // Clear guidance first, then navigate
+      setCurrentCommand({ action: 'clear_guidance', session_id: command.session_id });
+      setTimeout(() => {
+        router.push(command.target!);
+        setTimeout(() => setCurrentCommand(null), 100);
+      }, 200);
+      return;
+    }
     setCurrentCommand(command);
   };
 

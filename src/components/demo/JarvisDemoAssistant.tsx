@@ -35,6 +35,8 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
   const recognitionRef = useRef<any>(null);
   const sessionRef = useRef<DemoSession | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const speakAbortRef = useRef<AbortController | null>(null);
+  const lastClickRef = useRef<{ target: string; time: number } | null>(null);
 
   // Keep sessionRef in sync so callbacks always see latest session
   useEffect(() => { sessionRef.current = session; }, [session]);
@@ -60,6 +62,36 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
     }
   }, [chatMessages, audioEnabled]);
 
+  // Listen for section clicks dispatched by DemoModeProvider
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const handleSectionClick = (e: CustomEvent) => {
+      const target = e.detail?.target as string;
+      if (!target) return;
+
+      // Debounce — skip if same section clicked within 4s
+      const now = Date.now();
+      if (lastClickRef.current?.target === target && now - lastClickRef.current.time < 4000) return;
+      lastClickRef.current = { target, time: now };
+
+      const { message, highlight } = explainSection(target);
+      addJarvisMessage(message);
+      if (highlight) {
+        onCommand({
+          action: 'spotlight_element',
+          target: highlight,
+          message,
+          duration_ms: 9000,
+          session_id: sessionRef.current?.id ?? '',
+        });
+      }
+    };
+
+    window.addEventListener('jarvis:section-click', handleSectionClick as EventListener);
+    return () => window.removeEventListener('jarvis:section-click', handleSectionClick as EventListener);
+  }, [isVisible]);
+
   // Stop audio when component unmounts
   useEffect(() => {
     return () => cancelSpeech();
@@ -68,6 +100,10 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
   // ─── TTS ──────────────────────────────────────────────────────────────────
 
   const cancelSpeech = () => {
+    if (speakAbortRef.current) {
+      speakAbortRef.current.abort();
+      speakAbortRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -102,19 +138,28 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
   const speakText = useCallback(async (text: string) => {
     cancelSpeech();
 
+    const controller = new AbortController();
+    speakAbortRef.current = controller;
+
     try {
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
+        signal: controller.signal,
       });
 
+      if (controller.signal.aborted) return;
+
       if (!res.ok) {
-        fallbackSpeak(text);
+        if (!controller.signal.aborted) fallbackSpeak(text);
         return;
       }
 
       const blob = await res.blob();
+      if (controller.signal.aborted) return;
+
+      speakAbortRef.current = null;
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
@@ -123,16 +168,16 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
       audio.onended = () => {
         setIsSpeaking(false);
         URL.revokeObjectURL(url);
-        audioRef.current = null;
+        if (audioRef.current === audio) audioRef.current = null;
       };
       audio.onerror = () => {
         setIsSpeaking(false);
-        audioRef.current = null;
-        fallbackSpeak(text);
+        if (audioRef.current === audio) audioRef.current = null;
       };
 
       await audio.play();
-    } catch {
+    } catch (err: any) {
+      if (err.name === 'AbortError') return;
       fallbackSpeak(text);
     }
   }, [fallbackSpeak]);
@@ -151,7 +196,6 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
       return;
     }
 
-    // Stop Jarvis speaking before mic activates
     cancelSpeech();
 
     const rec = new SR();
@@ -182,9 +226,10 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
 
   const fireStepCommands = (step: typeof DEMO_SCRIPT[0], sess: DemoSession) => {
     step.commands.forEach((command, i) => {
+      const delay = command.delay_ms !== undefined ? command.delay_ms : i * 600;
       setTimeout(() => {
         onCommand({ ...command, session_id: sess.id });
-      }, i * 600);
+      }, delay);
     });
   };
 
@@ -196,7 +241,7 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
     setChatMessages([{ sender: 'jarvis', message: DEMO_SCRIPT[0].jarvis_message, timestamp: new Date() }]);
     fireStepCommands(DEMO_SCRIPT[0], sess);
 
-    // Show mic hint callout for 8 seconds (visual only — no second voice)
+    // Show mic hint callout for 8 seconds (visual only)
     setShowMicHint(true);
     setTimeout(() => setShowMicHint(false), 8000);
   };
@@ -264,6 +309,43 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
     if (session) DemoSessionManager.updateSession(session.id, { status: 'completed', completed_at: new Date() });
     addJarvisMessage("That wraps up the guided tour. Feel free to explore on your own, or ask me anything — by voice or text.");
     onCommand({ action: 'clear_guidance', session_id: session?.id });
+  };
+
+  // ─── Section click explanations ───────────────────────────────────────────
+
+  const explainSection = (target: string): { message: string; highlight?: string } => {
+    switch (target) {
+      case 'leads-pipeline':
+      case 'sidebar-leads':
+        return { message: "This is your Leads pipeline — every inquiry from every channel lands here. I qualify leads automatically, score them by conversion likelihood, and move them through eight stages from first contact to won deal.", highlight: 'leads-pipeline' };
+      case 'automations-list':
+      case 'sidebar-automations':
+        return { message: "These are your live automations — the business logic running 24/7. Each card is a workflow: follow-up sequences, appointment reminders, invoice nudges, lead nurture. When a trigger fires, I act immediately.", highlight: 'automations-list' };
+      case 'social-tabs':
+      case 'sidebar-social':
+        return { message: "Social Media shows your content calendar, pending approvals, and published posts. I draft content, schedule it across your platforms, and route each post for your approval before it goes live.", highlight: 'social-tabs' };
+      case 'jarvis-chat-area':
+      case 'sidebar-jarvis':
+        return { message: "This is where you talk to me directly. Ask anything about your business — revenue, leads, what's overdue — and I pull the answer from live data. You can also reach me by voice through the Jarvis app.", highlight: 'jarvis-chat-area' };
+      case 'techops-tickets':
+      case 'sidebar-techops':
+        return { message: "TechOps is your tech support hub. Tickets are triaged by AI the moment they come in — most are resolved without human intervention. High-urgency issues get escalated to you immediately with full context.", highlight: 'techops-tickets' };
+      case 'reports-dashboards':
+      case 'sidebar-reports':
+        return { message: "Reports gives you four executive dashboards — Owner, Project, Operations, and Sales — all built from live data. I flag anything trending in the wrong direction so you see problems before they compound.", highlight: 'reports-dashboards' };
+      case 'kpi-section':
+        return { message: "These are your live business KPIs — revenue, active jobs, new leads, and booked appointments. They update in real time as activity happens across your business.", highlight: 'kpi-section' };
+      case 'operational-snapshot':
+        return { message: "The operational snapshot shows what needs attention right now — leads awaiting follow-up, work orders, project status, and team tasks. I monitor all of this automatically so nothing falls through the cracks.", highlight: 'operational-snapshot' };
+      case 'alerts-section':
+        return { message: "Alerts and risks I've identified — budget overruns, overdue invoices, stalled leads. I surface these before they become problems so you can act early.", highlight: 'alerts-section' };
+      case 'active-projects':
+        return { message: "Active projects shows progress, budgets, and timelines for all ongoing work. When something falls behind, I alert you and can draft the client communication.", highlight: 'active-projects' };
+      case 'tasks-section':
+        return { message: "Urgent and overdue tasks — I create these automatically from business activity. A new lead, a completed job, an unanswered email all trigger the right follow-up task automatically.", highlight: 'tasks-section' };
+      default:
+        return { message: "That's part of how OttoServ keeps your business running automatically. Want me to go deeper on any part of it?" };
+    }
   };
 
   // ─── Q&A ──────────────────────────────────────────────────────────────────
@@ -454,11 +536,10 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
                     fontWeight: 600,
                     whiteSpace: 'nowrap',
                     zIndex: 2,
-                    animation: 'mic-hint-fade 6s ease forwards',
+                    animation: 'mic-hint-fade 8s ease forwards',
                     pointerEvents: 'none',
                   }}>
                     Tap to speak
-                    {/* Arrow pointing down */}
                     <div style={{
                       position: 'absolute',
                       top: '100%',

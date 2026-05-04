@@ -109,7 +109,7 @@ export default function LeadsPage() {
   }, []);
 
   return (
-    <div>
+    <div data-demo-target="leads-pipeline">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Leads</h1>

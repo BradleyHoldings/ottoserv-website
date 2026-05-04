@@ -300,7 +300,7 @@ export default function SocialPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#111827] border border-gray-800 rounded-xl p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-[#111827] border border-gray-800 rounded-xl p-1 mb-6 w-fit" data-demo-target="social-tabs">
         {TABS.map((tab) => (
           <button
             key={tab.id}
