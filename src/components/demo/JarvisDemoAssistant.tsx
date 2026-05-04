@@ -25,14 +25,16 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   // Audio
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showMicHint, setShowMicHint] = useState(false);
 
   const chatRef = useRef<HTMLDivElement>(null);
   const autoStartedRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const sessionRef = useRef<DemoSession | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Keep sessionRef in sync so callbacks always see latest session
   useEffect(() => { sessionRef.current = session; }, [session]);
@@ -58,25 +60,31 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
     }
   }, [chatMessages, audioEnabled]);
 
-  // Stop speech synthesis when component unmounts
+  // Stop audio when component unmounts
   useEffect(() => {
-    return () => {
-      if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
-    };
+    return () => cancelSpeech();
   }, []);
 
   // ─── TTS ──────────────────────────────────────────────────────────────────
-  const speakText = useCallback((text: string) => {
+
+  const cancelSpeech = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
+  };
+
+  const fallbackSpeak = useCallback((text: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 0.95;
     utter.pitch = 0.9;
     utter.onstart = () => setIsSpeaking(true);
     utter.onend = () => setIsSpeaking(false);
     utter.onerror = () => setIsSpeaking(false);
-
     const assignVoice = () => {
       const voices = window.speechSynthesis.getVoices();
       const pick =
@@ -87,15 +95,50 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
       if (pick) utter.voice = pick;
       window.speechSynthesis.speak(utter);
     };
-
-    if (window.speechSynthesis.getVoices().length > 0) {
-      assignVoice();
-    } else {
-      window.speechSynthesis.onvoiceschanged = assignVoice;
-    }
+    if (window.speechSynthesis.getVoices().length > 0) assignVoice();
+    else window.speechSynthesis.onvoiceschanged = assignVoice;
   }, []);
 
+  const speakText = useCallback(async (text: string) => {
+    cancelSpeech();
+
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!res.ok) {
+        fallbackSpeak(text);
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      setIsSpeaking(true);
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+      };
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+        fallbackSpeak(text);
+      };
+
+      await audio.play();
+    } catch {
+      fallbackSpeak(text);
+    }
+  }, [fallbackSpeak]);
+
   // ─── STT ──────────────────────────────────────────────────────────────────
+
   const toggleListening = () => {
     if (isListening) {
       recognitionRef.current?.stop();
@@ -109,8 +152,7 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
     }
 
     // Stop Jarvis speaking before mic activates
-    window.speechSynthesis?.cancel();
-    setIsSpeaking(false);
+    cancelSpeech();
 
     const rec = new SR();
     recognitionRef.current = rec;
@@ -131,11 +173,13 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
   };
 
   // ─── Chat helpers ─────────────────────────────────────────────────────────
+
   const addJarvisMessage = (message: string) => {
     setChatMessages(prev => [...prev, { sender: 'jarvis', message, timestamp: new Date() }]);
   };
 
   // ─── Demo flow ────────────────────────────────────────────────────────────
+
   const fireStepCommands = (step: typeof DEMO_SCRIPT[0], sess: DemoSession) => {
     step.commands.forEach((command, i) => {
       setTimeout(() => {
@@ -151,6 +195,19 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
     setIsPaused(false);
     setChatMessages([{ sender: 'jarvis', message: DEMO_SCRIPT[0].jarvis_message, timestamp: new Date() }]);
     fireStepCommands(DEMO_SCRIPT[0], sess);
+
+    // Show mic hint callout for 6 seconds
+    setShowMicHint(true);
+    setTimeout(() => setShowMicHint(false), 6000);
+
+    // Add mic intro message after first message has a moment to breathe
+    setTimeout(() => {
+      setChatMessages(prev => [...prev, {
+        sender: 'jarvis',
+        message: 'You can speak with me at any time — tap the 🎤 microphone button below to ask questions by voice.',
+        timestamp: new Date(),
+      }]);
+    }, 2000);
   };
 
   const goToStep = (stepNumber: number) => {
@@ -197,7 +254,7 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
   };
 
   const restartDemo = () => {
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
     setCurrentStep(1);
     setIsPaused(false);
     setChatMessages([]);
@@ -206,7 +263,7 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
   };
 
   const skipDemo = () => {
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
     if (session) DemoSessionManager.updateSession(session.id, { status: 'skipped' });
     onCommand({ action: 'clear_guidance', session_id: session?.id });
     onClose();
@@ -219,6 +276,7 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
   };
 
   // ─── Q&A ──────────────────────────────────────────────────────────────────
+
   const handleQuestion = (text: string) => {
     if (!text.trim()) return;
     setChatMessages(prev => [...prev, { sender: 'user', message: text, timestamp: new Date() }]);
@@ -308,9 +366,9 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
             onClick={() => {
               const next = !audioEnabled;
               setAudioEnabled(next);
-              if (!next) { window.speechSynthesis?.cancel(); setIsSpeaking(false); }
+              if (!next) cancelSpeech();
             }}
-            title={audioEnabled ? 'Mute Jarvis' : 'Enable voice'}
+            title={audioEnabled ? 'Mute Jarvis' : 'Enable Jarvis voice'}
             style={{
               width: 30, height: 30, borderRadius: 6,
               background: audioEnabled ? '#1d4ed8' : '#1f2937',
@@ -389,22 +447,56 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
           {/* ── Input ── */}
           <div style={{ padding: '8px 12px', borderTop: '1px solid #1f2937', flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              {/* Mic button */}
-              <button
-                onClick={toggleListening}
-                title={isListening ? 'Stop listening' : 'Speak to Jarvis'}
-                style={{
-                  width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                  background: isListening ? '#dc2626' : '#1f2937',
-                  border: `1px solid ${isListening ? '#ef4444' : '#374151'}`,
-                  color: isListening ? 'white' : '#6b7280',
-                  cursor: 'pointer', fontSize: 16,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  animation: isListening ? 'mic-pulse 1.2s ease-in-out infinite' : 'none',
-                }}
-              >
-                🎤
-              </button>
+              {/* Mic button with callout hint */}
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                {showMicHint && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 8px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#1d4ed8',
+                    color: 'white',
+                    padding: '5px 10px',
+                    borderRadius: 8,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    zIndex: 2,
+                    animation: 'mic-hint-fade 6s ease forwards',
+                    pointerEvents: 'none',
+                  }}>
+                    Tap to speak
+                    {/* Arrow pointing down */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 0, height: 0,
+                      borderLeft: '5px solid transparent',
+                      borderRight: '5px solid transparent',
+                      borderTop: '5px solid #1d4ed8',
+                    }} />
+                  </div>
+                )}
+                <button
+                  onClick={toggleListening}
+                  title={isListening ? 'Stop listening' : 'Speak to Jarvis'}
+                  style={{
+                    width: 36, height: 36, borderRadius: 8,
+                    background: isListening ? '#dc2626' : '#1f2937',
+                    border: `1px solid ${isListening ? '#ef4444' : showMicHint ? '#2563eb' : '#374151'}`,
+                    color: isListening ? 'white' : showMicHint ? '#60a5fa' : '#6b7280',
+                    cursor: 'pointer', fontSize: 16,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    animation: isListening ? 'mic-pulse 1.2s ease-in-out infinite' : 'none',
+                    transition: 'border-color 0.3s, color 0.3s',
+                  }}
+                >
+                  🎤
+                </button>
+              </div>
               <input
                 type="text"
                 value={userQuestion}
@@ -494,6 +586,11 @@ export default function JarvisDemoAssistant({ isVisible, onCommand, onClose, aut
         @keyframes mic-pulse {
           0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
           50%       { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+        }
+        @keyframes mic-hint-fade {
+          0%   { opacity: 1; }
+          70%  { opacity: 1; }
+          100% { opacity: 0; }
         }
       `}</style>
     </div>
