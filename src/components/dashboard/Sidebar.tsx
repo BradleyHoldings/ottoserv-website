@@ -60,6 +60,8 @@ function SidebarContent({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
+  const currentUser = getCurrentUser();
+  const isPaidClient = currentUser && currentUser.role !== 'demo';
 
   return (
     <div className="flex flex-col h-full">
@@ -123,6 +125,24 @@ function SidebarContent({
           })}
         </ul>
       </nav>
+
+      {/* Get Jarvis App — paid clients only */}
+      {isPaidClient && (
+        <div className="px-3 pb-3">
+          <a
+            href="/jarvis-voice"
+            onClick={onClose}
+            className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg bg-blue-600/10 border border-blue-600/30 hover:bg-blue-600/20 hover:border-blue-500/50 transition-colors group"
+          >
+            <span className="text-base">🎙️</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-blue-300 text-xs font-semibold group-hover:text-blue-200">Get the Jarvis App</p>
+              <p className="text-blue-500 text-[10px] truncate">Voice + actions · save to home screen</p>
+            </div>
+            <span className="text-blue-500 text-xs flex-shrink-0">→</span>
+          </a>
+        </div>
+      )}
 
       {/* User info */}
       <div className="px-4 py-4 border-t border-gray-800">

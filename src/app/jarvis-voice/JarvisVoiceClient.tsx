@@ -1,98 +1,159 @@
 "use client";
 
+import { useEffect, useState } from 'react';
+
+const AGENT_ID = 'agent_0501kqg13ad2ej09zsyxywrb6gsz';
+
 export default function JarvisVoiceClient() {
+  const [installable, setInstallable] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [installed, setInstalled] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+
+  useEffect(() => {
+    // Detect iOS (Safari doesn't support beforeinstallprompt)
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    setIsIOS(ios);
+
+    // Check if already installed (running as standalone PWA)
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setInstalled(true);
+    }
+
+    // Android / Chrome install prompt
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setInstallable(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setInstalled(true);
+    setDeferredPrompt(null);
+    setInstallable(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-gray-900 to-black flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-[#050d1a] via-[#0a1628] to-[#0d0d1a] flex flex-col">
       {/* Header */}
-      <div className="text-center pt-8 pb-6 px-4">
-        <div className="flex items-center justify-center mb-4">
-          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-            <span className="text-2xl">⚡</span>
+      <div className="text-center pt-10 pb-4 px-4">
+        <div className="flex items-center justify-center mb-3">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-900/50">
+            <span className="text-3xl">⚡</span>
           </div>
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">Jarvis AI</h1>
-        <p className="text-blue-300 text-lg">Your OttoServ Assistant</p>
+        <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Jarvis</h1>
+        <p className="text-blue-300 text-sm">OttoServ AI — Voice + Actions</p>
       </div>
 
-      {/* Voice Interface */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 w-full max-w-md border border-gray-700">
-          
-          {/* Status Indicator */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center space-x-2 bg-green-900/30 text-green-300 px-4 py-2 rounded-full border border-green-700">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium">Jarvis Online</span>
+      {/* ConvAI Widget container */}
+      <div className="flex-1 flex flex-col items-center px-4 pb-4">
+        <div className="w-full max-w-lg">
+          {/* Status pill */}
+          <div className="flex justify-center mb-5">
+            <div className="inline-flex items-center gap-2 bg-green-900/30 text-green-300 px-4 py-1.5 rounded-full border border-green-700/60 text-sm font-medium">
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              Live — can take actions
             </div>
           </div>
 
-          {/* ElevenLabs Voice Interface */}
-          <div className="mb-8 text-center">
-            <div className="bg-gray-900/50 rounded-xl p-8 border border-gray-600">
-              <div className="mb-6">
-                <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-3xl">🎤</span>
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">Voice Chat Ready</h3>
-                <p className="text-gray-300 text-sm mb-6">Click below to start a voice conversation with Jarvis</p>
+          {/* ElevenLabs ConvAI widget */}
+          <div className="bg-gray-900/60 backdrop-blur-md rounded-2xl border border-gray-700/60 shadow-2xl overflow-hidden mb-5">
+            <div className="p-6">
+              <p className="text-gray-300 text-sm text-center mb-5 leading-relaxed">
+                Tap the microphone and speak naturally. Jarvis can answer questions, send emails, schedule posts, manage leads, run reports, and more.
+              </p>
+              {/* ElevenLabs embed */}
+              <div className="flex justify-center">
+                {/* @ts-ignore — custom element */}
+                <elevenlabs-convai agent-id={AGENT_ID} />
               </div>
-              
-              <a
-                href="https://elevenlabs.io/app/talk-to?agent_id=agent_0501kqg13ad2ej09zsyxywrb6gsz"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center space-x-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-4 px-8 rounded-lg transition-all duration-200 transform hover:scale-105"
-              >
-                <span className="text-xl">🎙️</span>
-                <span>Start Voice Chat</span>
-              </a>
-              
-              <p className="text-gray-400 text-xs mt-4">Opens in ElevenLabs (new tab)</p>
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <a 
-              href="tel:4077988172"
-              className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-            >
-              <span>📞</span>
-              <span>Call Morgan</span>
-            </a>
-            <a 
-              href="/"
-              className="bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-            >
-              <span>🏠</span>
-              <span>Home</span>
-            </a>
+          {/* What Jarvis can do */}
+          <div className="bg-gray-900/40 rounded-2xl border border-gray-800/60 p-5 mb-5">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-3">Voice Actions Available</p>
+            <div className="grid grid-cols-2 gap-2 text-sm text-gray-300">
+              {[
+                ["📧", "Send emails"],
+                ["📲", "Schedule social posts"],
+                ["✅", "Create tasks"],
+                ["📋", "Update leads & CRM"],
+                ["📊", "Generate reports"],
+                ["🤝", "Process deals"],
+                ["📞", "Schedule follow-ups"],
+                ["⚡", "Start campaigns"],
+              ].map(([icon, label]) => (
+                <div key={label} className="flex items-center gap-2">
+                  <span>{icon}</span>
+                  <span className="text-gray-300 text-xs">{label}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Instructions */}
-          <div className="text-center">
-            <p className="text-gray-300 text-sm leading-relaxed">
-              Tap the microphone above and speak naturally with Jarvis. 
-              Ask about business automation, OttoServ features, or get help with your account.
-            </p>
-          </div>
-        </div>
+          {/* Install CTA */}
+          {!installed && (
+            <div className="bg-blue-900/30 rounded-2xl border border-blue-700/50 p-5 mb-4">
+              <p className="text-white font-semibold text-sm mb-1">Save to Home Screen</p>
+              <p className="text-blue-200 text-xs mb-4">Launch Jarvis instantly, just like a native app — no browser bar, full screen.</p>
 
-        {/* Features */}
-        <div className="mt-8 text-center text-gray-400 text-sm max-w-sm">
-          <p className="mb-2">✅ Natural voice conversation</p>
-          <p className="mb-2">✅ Instant business insights</p>
-          <p>✅ 24/7 availability</p>
+              {isIOS ? (
+                <>
+                  <button
+                    onClick={() => setShowIOSInstructions(v => !v)}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold text-sm transition-colors"
+                  >
+                    📲 How to Install on iPhone / iPad
+                  </button>
+                  {showIOSInstructions && (
+                    <ol className="mt-4 space-y-2 text-blue-100 text-xs list-none">
+                      <li className="flex gap-2"><span className="text-blue-400 font-bold">1.</span> Tap the <strong>Share</strong> button at the bottom of Safari</li>
+                      <li className="flex gap-2"><span className="text-blue-400 font-bold">2.</span> Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+                      <li className="flex gap-2"><span className="text-blue-400 font-bold">3.</span> Tap <strong>Add</strong> — Jarvis appears on your home screen</li>
+                    </ol>
+                  )}
+                </>
+              ) : installable ? (
+                <button
+                  onClick={handleInstall}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold text-sm transition-colors"
+                >
+                  ⬇️ Add Jarvis to Home Screen
+                </button>
+              ) : (
+                <p className="text-blue-300 text-xs text-center">
+                  Open this page in Chrome on Android or Safari on iPhone to install.
+                </p>
+              )}
+            </div>
+          )}
+
+          {installed && (
+            <div className="text-center text-green-400 text-sm font-medium mb-4">
+              ✅ Jarvis is installed on your home screen
+            </div>
+          )}
         </div>
       </div>
 
       {/* Footer */}
-      <div className="text-center py-4 px-4 border-t border-gray-800">
-        <p className="text-gray-400 text-sm">
-          OttoServ AI Assistant | 
-          <a href="/" className="text-blue-400 ml-1">ottoserv.com</a>
-        </p>
+      <div className="text-center py-4 border-t border-gray-800/60">
+        <a href="/dashboard/command-center" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
+          ← Back to OttoServ Dashboard
+        </a>
       </div>
+
+      {/* ElevenLabs ConvAI script */}
+      <script src="https://elevenlabs.io/convai-widget/index.js" async />
     </div>
   );
 }
