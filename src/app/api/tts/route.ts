@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Adam — deep, authoritative male voice (good for Jarvis)
-const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
-const MODEL_ID = 'eleven_monolingual_v1';
+const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'pb3lVZVjdFWbkhPKlelB';
+const MODEL_ID = 'eleven_multilingual_v2';
 
 export async function POST(request: NextRequest) {
   const { text } = await request.json();
