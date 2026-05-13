@@ -108,6 +108,10 @@ function SidebarContent({
                   {...(item.href === "/dashboard/social" && { "data-demo-target": "sidebar-social" })}
                   {...(item.href === "/dashboard/techops" && { "data-demo-target": "sidebar-techops" })}
                   {...(item.href === "/dashboard/reports" && { "data-demo-target": "sidebar-reports" })}
+                  {...(item.href === "/dashboard/calendar" && { "data-demo-target": "sidebar-calendar" })}
+                  {...(item.href === "/dashboard/processes" && { "data-demo-target": "sidebar-processes" })}
+                  {...(item.href === "/dashboard/tasks" && { "data-demo-target": "sidebar-tasks" })}
+                  {...(item.href === "/dashboard/projects" && { "data-demo-target": "sidebar-projects" })}
                 >
                   {item.sub && (
                     <span className="text-gray-700 flex-shrink-0 text-xs">└</span>

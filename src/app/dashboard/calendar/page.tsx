@@ -118,7 +118,7 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6" data-demo-target="calendar-grid">
         {/* Calendar Grid */}
         <div className="xl:col-span-2 bg-[#111827] border border-gray-800 rounded-xl p-6">
           {/* Month nav */}

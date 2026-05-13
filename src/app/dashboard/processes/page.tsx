@@ -81,7 +81,7 @@ type TabId = (typeof TABS)[number]["id"];
 
 function ProcessLibrary({ processes }: { processes: Process[] }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4" data-demo-target="processes-list">
       {processes.map((proc) => {
         const sm = STATUS_META[proc.status];
         return (

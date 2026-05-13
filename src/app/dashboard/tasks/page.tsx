@@ -186,21 +186,23 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="bg-[#111827] border border-gray-800 rounded-xl p-12 text-center">
-          <p className="text-4xl mb-3">✅</p>
-          <p className="text-white font-medium">No tasks match your filters</p>
-          <p className="text-gray-500 text-sm mt-1">Try adjusting the filters above</p>
-        </div>
-      ) : (
-        <DataTable<TaskRow>
-          data={filtered as TaskRow[]}
-          columns={COLUMNS}
-          searchable
-          searchPlaceholder="Search tasks..."
-          searchFields={["title", "assigned_to", "status"]}
-        />
-      )}
+      <div data-demo-target="tasks-list">
+        {filtered.length === 0 ? (
+          <div className="bg-[#111827] border border-gray-800 rounded-xl p-12 text-center">
+            <p className="text-4xl mb-3">✅</p>
+            <p className="text-white font-medium">No tasks match your filters</p>
+            <p className="text-gray-500 text-sm mt-1">Try adjusting the filters above</p>
+          </div>
+        ) : (
+          <DataTable<TaskRow>
+            data={filtered as TaskRow[]}
+            columns={COLUMNS}
+            searchable
+            searchPlaceholder="Search tasks..."
+            searchFields={["title", "assigned_to", "status"]}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -217,7 +217,7 @@ export default function ProjectsPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-demo-target="projects-list">
         {filtered.map((project) => {
           const budgetUsedPct =
             project.estimated_cost > 0
