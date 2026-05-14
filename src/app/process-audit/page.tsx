@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Conversation } from "@elevenlabs/client";
+
+const VOICE_AGENT_ID = "agent_0501kqg13ad2ej09zsyxywrb6gsz";
+type VoiceState = "idle" | "connecting" | "active" | "ending" | "error";
 
 type UtmCtx = {
   utm_source: string;
@@ -310,9 +314,58 @@ export default function ProcessAuditPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [voiceError, setVoiceError] = useState("");
+  const conversationRef = useRef<Awaited<ReturnType<typeof Conversation.startSession>> | null>(null);
+
   useEffect(() => {
     trackEvent("process_audit_page_view");
   }, []);
+
+  useEffect(() => {
+    return () => {
+      void conversationRef.current?.endSession();
+      conversationRef.current = null;
+    };
+  }, []);
+
+  const startVoiceAudit = async () => {
+    if (voiceState === "connecting" || voiceState === "active") return;
+    setVoiceError("");
+    setVoiceState("connecting");
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const conv = await Conversation.startSession({
+        agentId: VOICE_AGENT_ID,
+        onConnect: () => setVoiceState("active"),
+        onDisconnect: () => {
+          conversationRef.current = null;
+          setVoiceState("idle");
+        },
+        onError: (msg: unknown) => {
+          setVoiceError(typeof msg === "string" ? msg : "Voice call failed.");
+          setVoiceState("error");
+        },
+      });
+      conversationRef.current = conv;
+      trackEvent("process_audit_voice_started");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not start voice call.";
+      setVoiceError(msg);
+      setVoiceState("error");
+    }
+  };
+
+  const endVoiceAudit = async () => {
+    if (!conversationRef.current) return setVoiceState("idle");
+    setVoiceState("ending");
+    try {
+      await conversationRef.current.endSession();
+    } finally {
+      conversationRef.current = null;
+      setVoiceState("idle");
+    }
+  };
 
   const setField = <K extends keyof SectionedForm>(k: K, v: SectionedForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -441,11 +494,16 @@ export default function ProcessAuditPage() {
     );
   }
 
+  const voiceButtonLabel =
+    voiceState === "connecting" ? "Connecting…"
+    : voiceState === "active" ? "End call"
+    : voiceState === "ending" ? "Ending…"
+    : "Start the Audit";
+  const voiceButtonAction = voiceState === "active" ? endVoiceAudit : startVoiceAudit;
+  const voiceButtonDisabled = voiceState === "connecting" || voiceState === "ending";
+
   return (
     <div style={{ backgroundColor: "var(--otto-gray-900)" }}>
-      {/* ElevenLabs ConvAI widget loader */}
-      <script src="https://elevenlabs.io/convai-widget/index.js" async />
-
       {/* Hero */}
       <section className="py-16 md:py-20 px-4">
         <div className="max-w-3xl mx-auto text-center">
@@ -458,31 +516,33 @@ export default function ProcessAuditPage() {
           </h1>
           <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10">
             Walk through how your business actually runs — lead intake, follow-up,
-            scheduling, admin work, handoffs, and tools. Talk it through with Jarvis
-            below, or use the form if you&apos;d rather type.
+            scheduling, admin work, handoffs, and tools. Talk it through with Jarvis,
+            or use the form if you&apos;d rather type.
           </p>
 
-          {/* Voice intake — primary path */}
-          <div className="bg-[#111827] border border-blue-700/40 rounded-2xl p-6 md:p-8 max-w-2xl mx-auto">
-            <div className="flex items-center justify-center mb-3">
-              <span className="inline-flex items-center gap-2 bg-green-900/30 text-green-300 px-3 py-1 rounded-full border border-green-700/60 text-xs font-medium">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                Recommended — fastest way
-              </span>
-            </div>
-            <h2 className="text-white text-xl md:text-2xl font-semibold mb-2">
-              Talk to Jarvis
-            </h2>
-            <p className="text-gray-400 text-sm md:text-base mb-6">
-              Tap the microphone and walk through your operations naturally.
-              Jarvis asks the right questions, captures your answers, and routes
-              them to our team.
+          <button
+            type="button"
+            onClick={voiceButtonAction}
+            disabled={voiceButtonDisabled}
+            className={`inline-block font-semibold px-10 py-5 rounded-md text-lg transition-colors ${
+              voiceState === "active"
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            } ${voiceButtonDisabled ? "opacity-70 cursor-not-allowed" : ""}`}
+          >
+            {voiceButtonLabel}
+          </button>
+
+          {voiceState === "active" && (
+            <p className="text-green-400 text-sm mt-4">
+              <span className="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2 align-middle" />
+              Listening — speak naturally. Tap End call when you&apos;re done.
             </p>
-            <div className="flex justify-center">
-              {/* @ts-expect-error — ElevenLabs custom element */}
-              <elevenlabs-convai agent-id="agent_0501kqg13ad2ej09zsyxywrb6gsz" />
-            </div>
-          </div>
+          )}
+
+          {voiceState === "error" && voiceError && (
+            <p className="text-red-400 text-sm mt-4">{voiceError}</p>
+          )}
 
           <div className="mt-8">
             <a
