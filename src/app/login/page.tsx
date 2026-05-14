@@ -129,6 +129,12 @@ export default function LoginPage() {
               {isLoading ? "Signing in..." : "Sign In"}
             </button>
           </form>
+
+          <div className="text-center mt-4">
+            <Link href="/platform/forgot-password" className="text-orange-400 hover:text-orange-300 transition-colors text-sm">
+              Forgot your password?
+            </Link>
+          </div>
         </div>
 
         {/* Demo Credentials Helper */}
