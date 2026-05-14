@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { RetellWebClient } from "retell-client-js-sdk";
 
-const JARVIS_AGENT_ID = "agent_0501kqg13ad2ej09zsyxywrb6gsz";
-const CONVAI_WIDGET_SRC = "https://elevenlabs.io/convai-widget/index.js";
+type VoiceState = "idle" | "connecting" | "live" | "ending" | "ended" | "error";
 
 type UtmCtx = {
   utm_source: string;
@@ -313,32 +313,82 @@ export default function ProcessAuditPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
-  const [voiceActive, setVoiceActive] = useState(false);
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [voiceError, setVoiceError] = useState("");
   const voicePanelRef = useRef<HTMLDivElement>(null);
+  const retellRef = useRef<RetellWebClient | null>(null);
 
   useEffect(() => {
     trackEvent("process_audit_page_view");
   }, []);
 
-  // Lazy-load ElevenLabs ConvAI widget script once, only after the user clicks Start the Audit.
+  // Ensure any active Retell call is torn down when the page unmounts.
   useEffect(() => {
-    if (!voiceActive) return;
-    if (typeof document === "undefined") return;
-    if (document.querySelector(`script[src="${CONVAI_WIDGET_SRC}"]`)) return;
-    const s = document.createElement("script");
-    s.src = CONVAI_WIDGET_SRC;
-    s.async = true;
-    document.head.appendChild(s);
-  }, [voiceActive]);
+    return () => {
+      try {
+        retellRef.current?.stopCall();
+      } catch {
+        // best effort — page is unmounting
+      }
+      retellRef.current = null;
+    };
+  }, []);
 
-  const startAudit = () => {
+  const startAudit = async () => {
+    if (voiceState === "connecting" || voiceState === "live") return;
     trackEvent("process_audit_start_clicked");
-    setVoiceActive(true);
-    if (typeof window === "undefined") return;
-    // Give the widget panel a frame to render before scrolling to it.
-    window.setTimeout(() => {
-      voicePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 80);
+    setVoiceError("");
+    setVoiceState("connecting");
+
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        voicePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 80);
+    }
+
+    try {
+      // Browser must own the mic permission prompt — request before opening the WS.
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      const res = await fetch("/api/audit/voice/start", { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body?.access_token) {
+        throw new Error(body?.error || "Could not start voice call.");
+      }
+
+      const client = new RetellWebClient();
+      client.on("call_started", () => setVoiceState("live"));
+      client.on("call_ended", () => {
+        setVoiceState("ended");
+        retellRef.current = null;
+        trackEvent("process_audit_voice_ended");
+      });
+      client.on("error", (err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Voice call failed.";
+        setVoiceError(msg);
+        setVoiceState("error");
+        try { client.stopCall(); } catch { /* ignore */ }
+        retellRef.current = null;
+      });
+
+      await client.startCall({ accessToken: body.access_token as string });
+      retellRef.current = client;
+      trackEvent("process_audit_voice_started");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not start voice call.";
+      setVoiceError(msg);
+      setVoiceState("error");
+      retellRef.current = null;
+    }
+  };
+
+  const endAudit = () => {
+    try {
+      retellRef.current?.stopCall();
+    } catch {
+      // ignore
+    }
+    setVoiceState("ending");
   };
 
   const scrollToForm = () => {
@@ -499,13 +549,24 @@ export default function ProcessAuditPage() {
           <button
             type="button"
             onClick={startAudit}
-            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-12 py-5 rounded-md text-lg transition-colors"
+            disabled={voiceState === "connecting" || voiceState === "live" || voiceState === "ending"}
+            className={`inline-block font-semibold px-12 py-5 rounded-md text-lg transition-colors ${
+              voiceState === "connecting" || voiceState === "ending"
+                ? "bg-blue-700 text-white cursor-wait"
+                : voiceState === "live"
+                ? "bg-blue-700 text-white cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            }`}
           >
-            Start the Audit →
+            {voiceState === "connecting" ? "Connecting…"
+              : voiceState === "live" ? "Talking with Otto…"
+              : voiceState === "ending" ? "Ending…"
+              : voiceState === "ended" ? "Start a new audit"
+              : "Start the Audit →"}
           </button>
 
           <p className="text-gray-400 text-sm mt-5 max-w-lg mx-auto">
-            Talk it through with Jarvis — tap the mic when it appears.{" "}
+            Talk it through with Otto — your voice stays in the browser.{" "}
             <button
               type="button"
               onClick={scrollToForm}
@@ -515,33 +576,70 @@ export default function ProcessAuditPage() {
             </button>
           </p>
 
-          {voiceActive && (
+          {(voiceState === "connecting" || voiceState === "live" || voiceState === "ending" || voiceState === "ended" || voiceState === "error") && (
             <div
               ref={voicePanelRef}
               className="mt-10 max-w-xl mx-auto bg-[#111827] border border-blue-700/40 rounded-xl p-6 md:p-8"
             >
-              <p className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-3">
-                Talking with Jarvis
-              </p>
-              <p className="text-gray-300 text-sm mb-5">
-                Tap the mic, allow your microphone, and speak naturally. Jarvis will walk
-                you through the audit one question at a time.
-              </p>
-              <div className="flex justify-center">
-                {/* @ts-expect-error — ElevenLabs ConvAI custom element */}
-                <elevenlabs-convai agent-id={JARVIS_AGENT_ID} />
-              </div>
-              <p className="text-gray-500 text-xs text-center mt-5">
-                Voice not loading?{" "}
-                <button
-                  type="button"
-                  onClick={scrollToForm}
-                  className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
-                >
-                  Use the form below
-                </button>
-                {" "}— same audit, typed.
-              </p>
+              {voiceState === "connecting" && (
+                <>
+                  <p className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-3">
+                    Connecting to Otto
+                  </p>
+                  <p className="text-gray-300 text-sm">
+                    Allow your microphone if prompted. Otto will pick up in a moment.
+                  </p>
+                </>
+              )}
+              {voiceState === "live" && (
+                <>
+                  <p className="text-green-400 text-xs font-semibold uppercase tracking-widest mb-3">
+                    <span className="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2 align-middle" />
+                    Live with Otto
+                  </p>
+                  <p className="text-gray-300 text-sm mb-5">
+                    Speak naturally — Otto will walk you through your operations one
+                    area at a time. Tap End audit call when you&apos;re done.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={endAudit}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-md text-sm transition-colors"
+                  >
+                    End audit call
+                  </button>
+                </>
+              )}
+              {voiceState === "ending" && (
+                <p className="text-gray-300 text-sm">Wrapping up the call…</p>
+              )}
+              {voiceState === "ended" && (
+                <>
+                  <div className="text-green-400 text-4xl mb-3">✓</div>
+                  <p className="text-white font-semibold text-lg mb-2">Audit captured</p>
+                  <p className="text-gray-300 text-sm">
+                    Otto saved your answers. Jonathan will review and reach out within 1
+                    business day with the leaks we spotted.
+                  </p>
+                </>
+              )}
+              {voiceState === "error" && (
+                <>
+                  <p className="text-red-400 text-xs font-semibold uppercase tracking-widest mb-3">
+                    Voice call didn&apos;t connect
+                  </p>
+                  <p className="text-red-300 text-sm mb-4">
+                    {voiceError || "Something went wrong starting the call."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={scrollToForm}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-md text-sm transition-colors"
+                  >
+                    Use the form instead →
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
