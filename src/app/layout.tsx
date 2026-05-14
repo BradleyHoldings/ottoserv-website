@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Source_Sans_3 as SourceSansPro, Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
@@ -59,6 +60,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
+  const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
   return (
     <html lang="en" className={`${sourceSansPro.variable} ${nunitoSans.variable}`}>
       <head>
@@ -67,6 +71,30 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="OttoServ" />
+        {plausibleDomain && (
+          <Script
+            defer
+            data-domain={plausibleDomain}
+            src="https://plausible.io/js/script.tagged-events.outbound-links.js"
+            strategy="afterInteractive"
+          />
+        )}
+        {plausibleDomain && (
+          <Script id="plausible-init" strategy="afterInteractive">
+            {`window.plausible = window.plausible || function(){ (window.plausible.q = window.plausible.q || []).push(arguments) };`}
+          </Script>
+        )}
+        {gaMeasurementId && (
+          <Script
+            src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+            strategy="afterInteractive"
+          />
+        )}
+        {gaMeasurementId && (
+          <Script id="ga-init" strategy="afterInteractive">
+            {`window.dataLayer = window.dataLayer || []; function gtag(){ dataLayer.push(arguments); } window.gtag = gtag; gtag('js', new Date()); gtag('config', '${gaMeasurementId}');`}
+          </Script>
+        )}
       </head>
       <body className="min-h-screen flex flex-col" style={{backgroundColor: 'var(--otto-gray-900)', color: 'var(--otto-gray-50)'}}>
         <Navbar />

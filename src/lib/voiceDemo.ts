@@ -91,8 +91,8 @@ export class VoiceDemoManager {
           
           // Try to find a good voice
           const voices = this.speechSynthesis.getVoices();
-          const preferredVoice = voices.find(voice => 
-            voice.lang.startsWith('en') && 
+          const preferredVoice = voices.find((voice: SpeechSynthesisVoice) =>
+            voice.lang.startsWith('en') &&
             (voice.name.includes('Google') || voice.name.includes('Microsoft'))
           ) || voices[0];
           

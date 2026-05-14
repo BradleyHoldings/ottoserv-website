@@ -1,0 +1,370 @@
+{
+  "workflows": [
+    {
+      "name": "Newsletter Subscriber Notification",
+      "description": "Handles new newsletter signups and sends notifications to team",
+      "webhook_endpoint": "/newsletter-signup",
+      "trigger": {
+        "type": "webhook",
+        "path": "/newsletter-signup",
+        "method": "POST"
+      },
+      "nodes": [
+        {
+          "name": "Webhook Trigger",
+          "type": "webhook",
+          "config": {
+            "path": "/newsletter-signup",
+            "method": "POST",
+            "responseMode": "onReceived"
+          }
+        },
+        {
+          "name": "Process Subscriber Data",
+          "type": "function",
+          "config": {
+            "code": "const data = $json; return { email: data.email, source: data.source, signup_date: data.signup_date, utm_data: data.utm_data, lead_score: calculateLeadScore(data.source), priority: data.source === 'referral' ? 'high' : 'normal' };"
+          }
+        },
+        {
+          "name": "Send Telegram Notification",
+          "type": "telegram",
+          "config": {
+            "chatId": "${TELEGRAM_JARVIS_CHAT_ID}",
+            "message": "📬 New Newsletter Subscriber!\n\nEmail: {{$json.email}}\nSource: {{$json.source}}\nLead Score: {{$json.lead_score}}\nSignup: {{$json.signup_date}}\n\nUTM: {{$json.utm_data.utm_source}} / {{$json.utm_data.utm_medium}}"
+          }
+        },
+        {
+          "name": "Add to HubSpot",
+          "type": "hubspot",
+          "config": {
+            "resource": "contact",
+            "operation": "upsert",
+            "email": "{{$json.email}}",
+            "properties": {
+              "lead_source": "{{$json.source}}",
+              "newsletter_subscriber": "true",
+              "lead_score": "{{$json.lead_score}}",
+              "utm_source": "{{$json.utm_data.utm_source}}",
+              "utm_medium": "{{$json.utm_data.utm_medium}}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Operational Waste Audit Request Handler",
+      "description": "Processes audit requests and routes to appropriate team members",
+      "webhook_endpoint": "/audit-request",
+      "trigger": {
+        "type": "webhook",
+        "path": "/audit-request",
+        "method": "POST"
+      },
+      "nodes": [
+        {
+          "name": "Webhook Trigger",
+          "type": "webhook",
+          "config": {
+            "path": "/audit-request",
+            "method": "POST",
+            "responseMode": "onReceived"
+          }
+        },
+        {
+          "name": "Evaluate Priority",
+          "type": "function",
+          "config": {
+            "code": "const data = $json; let priority = 'medium'; if (data.business_type?.includes('property management')) priority = 'high'; if (data.estimated_value > 4000) priority = 'high'; if (data.source === 'referral') priority = 'high'; return { ...data, calculated_priority: priority };"
+          }
+        },
+        {
+          "name": "Route by Priority",
+          "type": "switch",
+          "config": {
+            "mode": "expression",
+            "output": "multiple",
+            "rules": [
+              {
+                "expression": "{{$json.priority === 'high'}}",
+                "output": 0
+              },
+              {
+                "expression": "{{$json.priority === 'medium'}}",
+                "output": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "High Priority - Immediate Telegram",
+          "type": "telegram",
+          "config": {
+            "chatId": "${TELEGRAM_JARVIS_CHAT_ID}",
+            "message": "🚨 HIGH PRIORITY Audit Request!\n\nCompany: {{$json.company_name}}\nEmail: {{$json.email}}\nPhone: {{$json.phone}}\nBusiness: {{$json.business_type}}\nEst. Value: ${{$json.estimated_value}}\nSource: {{$json.source}}\n\nRequested: {{$json.request_date}}\n\n⚡ Respond within 2 hours!"
+          }
+        },
+        {
+          "name": "Medium Priority - Email Notification",
+          "type": "gmail",
+          "config": {
+            "to": "jonathan@ottoservco.com",
+            "subject": "New Audit Request - {{$json.company_name}}",
+            "message": "New operational waste audit request received:\n\nCompany: {{$json.company_name}}\nContact: {{$json.email}}\nPhone: {{$json.phone}}\nBusiness Type: {{$json.business_type}}\nEstimated Value: ${{$json.estimated_value}}\nSource: {{$json.source}}\n\nPain Points Mentioned:\n{{$json.pain_points}}\n\nRequest submitted: {{$json.request_date}}\n\nNext steps:\n1. Review company background\n2. Schedule 15-minute diagnostic call\n3. Prepare audit framework\n\nView in dashboard: https://ottoserv.com/dashboard/newsletter"
+          }
+        },
+        {
+          "name": "Create HubSpot Deal",
+          "type": "hubspot",
+          "config": {
+            "resource": "deal",
+            "operation": "create",
+            "properties": {
+              "dealname": "Operational Waste Audit - {{$json.company_name}}",
+              "amount": "{{$json.estimated_value}}",
+              "dealstage": "appointment_scheduled",
+              "pipeline": "sales",
+              "lead_source": "{{$json.source}}",
+              "audit_type": "{{$json.type}}",
+              "priority": "{{$json.priority}}"
+            }
+          }
+        },
+        {
+          "name": "Update Contact Record",
+          "type": "hubspot",
+          "config": {
+            "resource": "contact",
+            "operation": "upsert",
+            "email": "{{$json.email}}",
+            "properties": {
+              "company": "{{$json.company_name}}",
+              "phone": "{{$json.phone}}",
+              "industry": "{{$json.business_type}}",
+              "audit_requested": "true",
+              "audit_request_date": "{{$json.request_date}}",
+              "lead_source": "{{$json.source}}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Weekly Newsletter Report Generator",
+      "description": "Generates and distributes weekly performance reports",
+      "webhook_endpoint": "/weekly-report",
+      "schedule": "0 9 * * 1",
+      "nodes": [
+        {
+          "name": "Schedule Trigger",
+          "type": "cron",
+          "config": {
+            "mode": "everyWeek",
+            "weekday": 1,
+            "hour": 9,
+            "minute": 0
+          }
+        },
+        {
+          "name": "Fetch Supabase Data",
+          "type": "http_request",
+          "config": {
+            "url": "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/generate_weekly_report",
+            "method": "POST",
+            "headers": {
+              "apikey": "${SUPABASE_SERVICE_KEY}",
+              "Authorization": "Bearer ${SUPABASE_SERVICE_KEY}",
+              "Content-Type": "application/json"
+            }
+          }
+        },
+        {
+          "name": "Format Report Data",
+          "type": "function",
+          "config": {
+            "code": "const data = $json; return { week_start: data.week_start, week_end: data.week_end, total_subscribers: data.total_subscribers, new_subscribers: data.new_subscribers, growth_rate: data.growth_rate, avg_open_rate: data.avg_open_rate, audit_requests: data.audit_requests, revenue_generated: data.revenue_generated };"
+          }
+        },
+        {
+          "name": "Generate Report PDF",
+          "type": "http_request",
+          "config": {
+            "url": "https://ottoserv.com/api/newsletter/weekly-report",
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": "{{$json}}"
+          }
+        },
+        {
+          "name": "Send Report via Telegram",
+          "type": "telegram",
+          "config": {
+            "chatId": "${TELEGRAM_JARVIS_CHAT_ID}",
+            "message": "📊 Weekly Newsletter Report\n\nWeek: {{$json.week_start}} to {{$json.week_end}}\n\n📈 Growth:\n- Total Subscribers: {{$json.total_subscribers}}\n- New This Week: {{$json.new_subscribers}}\n- Growth Rate: {{$json.growth_rate}}%\n\n💰 Revenue:\n- Audit Requests: {{$json.audit_requests}}\n- Revenue Generated: ${{$json.revenue_generated}}\n- Open Rate: {{$json.avg_open_rate}}%\n\nFull report: https://ottoserv.com/dashboard/newsletter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform Improvement Signal Capture",
+      "description": "Captures and processes platform improvement signals from various sources",
+      "webhook_endpoint": "/platform-signal",
+      "trigger": {
+        "type": "webhook",
+        "path": "/platform-signal",
+        "method": "POST"
+      },
+      "nodes": [
+        {
+          "name": "Webhook Trigger",
+          "type": "webhook",
+          "config": {
+            "path": "/platform-signal",
+            "method": "POST",
+            "responseMode": "onReceived"
+          }
+        },
+        {
+          "name": "Analyze Signal Urgency",
+          "type": "function",
+          "config": {
+            "code": "const signal = $json; let urgency = 'medium'; let revenue_impact = 0; if (signal.description.toLowerCase().includes('revenue') || signal.description.toLowerCase().includes('lose') || signal.description.toLowerCase().includes('cost')) { urgency = 'high'; revenue_impact = 5000; } if (signal.source === 'audit_call' || signal.source === 'customer_complaint') { urgency = 'high'; } return { ...signal, calculated_urgency: urgency, estimated_revenue_impact: revenue_impact };"
+          }
+        },
+        {
+          "name": "Store in Supabase",
+          "type": "http_request",
+          "config": {
+            "url": "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/platform_improvement_signals",
+            "method": "POST",
+            "headers": {
+              "apikey": "${SUPABASE_SERVICE_KEY}",
+              "Authorization": "Bearer ${SUPABASE_SERVICE_KEY}",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "signal_description": "{{$json.description}}",
+              "source": "{{$json.source}}",
+              "email": "{{$json.email}}",
+              "company_name": "{{$json.company_name}}",
+              "business_type": "{{$json.business_type}}",
+              "urgency": "{{$json.calculated_urgency}}",
+              "revenue_impact_potential": "{{$json.estimated_revenue_impact}}",
+              "pain_point_category": "{{$json.category}}",
+              "current_workarounds": "{{$json.workarounds}}",
+              "ideal_solution_described": "{{$json.ideal_solution}}"
+            }
+          }
+        },
+        {
+          "name": "Notify Product Team",
+          "type": "telegram",
+          "config": {
+            "chatId": "${TELEGRAM_JARVIS_CHAT_ID}",
+            "message": "💡 Platform Improvement Signal\n\nUrgency: {{$json.calculated_urgency}}\nRevenue Impact: ${{$json.estimated_revenue_impact}}\n\nSignal: {{$json.description}}\n\nSource: {{$json.source}}\nCompany: {{$json.company_name}} ({{$json.business_type}})\n\nCurrent Workaround: {{$json.workarounds}}\nIdeal Solution: {{$json.ideal_solution}}\n\nCategory: {{$json.category}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Beehiiv Sync Handler",
+      "description": "Syncs subscriber data between Beehiiv and Supabase",
+      "webhook_endpoint": "/beehiiv-sync",
+      "schedule": "0 */6 * * *",
+      "nodes": [
+        {
+          "name": "Schedule Trigger",
+          "type": "cron",
+          "config": {
+            "mode": "everyHour",
+            "hour": 6
+          }
+        },
+        {
+          "name": "Get Beehiiv Subscribers",
+          "type": "http_request",
+          "config": {
+            "url": "https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions",
+            "method": "GET",
+            "headers": {
+              "Authorization": "Bearer ${BEEHIIV_API_KEY}",
+              "Content-Type": "application/json"
+            },
+            "qs": {
+              "limit": 1000,
+              "expand": "stats"
+            }
+          }
+        },
+        {
+          "name": "Process Each Subscriber",
+          "type": "splitInBatches",
+          "config": {
+            "batchSize": 50,
+            "options": {}
+          }
+        },
+        {
+          "name": "Sync to Supabase",
+          "type": "http_request",
+          "config": {
+            "url": "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/newsletter_subscribers",
+            "method": "POST",
+            "headers": {
+              "apikey": "${SUPABASE_SERVICE_KEY}",
+              "Authorization": "Bearer ${SUPABASE_SERVICE_KEY}",
+              "Content-Type": "application/json",
+              "Prefer": "resolution=ignore-duplicates"
+            },
+            "body": {
+              "email": "{{$json.email}}",
+              "beehiiv_subscriber_id": "{{$json.id}}",
+              "status": "{{$json.status}}",
+              "signup_date": "{{$json.created}}",
+              "utm_source": "{{$json.utm_source}}",
+              "utm_medium": "{{$json.utm_medium}}",
+              "utm_campaign": "{{$json.utm_campaign}}",
+              "last_email_opened": "{{$json.stats.last_opened}}",
+              "total_emails_opened": "{{$json.stats.opens}}",
+              "last_link_clicked": "{{$json.stats.last_clicked}}",
+              "total_links_clicked": "{{$json.stats.clicks}}"
+            }
+          }
+        },
+        {
+          "name": "Update Sync Status",
+          "type": "telegram",
+          "config": {
+            "chatId": "${TELEGRAM_JARVIS_CHAT_ID}",
+            "message": "✅ Beehiiv sync completed\n\nProcessed: {{$json.total_processed}} subscribers\nUpdated: {{$json.updated_count}} records\nErrors: {{$json.error_count}}\n\nLast sync: {{new Date().toISOString()}}"
+          }
+        }
+      ]
+    }
+  ],
+  "environment_variables": {
+    "BEEHIIV_API_KEY": "Your Beehiiv API key",
+    "BEEHIIV_PUBLICATION_ID": "Your Beehiiv publication ID",
+    "SUPABASE_SERVICE_KEY": "Your Supabase service role key",
+    "NEXT_PUBLIC_SUPABASE_URL": "Your Supabase project URL",
+    "TELEGRAM_JARVIS_CHAT_ID": "Telegram chat ID for notifications",
+    "HUBSPOT_API_KEY": "HubSpot API key for CRM integration"
+  },
+  "setup_instructions": {
+    "1": "Import each workflow into your n8n instance",
+    "2": "Configure environment variables in n8n settings",
+    "3": "Test each webhook endpoint with sample data",
+    "4": "Enable scheduled workflows for automated reporting",
+    "5": "Monitor execution logs for errors",
+    "6": "Adjust notification settings based on team preferences"
+  },
+  "webhook_urls": {
+    "newsletter_signup": "https://n8n.ottoserv.com/webhook/newsletter-signup",
+    "audit_request": "https://n8n.ottoserv.com/webhook/audit-request",
+    "platform_signal": "https://n8n.ottoserv.com/webhook/platform-signal",
+    "weekly_report": "https://n8n.ottoserv.com/webhook/weekly-report",
+    "beehiiv_sync": "https://n8n.ottoserv.com/webhook/beehiiv-sync"
+  }
+}

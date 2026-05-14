@@ -1,269 +1,248 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+const walkthrough = [
+  {
+    num: "01",
+    title: "A lead comes in — Morgan answers in seconds",
+    desc: "Inbound calls, web forms, and texts route to Morgan, OttoServ's AI assistant. Morgan answers 24/7, qualifies the lead, and captures the information your team would have asked for.",
+  },
+  {
+    num: "02",
+    title: "The lead is qualified and an appointment is booked",
+    desc: "Morgan checks your calendar, books the appointment, and confirms with the client — before a competitor can call them back.",
+  },
+  {
+    num: "03",
+    title: "Your operations dashboard updates in real time",
+    desc: "Every job, lead, follow-up, and handoff is visible in one place. No more spreadsheets, sticky notes, or 'I think Mike has it.'",
+  },
+  {
+    num: "04",
+    title: "Automated follow-up keeps every lead warm",
+    desc: "Estimates get followed up. Past clients get review requests. Cold leads get reactivated. Nothing falls through the cracks.",
+  },
+  {
+    num: "05",
+    title: "Leadership gets a weekly intelligence brief",
+    desc: "A weekly AI report shows you what needs attention, what's trending, and where to focus — without you digging through dashboards.",
+  },
+];
+
+const features = [
+  {
+    title: "Operations Dashboard",
+    desc: "Jobs, team, revenue, leads, pipeline — all updated in real time.",
+  },
+  {
+    title: "AI Lead Response (Morgan)",
+    desc: "24/7 call answering, qualification, and booking.",
+  },
+  {
+    title: "Automations & Workflows",
+    desc: "Visual workflow builder. Templates for service businesses.",
+  },
+  {
+    title: "Client Portal",
+    desc: "Clients see project status, invoices, and updates without calling you.",
+  },
+  {
+    title: "Job & Project Tracking",
+    desc: "Budgets, timelines, costs, and billing — estimate to closeout.",
+  },
+  {
+    title: "Weekly AI Reports",
+    desc: "Intelligence brief on what needs attention this week.",
+  },
+];
 
 export default function DemoPage() {
   const router = useRouter();
 
   const handleStartDemo = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('ottoserv_current_user', JSON.stringify({
-        id: 'demo-user',
-        name: 'Demo User',
-        role: 'demo',
-        isOttoServEmployee: false
-      }));
-      router.push('/demo/dashboard');
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "ottoserv_current_user",
+        JSON.stringify({
+          id: "demo-user",
+          name: "Demo User",
+          role: "demo",
+          isOttoServEmployee: false,
+        }),
+      );
+      router.push("/demo/dashboard");
     }
   };
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-gray-100">
-      {/* Header */}
-      <div className="bg-orange-600 text-white p-4">
-        <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">🎭</span>
-            <div>
-              <h1 className="text-xl font-bold">Demo Environment</h1>
-              <p className="text-orange-100 text-sm">All data shown is simulated for demonstration purposes</p>
-            </div>
-          </div>
-          <div className="flex space-x-4">
-            <a
-              href="/dashboard"
-              className="bg-orange-700 hover:bg-orange-800 px-4 py-2 rounded transition-colors"
-            >
-              ← Back to Live Dashboard
-            </a>
-            <a
-              href="/login"
-              className="bg-white text-orange-600 hover:bg-orange-50 px-4 py-2 rounded transition-colors"
-            >
-              Login as Admin
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-12">
-        {/* Welcome Section */}
-        <div className="text-center mb-16">
-          <h2 className="text-4xl lg:text-6xl font-bold mb-6">
-            OttoServ Demo
-            <span className="text-orange-400 block">Full Platform Preview</span>
-          </h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Experience the complete OttoServ platform with realistic demo data. 
-            Explore all features, dashboards, and tools in a safe sandbox environment.
+    <div style={{ backgroundColor: "var(--otto-gray-900)" }}>
+      {/* Hero */}
+      <section className="py-16 md:py-24 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-blue-400 font-semibold text-sm uppercase tracking-widest mb-4">
+            OttoServ Guided Demo
           </p>
-        </div>
-
-        {/* Demo Features */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          <div className="bg-gray-900 rounded-lg p-8 border border-gray-700">
-            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
-              <span className="text-2xl">📊</span>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">Analytics Dashboard</h3>
-            <p className="text-gray-300 mb-4">
-              Explore comprehensive business analytics with mock client data, revenue tracking, and performance insights.
-            </p>
-            <ul className="text-gray-400 text-sm space-y-1">
-              <li>• Revenue and growth metrics</li>
-              <li>• Client performance analysis</li>
-              <li>• Call handling statistics</li>
-              <li>• Lead conversion tracking</li>
-            </ul>
-          </div>
-
-          <div className="bg-gray-900 rounded-lg p-8 border border-gray-700">
-            <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-4">
-              <span className="text-2xl">🤖</span>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">AI Services</h3>
-            <p className="text-gray-300 mb-4">
-              Test AI call answering, lead qualification, and automated scheduling with simulated interactions.
-            </p>
-            <ul className="text-gray-400 text-sm space-y-1">
-              <li>• AI call handling simulation</li>
-              <li>• Lead scoring examples</li>
-              <li>• Appointment booking demos</li>
-              <li>• Customer interaction logs</li>
-            </ul>
-          </div>
-
-          <div className="bg-gray-900 rounded-lg p-8 border border-gray-700">
-            <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
-              <span className="text-2xl">⚡</span>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">Automation Tools</h3>
-            <p className="text-gray-300 mb-4">
-              Experience workflow automation, task management, and integration capabilities with sample data.
-            </p>
-            <ul className="text-gray-400 text-sm space-y-1">
-              <li>• Workflow designer preview</li>
-              <li>• Task automation examples</li>
-              <li>• Integration templates</li>
-              <li>• Process optimization tools</li>
-            </ul>
-          </div>
-
-          <div className="bg-gray-900 rounded-lg p-8 border border-gray-700">
-            <div className="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center mb-4">
-              <span className="text-2xl">👥</span>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">Client Management</h3>
-            <p className="text-gray-300 mb-4">
-              Explore client relationship management features with fictional contractor and property management companies.
-            </p>
-            <ul className="text-gray-400 text-sm space-y-1">
-              <li>• Client profiles and history</li>
-              <li>• Service configuration</li>
-              <li>• Communication tracking</li>
-              <li>• Project management</li>
-            </ul>
-          </div>
-
-          <div className="bg-gray-900 rounded-lg p-8 border border-gray-700">
-            <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center mb-4">
-              <span className="text-2xl">💰</span>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">Financial Tools</h3>
-            <p className="text-gray-300 mb-4">
-              Review financial management capabilities including invoicing, expense tracking, and profitability analysis.
-            </p>
-            <ul className="text-gray-400 text-sm space-y-1">
-              <li>• Invoice generation examples</li>
-              <li>• Expense categorization</li>
-              <li>• Profit/loss analysis</li>
-              <li>• Budget forecasting</li>
-            </ul>
-          </div>
-
-          <div className="bg-gray-900 rounded-lg p-8 border border-gray-700">
-            <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center mb-4">
-              <span className="text-2xl">🔧</span>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">Operations Hub</h3>
-            <p className="text-gray-300 mb-4">
-              Test operational features like scheduling, inventory management, and team coordination tools.
-            </p>
-            <ul className="text-gray-400 text-sm space-y-1">
-              <li>• Calendar and scheduling</li>
-              <li>• Inventory tracking</li>
-              <li>• Team management</li>
-              <li>• Resource allocation</li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Demo Access */}
-        <div className="bg-gray-900 rounded-lg p-12 border border-gray-700 text-center">
-          <div className="w-16 h-16 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-3xl">🚀</span>
-          </div>
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to Explore?</h2>
-          <p className="text-gray-300 mb-8 max-w-2xl mx-auto">
-            Access the full demo environment with sample contractor and property management data. 
-            No sign-up required - jump right into exploring OttoServ's capabilities.
+          <h1 className="text-3xl md:text-5xl font-bold text-white mb-6 leading-tight">
+            See how OttoServ runs your service business —
+            <br className="hidden md:block" /> end to end.
+          </h1>
+          <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto mb-10">
+            Walk through how OttoServ captures leads, qualifies opportunities,
+            books appointments, tracks operations, and gives leadership
+            visibility into the work that normally falls through the cracks.
           </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={handleStartDemo}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-lg font-semibold transition-colors"
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
             >
-              🎭 Enter Demo Dashboard
+              Launch the Interactive Demo
             </button>
-            <a
-              href="/jarvis-voice"
-              className="border border-orange-400 text-orange-400 hover:bg-orange-400 hover:text-gray-900 px-8 py-4 rounded-lg font-semibold transition-colors"
+            <Link
+              href="/process-audit"
+              className="inline-block border border-gray-600 hover:border-gray-400 text-gray-300 hover:text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
             >
-              🎙️ Try Voice Assistant
-            </a>
+              Take the Process Audit
+            </Link>
           </div>
+          <p className="text-gray-500 text-sm mt-6">
+            Interactive demo uses simulated data for ABC Contracting, Miami Property Mgmt, and Elite HVAC Services — no sign-up.
+          </p>
+        </div>
+      </section>
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-400">
-            <div>
-              <strong className="text-orange-400">Demo Clients:</strong><br/>
-              ABC Contracting<br/>
-              Miami Property Mgmt<br/>
-              Elite HVAC Services
-            </div>
-            <div>
-              <strong className="text-orange-400">Sample Data:</strong><br/>
-              3 months of history<br/>
-              500+ call records<br/>
-              50+ project examples
-            </div>
-            <div>
-              <strong className="text-orange-400">Full Features:</strong><br/>
-              All services enabled<br/>
-              Complete workflows<br/>
-              Real-time simulations
-            </div>
+      {/* Walkthrough */}
+      <section className="py-16 px-4 bg-[#0d0d0d]">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+              What the Guided Demo Shows You
+            </h2>
+            <p className="text-gray-400 max-w-2xl mx-auto">
+              Follow a lead from first contact to closed job — and see every
+              place OttoServ removes manual work along the way.
+            </p>
+          </div>
+          <div className="space-y-4">
+            {walkthrough.map((step) => (
+              <div
+                key={step.num}
+                className="bg-[#111827] border border-gray-800 rounded-xl p-6 md:p-8 flex flex-col md:flex-row md:items-start gap-4 md:gap-8"
+              >
+                <span className="text-blue-400 font-bold text-3xl md:text-4xl md:w-16 flex-shrink-0">
+                  {step.num}
+                </span>
+                <div>
+                  <h3 className="text-white font-semibold text-lg md:text-xl mb-2">
+                    {step.title}
+                  </h3>
+                  <p className="text-gray-400 text-sm md:text-base leading-relaxed">
+                    {step.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+      </section>
 
-        {/* Demo vs Live Comparison */}
-        <div className="mt-16 bg-gray-800 rounded-lg p-8 border border-gray-600">
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">Demo vs Live Environment</h2>
-          
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-xl font-semibold text-orange-400 mb-4">🎭 Demo Environment</h3>
-              <ul className="space-y-2 text-gray-300">
-                <li className="flex items-center">
-                  <span className="text-orange-400 mr-2">✓</span>
-                  Safe sandbox with mock data
-                </li>
-                <li className="flex items-center">
-                  <span className="text-orange-400 mr-2">✓</span>
-                  All features enabled
-                </li>
-                <li className="flex items-center">
-                  <span className="text-orange-400 mr-2">✓</span>
-                  No real integrations
-                </li>
-                <li className="flex items-center">
-                  <span className="text-orange-400 mr-2">✓</span>
-                  Perfect for testing and exploration
-                </li>
-                <li className="flex items-center">
-                  <span className="text-orange-400 mr-2">✓</span>
-                  Realistic but fictional data
-                </li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-xl font-semibold text-blue-400 mb-4">🔴 Live Environment</h3>
-              <ul className="space-y-2 text-gray-300">
-                <li className="flex items-center">
-                  <span className="text-blue-400 mr-2">✓</span>
-                  Real client data only
-                </li>
-                <li className="flex items-center">
-                  <span className="text-blue-400 mr-2">✓</span>
-                  Production integrations
-                </li>
-                <li className="flex items-center">
-                  <span className="text-blue-400 mr-2">✓</span>
-                  Super admin controls
-                </li>
-                <li className="flex items-center">
-                  <span className="text-blue-400 mr-2">✓</span>
-                  Client management tools
-                </li>
-                <li className="flex items-center">
-                  <span className="text-blue-400 mr-2">✓</span>
-                  Aggregate analytics
-                </li>
-              </ul>
-            </div>
+      {/* Mid CTA */}
+      <section className="py-16 px-4">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+            Ready to walk through it yourself?
+          </h2>
+          <p className="text-gray-400 mb-8">
+            The interactive demo opens a sandboxed OttoServ dashboard with
+            realistic data from three sample service businesses. Click around,
+            try the workflows, and see what the system actually does.
+          </p>
+          <button
+            onClick={handleStartDemo}
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
+          >
+            Launch the Interactive Demo
+          </button>
+        </div>
+      </section>
+
+      {/* Features overview */}
+      <section className="py-16 px-4 bg-[#0d0d0d]">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-bold text-white text-center mb-4">
+            What You&apos;ll See Inside
+          </h2>
+          <p className="text-gray-400 text-center max-w-2xl mx-auto mb-12">
+            Every module is wired with sample data so you can explore without
+            booking a sales call first.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((item) => (
+              <div
+                key={item.title}
+                className="bg-[#111827] border border-gray-800 rounded-xl p-6"
+              >
+                <h3 className="text-white font-semibold text-lg mb-3">
+                  {item.title}
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Voice demo */}
+      <section className="py-16 px-4">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+            Want to hear Morgan in action?
+          </h2>
+          <p className="text-gray-400 mb-8">
+            Try a live voice conversation with Morgan — OttoServ&apos;s AI
+            assistant who answers calls, qualifies leads, and books
+            appointments 24/7.
+          </p>
+          <Link
+            href="/jarvis-voice"
+            className="inline-block border border-gray-600 hover:border-gray-400 text-gray-300 hover:text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
+          >
+            Try the Voice Demo
+          </Link>
+        </div>
+      </section>
+
+      {/* Bottom journey CTA */}
+      <section className="py-20 px-4 bg-[#0d0d0d]">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+            Seen enough? Find out where your business is leaking revenue.
+          </h2>
+          <p className="text-gray-400 text-lg mb-10">
+            The Guided Demo shows you what the system does. The Process Audit
+            shows you where it would pay for itself first. Most owners take 2
+            minutes and find 3 leaks.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/process-audit"
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
+            >
+              Find Your Operations Leaks
+            </Link>
+            <Link
+              href="/contact"
+              className="inline-block border border-gray-600 hover:border-gray-400 text-gray-300 hover:text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
+            >
+              Book an Implementation Call
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

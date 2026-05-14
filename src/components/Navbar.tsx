@@ -45,6 +45,12 @@ export default function Navbar() {
             <Link href="/" className="text-gray-300 hover:text-white transition-colors text-sm">
               Home
             </Link>
+            <Link href="/process-audit" className="text-gray-300 hover:text-white transition-colors text-sm">
+              Process Audit
+            </Link>
+            <Link href="/demo" className="text-gray-300 hover:text-white transition-colors text-sm">
+              Guided Demo
+            </Link>
             <Link href="/services" className="text-gray-300 hover:text-white transition-colors text-sm">
               Services
             </Link>
@@ -136,6 +142,12 @@ export default function Navbar() {
           <div className="md:hidden py-4 border-t border-gray-800 flex flex-col gap-3">
             <Link href="/" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               Home
+            </Link>
+            <Link href="/process-audit" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
+              Process Audit
+            </Link>
+            <Link href="/demo" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
+              Guided Demo
             </Link>
             <Link href="/services" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               Services
