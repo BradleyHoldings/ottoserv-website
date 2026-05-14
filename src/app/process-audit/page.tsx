@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Conversation } from "@elevenlabs/client";
 
-const VOICE_AGENT_ID = "agent_0501kqg13ad2ej09zsyxywrb6gsz";
-type VoiceState = "idle" | "connecting" | "active" | "ending" | "error";
+const JARVIS_AGENT_ID = "agent_0501kqg13ad2ej09zsyxywrb6gsz";
+const CONVAI_WIDGET_SRC = "https://elevenlabs.io/convai-widget/index.js";
 
 type UtmCtx = {
   utm_source: string;
@@ -314,57 +313,32 @@ export default function ProcessAuditPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
-  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
-  const [voiceError, setVoiceError] = useState("");
-  const conversationRef = useRef<Awaited<ReturnType<typeof Conversation.startSession>> | null>(null);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const voicePanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     trackEvent("process_audit_page_view");
   }, []);
 
+  // Lazy-load ElevenLabs ConvAI widget script once, only after the user clicks Start the Audit.
   useEffect(() => {
-    return () => {
-      void conversationRef.current?.endSession();
-      conversationRef.current = null;
-    };
-  }, []);
+    if (!voiceActive) return;
+    if (typeof document === "undefined") return;
+    if (document.querySelector(`script[src="${CONVAI_WIDGET_SRC}"]`)) return;
+    const s = document.createElement("script");
+    s.src = CONVAI_WIDGET_SRC;
+    s.async = true;
+    document.head.appendChild(s);
+  }, [voiceActive]);
 
-  const startVoiceAudit = async () => {
-    if (voiceState === "connecting" || voiceState === "active") return;
-    setVoiceError("");
-    setVoiceState("connecting");
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      const conv = await Conversation.startSession({
-        agentId: VOICE_AGENT_ID,
-        onConnect: () => setVoiceState("active"),
-        onDisconnect: () => {
-          conversationRef.current = null;
-          setVoiceState("idle");
-        },
-        onError: (msg: unknown) => {
-          setVoiceError(typeof msg === "string" ? msg : "Voice call failed.");
-          setVoiceState("error");
-        },
-      });
-      conversationRef.current = conv;
-      trackEvent("process_audit_voice_started");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not start voice call.";
-      setVoiceError(msg);
-      setVoiceState("error");
-    }
-  };
-
-  const endVoiceAudit = async () => {
-    if (!conversationRef.current) return setVoiceState("idle");
-    setVoiceState("ending");
-    try {
-      await conversationRef.current.endSession();
-    } finally {
-      conversationRef.current = null;
-      setVoiceState("idle");
-    }
+  const startAudit = () => {
+    trackEvent("process_audit_start_clicked");
+    setVoiceActive(true);
+    if (typeof window === "undefined") return;
+    // Give the widget panel a frame to render before scrolling to it.
+    window.setTimeout(() => {
+      voicePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
   };
 
   const scrollToForm = () => {
@@ -504,14 +478,6 @@ export default function ProcessAuditPage() {
     );
   }
 
-  const voiceButtonLabel =
-    voiceState === "connecting" ? "Connecting…"
-    : voiceState === "active" ? "End voice call"
-    : voiceState === "ending" ? "Ending…"
-    : "Talk it through with Jarvis (voice)";
-  const voiceButtonAction = voiceState === "active" ? endVoiceAudit : startVoiceAudit;
-  const voiceButtonDisabled = voiceState === "connecting" || voiceState === "ending";
-
   return (
     <div style={{ backgroundColor: "var(--otto-gray-900)" }}>
       {/* Hero */}
@@ -524,59 +490,60 @@ export default function ProcessAuditPage() {
             Find Out Where Your Business Is Leaking
             <br className="hidden md:block" /> Leads, Time, and Revenue.
           </h1>
-          <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10">
+          <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-8">
             Walk through how your business actually runs — lead intake, follow-up,
             scheduling, admin work, handoffs, and tools. Eight short sections, about
             10 minutes.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={startAudit}
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-12 py-5 rounded-md text-lg transition-colors"
+          >
+            Start the Audit →
+          </button>
+
+          <p className="text-gray-400 text-sm mt-5 max-w-lg mx-auto">
+            Talk it through with Jarvis — tap the mic when it appears.{" "}
             <button
               type="button"
               onClick={scrollToForm}
-              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-10 py-5 rounded-md text-lg transition-colors"
+              className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
             >
-              Start the Audit →
+              Prefer to type? Use the form below.
             </button>
-            <button
-              type="button"
-              onClick={voiceButtonAction}
-              disabled={voiceButtonDisabled}
-              className={`inline-block font-semibold px-6 py-4 rounded-md text-sm transition-colors border ${
-                voiceState === "active"
-                  ? "bg-red-600 hover:bg-red-700 text-white border-red-600"
-                  : "bg-transparent hover:bg-[#1f2937] text-gray-200 border-gray-600 hover:border-gray-400"
-              } ${voiceButtonDisabled ? "opacity-70 cursor-not-allowed" : ""}`}
-            >
-              {voiceButtonLabel}
-            </button>
-          </div>
-
-          {voiceState === "active" && (
-            <p className="text-green-400 text-sm mt-4">
-              <span className="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2 align-middle" />
-              Listening — speak naturally. Tap End voice call when you&apos;re done.
-            </p>
-          )}
-
-          {voiceState === "error" && (
-            <p className="text-red-400 text-sm mt-4">
-              {voiceError || "Voice call couldn't start."}{" "}
-              <button
-                type="button"
-                onClick={scrollToForm}
-                className="underline text-red-300 hover:text-white"
-              >
-                Use the form instead
-              </button>
-              .
-            </p>
-          )}
-
-          <p className="text-gray-500 text-sm mt-6">
-            Prefer to type? Hit <span className="text-gray-300">Start the Audit</span>.
-            Prefer to talk? Try the voice option — your mic stays in the browser.
           </p>
+
+          {voiceActive && (
+            <div
+              ref={voicePanelRef}
+              className="mt-10 max-w-xl mx-auto bg-[#111827] border border-blue-700/40 rounded-xl p-6 md:p-8"
+            >
+              <p className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-3">
+                Talking with Jarvis
+              </p>
+              <p className="text-gray-300 text-sm mb-5">
+                Tap the mic, allow your microphone, and speak naturally. Jarvis will walk
+                you through the audit one question at a time.
+              </p>
+              <div className="flex justify-center">
+                {/* @ts-expect-error — ElevenLabs ConvAI custom element */}
+                <elevenlabs-convai agent-id={JARVIS_AGENT_ID} />
+              </div>
+              <p className="text-gray-500 text-xs text-center mt-5">
+                Voice not loading?{" "}
+                <button
+                  type="button"
+                  onClick={scrollToForm}
+                  className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                >
+                  Use the form below
+                </button>
+                {" "}— same audit, typed.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
