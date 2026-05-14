@@ -367,6 +367,16 @@ export default function ProcessAuditPage() {
     }
   };
 
+  const scrollToForm = () => {
+    trackEvent("process_audit_scroll_to_form");
+    if (typeof document === "undefined") return;
+    const target = document.getElementById("audit-form");
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    const firstInput = target.querySelector<HTMLInputElement>("input, textarea, select");
+    firstInput?.focus({ preventScroll: true });
+  };
+
   const setField = <K extends keyof SectionedForm>(k: K, v: SectionedForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -496,9 +506,9 @@ export default function ProcessAuditPage() {
 
   const voiceButtonLabel =
     voiceState === "connecting" ? "Connecting…"
-    : voiceState === "active" ? "End call"
+    : voiceState === "active" ? "End voice call"
     : voiceState === "ending" ? "Ending…"
-    : "Start the Audit";
+    : "Talk it through with Jarvis (voice)";
   const voiceButtonAction = voiceState === "active" ? endVoiceAudit : startVoiceAudit;
   const voiceButtonDisabled = voiceState === "connecting" || voiceState === "ending";
 
@@ -516,42 +526,57 @@ export default function ProcessAuditPage() {
           </h1>
           <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10">
             Walk through how your business actually runs — lead intake, follow-up,
-            scheduling, admin work, handoffs, and tools. Talk it through with Jarvis,
-            or use the form if you&apos;d rather type.
+            scheduling, admin work, handoffs, and tools. Eight short sections, about
+            10 minutes.
           </p>
 
-          <button
-            type="button"
-            onClick={voiceButtonAction}
-            disabled={voiceButtonDisabled}
-            className={`inline-block font-semibold px-10 py-5 rounded-md text-lg transition-colors ${
-              voiceState === "active"
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-            } ${voiceButtonDisabled ? "opacity-70 cursor-not-allowed" : ""}`}
-          >
-            {voiceButtonLabel}
-          </button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={scrollToForm}
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-10 py-5 rounded-md text-lg transition-colors"
+            >
+              Start the Audit →
+            </button>
+            <button
+              type="button"
+              onClick={voiceButtonAction}
+              disabled={voiceButtonDisabled}
+              className={`inline-block font-semibold px-6 py-4 rounded-md text-sm transition-colors border ${
+                voiceState === "active"
+                  ? "bg-red-600 hover:bg-red-700 text-white border-red-600"
+                  : "bg-transparent hover:bg-[#1f2937] text-gray-200 border-gray-600 hover:border-gray-400"
+              } ${voiceButtonDisabled ? "opacity-70 cursor-not-allowed" : ""}`}
+            >
+              {voiceButtonLabel}
+            </button>
+          </div>
 
           {voiceState === "active" && (
             <p className="text-green-400 text-sm mt-4">
               <span className="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2 align-middle" />
-              Listening — speak naturally. Tap End call when you&apos;re done.
+              Listening — speak naturally. Tap End voice call when you&apos;re done.
             </p>
           )}
 
-          {voiceState === "error" && voiceError && (
-            <p className="text-red-400 text-sm mt-4">{voiceError}</p>
+          {voiceState === "error" && (
+            <p className="text-red-400 text-sm mt-4">
+              {voiceError || "Voice call couldn't start."}{" "}
+              <button
+                type="button"
+                onClick={scrollToForm}
+                className="underline text-red-300 hover:text-white"
+              >
+                Use the form instead
+              </button>
+              .
+            </p>
           )}
 
-          <div className="mt-8">
-            <a
-              href="#audit-form"
-              className="inline-flex items-center gap-2 text-gray-400 hover:text-white text-sm transition-colors"
-            >
-              Prefer to type it instead? Use the form below ↓
-            </a>
-          </div>
+          <p className="text-gray-500 text-sm mt-6">
+            Prefer to type? Hit <span className="text-gray-300">Start the Audit</span>.
+            Prefer to talk? Try the voice option — your mic stays in the browser.
+          </p>
         </div>
       </section>
 
@@ -559,10 +584,11 @@ export default function ProcessAuditPage() {
       <section id="audit-form" className="pb-20 px-4 scroll-mt-8">
         <div className="max-w-3xl mx-auto mb-8 pt-8 border-t border-gray-800">
           <h2 className="text-white text-xl md:text-2xl font-semibold mb-2">
-            Or fill out the audit by hand
+            Process Audit — 8 sections
           </h2>
           <p className="text-gray-400 text-sm">
-            Eight short sections. Most owners get through it in 10–15 minutes.
+            Company profile through priority. Most owners get through it in 10–15 minutes.
+            Required fields are marked with a red asterisk.
           </p>
         </div>
         <form onSubmit={submit} className="max-w-3xl mx-auto space-y-8">
