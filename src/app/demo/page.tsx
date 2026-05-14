@@ -68,11 +68,22 @@ export default function DemoPage() {
         JSON.stringify({
           id: "demo-user",
           name: "Demo User",
+          email: "demo@ottoserv.com",
           role: "demo",
           isOttoServEmployee: false,
+          clientAccess: ["demo-clients"],
+          permissions: ["view_demo_data"],
         }),
       );
-      router.push("/demo/dashboard");
+      localStorage.setItem("ottoserv_token", "demo_token");
+      localStorage.setItem(
+        "ottoserv_client",
+        JSON.stringify({
+          name: "Demo User",
+          business_name: "Demo Company",
+        }),
+      );
+      router.push("/dashboard/command-center");
     }
   };
 

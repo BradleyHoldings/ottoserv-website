@@ -443,6 +443,9 @@ export default function ProcessAuditPage() {
 
   return (
     <div style={{ backgroundColor: "var(--otto-gray-900)" }}>
+      {/* ElevenLabs ConvAI widget loader */}
+      <script src="https://elevenlabs.io/convai-widget/index.js" async />
+
       {/* Hero */}
       <section className="py-16 md:py-20 px-4">
         <div className="max-w-3xl mx-auto text-center">
@@ -453,16 +456,55 @@ export default function ProcessAuditPage() {
             Find Out Where Your Business Is Leaking
             <br className="hidden md:block" /> Leads, Time, and Revenue.
           </h1>
-          <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">
-            Walk through 8 short sections about how your business actually runs — lead intake,
-            follow-up, scheduling, admin work, handoffs, and tools. We&apos;ll send back the
-            leaks we spotted and what an AI operations system should fix first.
+          <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10">
+            Walk through how your business actually runs — lead intake, follow-up,
+            scheduling, admin work, handoffs, and tools. Talk it through with Jarvis
+            below, or use the form if you&apos;d rather type.
           </p>
+
+          {/* Voice intake — primary path */}
+          <div className="bg-[#111827] border border-blue-700/40 rounded-2xl p-6 md:p-8 max-w-2xl mx-auto">
+            <div className="flex items-center justify-center mb-3">
+              <span className="inline-flex items-center gap-2 bg-green-900/30 text-green-300 px-3 py-1 rounded-full border border-green-700/60 text-xs font-medium">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                Recommended — fastest way
+              </span>
+            </div>
+            <h2 className="text-white text-xl md:text-2xl font-semibold mb-2">
+              Talk to Jarvis
+            </h2>
+            <p className="text-gray-400 text-sm md:text-base mb-6">
+              Tap the microphone and walk through your operations naturally.
+              Jarvis asks the right questions, captures your answers, and routes
+              them to our team.
+            </p>
+            <div className="flex justify-center">
+              {/* @ts-expect-error — ElevenLabs custom element */}
+              <elevenlabs-convai agent-id="agent_0501kqg13ad2ej09zsyxywrb6gsz" />
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <a
+              href="#audit-form"
+              className="inline-flex items-center gap-2 text-gray-400 hover:text-white text-sm transition-colors"
+            >
+              Prefer to type it instead? Use the form below ↓
+            </a>
+          </div>
         </div>
       </section>
 
       {/* Form */}
-      <section className="pb-20 px-4">
+      <section id="audit-form" className="pb-20 px-4 scroll-mt-8">
+        <div className="max-w-3xl mx-auto mb-8 pt-8 border-t border-gray-800">
+          <h2 className="text-white text-xl md:text-2xl font-semibold mb-2">
+            Or fill out the audit by hand
+          </h2>
+          <p className="text-gray-400 text-sm">
+            Eight short sections. Most owners get through it in 10–15 minutes.
+          </p>
+        </div>
         <form onSubmit={submit} className="max-w-3xl mx-auto space-y-8">
 
           {/* Section 1 — Company Profile */}
