@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  mockTechOpsOpportunities,
   OPPORTUNITY_TYPES,
   TechOpsOpportunity,
 } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockTechOpsOpportunities: TechOpsOpportunity[] = [];
 
 const STATUS_LABELS: Record<TechOpsOpportunity["status"], string> = {
   new: "New",

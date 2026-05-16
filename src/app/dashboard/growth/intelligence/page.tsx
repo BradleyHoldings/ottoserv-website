@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import {
-  mockSIAPosts,
-  mockSIATemplates,
-  mockSIAStats,
   type SIAPost,
   type SIATemplate,
   type SIAPainType,
 } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockSIAPosts: SIAPost[] = [];
+const mockSIATemplates: SIATemplate[] = [];
+const mockSIAStats: any = { total_posts: 0, high_intent: 0, replies_drafted: 0, replies_sent: 0 };
 
 type IntentLevel = "high" | "medium" | "low";
 

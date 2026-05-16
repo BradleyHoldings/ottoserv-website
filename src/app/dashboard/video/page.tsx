@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  mockVideoRequests,
-  mockVideoTemplates,
-  mockBrandProfile,
-} from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockVideoRequests: any[] = [];
+const mockVideoTemplates: any[] = [];
+const mockBrandProfile: any = { brand_name: "", primary_color: "#000", logo_url: null, voice: "" };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft:            { label: "Draft",            color: "bg-gray-700 text-gray-300" },

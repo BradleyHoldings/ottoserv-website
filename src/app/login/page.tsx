@@ -25,7 +25,7 @@ export default function LoginPage() {
 
       if (response.ok) {
         const result = await response.json();
-        
+
         // Set localStorage for client-side auth system
         localStorage.setItem("ottoserv_current_user", JSON.stringify(result.user));
         const token = result.user.role === "super_admin" ? "super_admin_token" :
@@ -36,23 +36,20 @@ export default function LoginPage() {
           name: result.user.name,
           business_name: result.user.company || (result.user.role === "super_admin" ? "OttoServ" : "Demo Company"),
         }));
-        
-        // For super_admin, also fetch a platform token so OS dashboard can access real data
-        if (result.user.role === "super_admin") {
-          try {
-            const platRes = await fetch("https://platform.ottoserv.com/auth/login", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email, password }),
-            });
-            if (platRes.ok) {
-              const platData = await platRes.json();
-              if (platData.token) {
-                localStorage.setItem("ottoserv_platform_token", platData.token);
-                localStorage.setItem("ottoserv_platform_user", JSON.stringify(platData.user ?? {}));
-              }
-            }
-          } catch { /* platform login is best-effort */ }
+
+        // Persist the platform JWT for ALL users (not just super_admin) so the
+        // OS Dashboard's leads/calls/social panels can hit the real backend
+        // scoped to the user's company_id. The server-side login route
+        // forwards this from the FastAPI /auth/login response.
+        if (result.platform_token) {
+          localStorage.setItem("ottoserv_platform_token", result.platform_token);
+          localStorage.setItem("ottoserv_platform_user", JSON.stringify(result.platform_user ?? {}));
+        } else {
+          // Authed via legacy fallback (no platform account) — clear any
+          // stale JWT so the dashboard renders empty states instead of
+          // accidentally showing another user's cached data.
+          localStorage.removeItem("ottoserv_platform_token");
+          localStorage.removeItem("ottoserv_platform_user");
         }
 
         // Redirect based on user role

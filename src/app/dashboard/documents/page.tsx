@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { mockDocuments, Document } from "@/lib/mockData";
+import { Document } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const TYPE_ICONS: Record<string, string> = {
   contract: "📄",
@@ -28,11 +29,12 @@ const TYPE_COLORS: Record<string, string> = {
 const CATEGORY_TABS = ["all", "contract", "permit", "receipt", "photo", "coi", "invoice", "sop", "estimate"];
 
 export default function DocumentsPage() {
+  const [documents] = useState<Document[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
   const [folderView, setFolderView] = useState<"type" | "project" | "recent">("type");
 
   const filtered =
-    typeFilter === "all" ? mockDocuments : mockDocuments.filter((d) => d.type === typeFilter);
+    typeFilter === "all" ? documents : documents.filter((d) => d.type === typeFilter);
 
   const sorted =
     folderView === "recent"

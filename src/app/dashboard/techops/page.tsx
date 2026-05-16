@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { mockTechOpsTickets, mockTechOpsStats } from "@/lib/mockData";
 import KpiCard from "@/components/dashboard/KpiCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockTechOpsTickets: any[] = [];
+const mockTechOpsStats: any = { open: 0, in_progress: 0, resolved_this_week: 0, critical: 0 };
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: "text-gray-400",

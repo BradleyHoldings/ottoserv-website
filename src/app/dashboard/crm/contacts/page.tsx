@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { mockContacts, Contact } from "@/lib/mockData";
+import { useEffect, useState, useMemo } from "react";
+import { Contact } from "@/lib/mockData";
+import { getCrmContacts } from "@/lib/dashboardApi";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -39,9 +40,19 @@ export default function ContactsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCrmContacts().then((data) => {
+      if (cancelled) return;
+      setContacts((data || []) as Contact[]);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = useMemo(() => {
-    return mockContacts.filter((c) => {
+    return contacts.filter((c) => {
       const q = search.toLowerCase();
       const matchSearch =
         !q ||
@@ -63,7 +74,7 @@ export default function ContactsPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Contacts</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {filtered.length} of {mockContacts.length} contacts
+            {filtered.length} of {contacts.length} contacts
           </p>
         </div>
         <button
@@ -123,7 +134,7 @@ export default function ContactsPage() {
       <div className="flex flex-wrap gap-2 mb-5">
         {(["lead", "customer", "vendor", "subcontractor"] as const).map(
           (type) => {
-            const count = mockContacts.filter(
+            const count = contacts.filter(
               (c) => c.contact_type === type
             ).length;
             return (

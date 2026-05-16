@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { mockMessages, Message } from "@/lib/mockData";
+import { Message } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const CATEGORY_COLORS: Record<string, string> = {
   client: "bg-blue-600",
@@ -20,9 +21,9 @@ function timeAgo(iso: string) {
 const EMPTY_COMPOSE_FORM = { to: "", subject: "", body: "" };
 
 export default function InboxPage() {
-  const [selected, setSelected] = useState<Message>(mockMessages[0]);
+  const [selected, setSelected] = useState<Message | null>(null);
   const [filter, setFilter] = useState<"all" | "unread" | "client" | "lead">("all");
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [showCompose, setShowCompose] = useState(false);
   const [form, setForm] = useState(EMPTY_COMPOSE_FORM);
 

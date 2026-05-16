@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import AutomationCard from "@/components/dashboard/AutomationCard";
-import { mockAutomations, Automation } from "@/lib/mockData";
+import { Automation } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const EMPTY_AUTO_FORM = { name: "", trigger: "new_lead", action: "send_email", description: "" };
 
 export default function AutomationsPage() {
-  const [automations, setAutomations] = useState<Automation[]>(mockAutomations);
+  const [automations, setAutomations] = useState<Automation[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_AUTO_FORM);
 

@@ -3,7 +3,11 @@
 import { useState } from "react";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { mockMaterials, mockExpenses, Material, Expense } from "@/lib/mockData";
+import { Material, Expense } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockMaterials: Material[] = [];
+const mockExpenses: Expense[] = [];
 
 type MaterialRow = Material & Record<string, unknown>;
 type ExpenseRow = Expense & Record<string, unknown>;

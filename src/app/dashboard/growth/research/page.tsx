@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { mockNVP } from "@/lib/mockData";
+const mockNVP: any[] = [];
 
 // ── Mock research data (local, not in mockData.ts) ────────────────────────────
 

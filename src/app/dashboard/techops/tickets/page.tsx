@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { mockTechOpsTickets, TechOpsTicket } from "@/lib/mockData";
+import { TechOpsTicket } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockTechOpsTickets: TechOpsTicket[] = [];
 import StatusBadge from "@/components/dashboard/StatusBadge";
 
 const PRIORITY_COLORS: Record<string, string> = {

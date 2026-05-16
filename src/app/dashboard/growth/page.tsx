@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  mockNVP,
-  mockContentLibrary,
-  mockWinningPatterns,
-  mockContentPerformance,
-  type ContentPiece,
-} from "@/lib/mockData";
+import { type ContentPiece } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockNVP: any[] = [];
+const mockContentLibrary: ContentPiece[] = [];
+const mockWinningPatterns: any[] = [];
+const mockContentPerformance: any[] = [];
 
 const TABS = [
   { id: "overview", label: "Overview" },

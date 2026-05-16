@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { mockVendors, Vendor } from "@/lib/mockData";
+import { Vendor } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockVendors: Vendor[] = [];
 
 function StarRating({ rating }: { rating: number }) {
   return (

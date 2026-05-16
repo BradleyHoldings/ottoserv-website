@@ -63,7 +63,13 @@ const LEGACY_PASSWORDS: Record<string, string> = {
   "demo@ottoserv.com": "demo",
 };
 
-async function tryPlatformLogin(email: string, password: string): Promise<boolean> {
+type PlatformLoginResult = {
+  ok: boolean;
+  token?: string;
+  user?: unknown;
+};
+
+async function tryPlatformLogin(email: string, password: string): Promise<PlatformLoginResult> {
   try {
     const res = await fetch(`${PLATFORM_BASE}/auth/login`, {
       method: 'POST',
@@ -72,9 +78,11 @@ async function tryPlatformLogin(email: string, password: string): Promise<boolea
       // Keep this snappy — Vercel API routes have a tight budget
       signal: AbortSignal.timeout(8000),
     });
-    return res.ok;
+    if (!res.ok) return { ok: false };
+    const data = await res.json().catch(() => null);
+    return { ok: true, token: data?.token, user: data?.user };
   } catch {
-    return false;
+    return { ok: false };
   }
 }
 
@@ -92,7 +100,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Primary: platform owns the password.
-    let authed = await tryPlatformLogin(lowered, password);
+    const platformResult = await tryPlatformLogin(lowered, password);
+    let authed = platformResult.ok;
 
     // 2. Legacy fallback for users not yet on the platform.
     if (!authed) {
@@ -127,6 +136,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       user: metadata,
+      // Platform JWT — required for the OS Dashboard to load real per-company
+      // data (leads, calls, social posts). Empty when the user authed only via
+      // the legacy fallback (no platform account yet).
+      platform_token: platformResult.token ?? null,
+      platform_user: platformResult.user ?? null,
       message: "Login successful",
     });
   } catch (error) {

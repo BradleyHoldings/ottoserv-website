@@ -3,16 +3,22 @@
 import { useState } from "react";
 import KpiCard from "@/components/dashboard/KpiCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { mockFinancialSummary, mockInvoices, mockExpenses } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
-const f = mockFinancialSummary;
+const f = {
+  revenue_this_month: 0,
+  revenue_last_month: 0,
+  gross_profit_this_month: 0,
+  gross_profit_last_month: 0,
+  ytd_revenue: 0,
+  outstanding_receivables: 0,
+};
+const mockInvoices: any[] = [];
+const mockExpenses: any[] = [];
 
-const MARGIN_PCT = Math.round((f.gross_profit_this_month / f.revenue_this_month) * 100);
-const MARGIN_LAST = Math.round((f.gross_profit_last_month / f.revenue_last_month) * 100);
-
-const REV_CHANGE = Math.round(
-  ((f.revenue_this_month - f.revenue_last_month) / f.revenue_last_month) * 100
-);
+const MARGIN_PCT = 0;
+const MARGIN_LAST = 0;
+const REV_CHANGE = 0;
 
 const INVOICE_TABS = ["all", "overdue", "sent", "paid", "draft"];
 
@@ -47,8 +53,14 @@ export default function FinancialsPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Financials</h1>
-        <p className="text-gray-500 text-sm mt-1">April 2026 · YTD revenue ${f.ytd_revenue.toLocaleString()}</p>
+        <p className="text-gray-500 text-sm mt-1">No financials connected yet</p>
       </div>
+
+      <ComingSoonBanner
+        title="Financials not yet wired"
+        description="Revenue, profit, and invoice data will appear once you connect QuickBooks, Stripe, or another billing source."
+      />
+
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

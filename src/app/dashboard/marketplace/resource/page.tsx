@@ -2,10 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { mockResources, mockUsageLog, type MarketplaceResource } from "@/lib/mockData";
+import { type MarketplaceResource } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
-// Show the first resource as the demo detail — in production this would use searchParams/id
-const DEMO_RESOURCE = mockResources[0];
+const mockResources: MarketplaceResource[] = [];
+const mockUsageLog: any[] = [];
+
+// Resource detail is empty until the marketplace backend lands.
+const DEMO_RESOURCE: MarketplaceResource | undefined = mockResources[0];
 
 function typeBadge(type: MarketplaceResource["type"]) {
   const map = {

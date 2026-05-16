@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { mockProjects, Project } from "@/lib/mockData";
-import { getProjects, getToken } from "@/lib/dashboardApi";
+import { Project } from "@/lib/mockData";
+import { getProjects } from "@/lib/dashboardApi";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const RISK_COLORS: Record<string, string> = {
   low: "bg-green-900/40 text-green-400 border border-green-800",
@@ -83,7 +84,7 @@ export default function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<Project | null>(null);
   const [activeTab, setActiveTab] = useState("Overview");
-  const [projects, setProjects] = useState(mockProjects);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_PROJECT_FORM);
@@ -113,12 +114,18 @@ export default function ProjectsPage() {
   }
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      getProjects(token).then((data) => { if (data) setProjects(data); setLoading(false); });
-    } else {
-      setLoading(false);
-    }
+    let cancelled = false;
+    getProjects()
+      .then((data) => {
+        if (cancelled) return;
+        setProjects((data || []) as Project[]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filtered =

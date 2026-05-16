@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { mockSOPs, SOP } from "@/lib/mockData";
+import { SOP } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const CATEGORY_ICONS: Record<string, string> = {
   Sales: "💼",
@@ -14,14 +15,14 @@ const CATEGORY_ICONS: Record<string, string> = {
   Procurement: "📦",
 };
 
-const categories = ["All", ...Array.from(new Set(mockSOPs.map((s) => s.category)))];
-
 export default function SOPsPage() {
+  const [sops] = useState<SOP[]>([]);
+  const categories = ["All", ...Array.from(new Set(sops.map((s) => s.category)))];
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
-  const filtered = mockSOPs.filter((s) => {
+  const filtered = sops.filter((s) => {
     const catOk = categoryFilter === "All" || s.category === categoryFilter;
     const searchOk =
       !search.trim() ||

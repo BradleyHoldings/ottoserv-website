@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { mockAgentActivity, AgentAction } from "@/lib/mockData";
+import { AgentAction } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockAgentActivity: AgentAction[] = [];
 
 const AGENTS = [
   { name: "Growth Agent", emoji: "📣", description: "Generates social posts, review requests, and lead nurture content", successRate: 94 },

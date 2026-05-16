@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import KpiCard from "@/components/dashboard/KpiCard";
-import { mockJobCosts, JobCost } from "@/lib/mockData";
+import { JobCost } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockJobCosts: JobCost[] = [];
 
 function marginColor(margin: number): string {
   if (margin >= 20) return "text-green-400";

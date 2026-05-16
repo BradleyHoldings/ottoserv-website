@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { mockCompanies, mockContacts, mockDeals, Company } from "@/lib/mockData";
+import { useEffect, useState, useMemo } from "react";
+import { Company } from "@/lib/mockData";
+import { getCrmCompanies, getCrmContacts, getCrmDeals } from "@/lib/dashboardApi";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 
 const INDUSTRY_ICONS: Record<string, string> = {
@@ -41,9 +42,25 @@ export default function CompaniesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [deals, setDeals] = useState<any[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getCrmCompanies(), getCrmContacts(), getCrmDeals()]).then(
+      ([cs, ks, ds]) => {
+        if (cancelled) return;
+        setCompanies((cs || []) as Company[]);
+        setContacts(ks || []);
+        setDeals(ds || []);
+      }
+    );
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = useMemo(() => {
-    return mockCompanies.filter((c) => {
+    return companies.filter((c) => {
       const q = search.toLowerCase();
       const matchSearch =
         !q ||
@@ -57,11 +74,11 @@ export default function CompaniesPage() {
   }, [search, statusFilter]);
 
   const companyContacts = selectedCompany
-    ? mockContacts.filter((c) => c.company_id === selectedCompany.id)
+    ? contacts.filter((c) => c.company_id === selectedCompany.id)
     : [];
 
   const companyDeals = selectedCompany
-    ? mockDeals.filter((d) => d.company_id === selectedCompany.id)
+    ? deals.filter((d) => d.company_id === selectedCompany.id)
     : [];
 
   return (
@@ -71,7 +88,7 @@ export default function CompaniesPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Companies</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {filtered.length} of {mockCompanies.length} accounts
+            {filtered.length} of {companies.length} accounts
           </p>
         </div>
         <button

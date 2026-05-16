@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getIntegrations, getToken } from "@/lib/dashboardApi";
+import { getIntegrations } from "@/lib/dashboardApi";
 import {
-  mockIntegrations,
-  mockSocialConnections,
   SOCIAL_PLATFORMS,
   Integration,
   SocialConnection,
 } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockIntegrations: Integration[] = [];
+const mockSocialConnections: SocialConnection[] = [];
 
 // ─── Software integrations (unchanged extra set) ────────────────────────────
 

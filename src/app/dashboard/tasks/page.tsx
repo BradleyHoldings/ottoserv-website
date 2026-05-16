@@ -4,20 +4,17 @@ import { useState, useEffect } from "react";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import PriorityBadge from "@/components/dashboard/PriorityBadge";
-import { mockTasks, mockProjects, Task } from "@/lib/mockData";
-import { getTasks, getToken } from "@/lib/dashboardApi";
+import { Task } from "@/lib/mockData";
+import { getTasks, getProjects } from "@/lib/dashboardApi";
 
 const STATUS_OPTIONS = ["all", "open", "in_progress", "overdue", "waiting", "needs_approval", "done"];
 const PRIORITY_OPTIONS = ["all", "urgent", "high", "medium", "low"];
 
-const projectName = (id: string | null) => {
-  if (!id) return "—";
-  return mockProjects.find((p) => p.id === id)?.project_name ?? id;
-};
 
 type TaskRow = Task & Record<string, unknown>;
 
-const COLUMNS: Column<TaskRow>[] = [
+function makeColumns(projectName: (id: string | null) => string): Column<TaskRow>[] {
+return [
   {
     key: "title",
     label: "Task",
@@ -44,16 +41,24 @@ const COLUMNS: Column<TaskRow>[] = [
   { key: "assigned_to", label: "Assigned To", sortable: true },
   { key: "due_date", label: "Due Date", sortable: true },
 ];
+}
 
 const EMPTY_TASK_FORM = { title: "", priority: "medium", assigned_to: "", due_date: "" };
 
 export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [tasks, setTasks] = useState(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_TASK_FORM);
+
+  const projectName = (id: string | null) => {
+    if (!id) return "—";
+    return projects.find((p) => p.id === id)?.project_name ?? id;
+  };
+  const COLUMNS = makeColumns(projectName);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,12 +77,17 @@ export default function TasksPage() {
   }
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      getTasks(token).then((data) => { if (data) setTasks(data); setLoading(false); });
-    } else {
-      setLoading(false);
-    }
+    let cancelled = false;
+    Promise.all([getTasks(), getProjects()])
+      .then(([ts, ps]) => {
+        if (cancelled) return;
+        setTasks((ts || []) as Task[]);
+        setProjects(ps || []);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const filtered = tasks.filter((t) => {

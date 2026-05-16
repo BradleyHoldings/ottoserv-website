@@ -12,38 +12,24 @@ import LoadingSkeleton from "@/components/dashboard/LoadingSkeleton";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import PriorityBadge from "@/components/dashboard/PriorityBadge";
 import {
-  mockKpis,
-  mockBrief,
-  mockAlerts,
-  mockProjects,
-  mockTasks,
-  mockWorkOrders,
-  mockAgentActivity,
-  mockLeads,
-  mockInvoices,
-  mockCalendarEvents,
-} from "@/lib/mockData";
-import { getDashboard, getTasks, getLeads, getToken } from "@/lib/dashboardApi";
-
-const EXTENDED_ALERTS = [
-  { type: "budget_overrun", title: "Johnson Kitchen over budget", description: "PRJ-002 material costs 12% over estimate — review required", severity: "high" },
-  { type: "schedule_behind", title: "Project behind schedule", description: "Johnson Kitchen — 6 days behind target completion", severity: "high" },
-  { type: "missing_material", title: "Materials not ordered", description: "Subway tile for PRJ-002 still pending — delivery needed by May 5", severity: "medium" },
-  { type: "unassigned_wo", title: "Work order unassigned", description: "WO-003 (Derek Walsh estimate) has no assigned tech", severity: "medium" },
-  { type: "client_waiting", title: "Client awaiting reply", description: "Mike Johnson asked for a site walkthrough — 1 day no response", severity: "high" },
-  { type: "invoice_overdue", title: "Invoice #1041 overdue", description: "Tom Carter — $4,200 — 20 days overdue", severity: "high" },
-  { type: "ai_approval", title: "AI action needs approval", description: "Growth Agent drafted Instagram post for Johnson Kitchen", severity: "medium" },
-];
+  getDashboard,
+  getTasks,
+  getLeads,
+  getRecentCalls,
+  hasPlatformAccess,
+  RecentCall,
+} from "@/lib/dashboardApi";
 
 export default function CommandCenterPage() {
   const [loading, setLoading] = useState(true);
-  const [kpis, setKpis] = useState([]);
   const [brief, setBrief] = useState<any>(null);
-  const [alerts, setAlerts] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [leads, setLeads] = useState([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
+  const platformAccess = hasPlatformAccess();
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -51,49 +37,54 @@ export default function CommandCenterPage() {
       router.push('/login');
       return;
     }
-    
+
     setUser(currentUser);
-    
+
     // Super admin should use admin dashboard, not command center
     if (currentUser.role === 'super_admin') {
       router.push('/dashboard/admin');
       return;
     }
-    
-    const token = getToken() || "";
+
     Promise.all([
-      getDashboard(token),
-      getTasks(token),
-      getLeads(token),
-    ]).then(([dashData, tasksData, leadsData]) => {
-      if (dashData?.kpis) setKpis(dashData.kpis);
+      getDashboard(),
+      getTasks(),
+      getLeads(),
+      getRecentCalls(20),
+    ]).then(([dashData, tasksData, leadsData, callsData]) => {
       if (dashData?.brief) setBrief(dashData.brief);
       if (dashData?.alerts) setAlerts(dashData.alerts);
       if (tasksData) setTasks(tasksData);
       if (leadsData) setLeads(leadsData);
+      if (callsData) setRecentCalls(callsData);
       setLoading(false);
     });
   }, [router]);
 
-  const inProgressProjects: any[] = []; // Real projects data to be connected
+  const inProgressProjects: any[] = [];
   const urgentTasks = tasks
     .filter((t: any) => t.status === "overdue" || t.priority === "urgent")
     .slice(0, 5);
-  const openWorkOrders: any[] = []; // Real work orders to be connected
-  const scheduledThisWeek = 0; // Real schedule data to be connected
-  const aiPendingCount = 0; // Real agent approvals to be connected
-  const todayEvents: any[] = []; // Real calendar events to be connected
+  const openWorkOrders: any[] = [];
+  const scheduledThisWeek = 0;
+  const aiPendingCount = 0;
+  const todayEvents: any[] = [];
   const leadsNeedingFollowup = leads.filter((l: any) => ["new", "follow_up"].includes(l.status));
-  const overdueInvoices: any[] = []; // Real invoice data to be connected
+  const overdueInvoices: any[] = [];
+  const callsToday = recentCalls.filter((c) => {
+    const created = new Date(c.created_at);
+    const now = new Date();
+    return created.toDateString() === now.toDateString();
+  });
+  const connectedCallsToday = callsToday.filter((c) => c.status === "completed").length;
 
-  // Calculate real KPIs from actual data
   const calculatedKpis = {
     activeJobs: tasks.length,
     todayAppointments: todayEvents.length,
     overdueTasks: tasks.filter((t: any) => t.status === 'overdue').length,
     newLeads: leadsNeedingFollowup.length,
-    monthlyRevenue: "$900", // 3 clients × $300/mo
-    openWorkOrders: openWorkOrders.length
+    callsToday: callsToday.length,
+    openWorkOrders: openWorkOrders.length,
   };
 
   if (loading) {
@@ -112,8 +103,23 @@ export default function CommandCenterPage() {
     <div className="density-comfortable">
       <div className="section-spacing">
         <h1 className="text-2xl font-bold text-white">Command Center</h1>
-        <p className="text-gray-500 text-sm element-spacing">Thursday, April 30, 2026</p>
+        <p className="text-gray-500 text-sm element-spacing">
+          {new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
       </div>
+
+      {!platformAccess && (
+        <div className="bg-yellow-900/20 border border-yellow-800/60 rounded-xl p-4 mb-6 text-sm text-yellow-300">
+          You're signed in to the OS Dashboard, but this account isn't linked
+          to a platform tenant yet. Live leads, calls, and social posts won't
+          load until your platform account is provisioned.
+        </div>
+      )}
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 grid-spacing-normal section-spacing" data-jarvis-target="dashboard_overview" data-demo-target="kpi-section">
@@ -146,18 +152,15 @@ export default function CommandCenterPage() {
           trendDirection={calculatedKpis.newLeads > 0 ? "up" : "neutral"}
         />
         <KpiCard
-          value={calculatedKpis.monthlyRevenue}
-          label="Monthly Revenue"
-          color="green"
-          trend="3 active clients"
-          trendDirection="up"
-        />
-        <KpiCard
-          value="$0"
-          label="Outstanding Billing"
-          color="green"
-          trend="All invoices current"
-          trendDirection="neutral"
+          value={calculatedKpis.callsToday}
+          label="Calls Today"
+          color="blue"
+          trend={
+            calculatedKpis.callsToday === 0
+              ? "No calls yet"
+              : `${connectedCallsToday} connected`
+          }
+          trendDirection={calculatedKpis.callsToday > 0 ? "up" : "neutral"}
         />
         <KpiCard
           value={openWorkOrders.length}
@@ -235,20 +238,44 @@ export default function CommandCenterPage() {
             </div>
           </div>
 
-          {/* AI Completed Work */}
+          {/* Recent Calls */}
           <div>
-            <p className="text-gray-400 text-xs font-medium uppercase component-spacing">AI Completed Today</p>
-            <div className="space-y-2">
-              {mockAgentActivity
-                .filter((a) => a.status === "completed")
-                .slice(0, 3)
-                .map((a: any, index: number) => (
-                  <div key={a.id || index} className="flex items-start gap-2 text-sm">
-                    <span className="text-green-400 text-xs mt-0.5 flex-shrink-0">✓</span>
-                    <span className="text-gray-300">{a.task}</span>
+            <p className="text-gray-400 text-xs font-medium uppercase component-spacing">Recent Calls</p>
+            {callsToday.length === 0 ? (
+              <p className="text-gray-600 text-sm">No calls placed today</p>
+            ) : (
+              <div className="space-y-2">
+                {callsToday.slice(0, 4).map((c) => (
+                  <div key={c.id} className="flex items-start gap-2 text-sm">
+                    <span
+                      className={`text-xs mt-0.5 flex-shrink-0 ${
+                        c.status === "completed"
+                          ? "text-green-400"
+                          : c.status === "blocked"
+                          ? "text-yellow-400"
+                          : c.status === "failed"
+                          ? "text-red-400"
+                          : "text-blue-400"
+                      }`}
+                    >
+                      {c.status === "completed"
+                        ? "✓"
+                        : c.status === "blocked"
+                        ? "◐"
+                        : c.status === "failed"
+                        ? "✕"
+                        : "●"}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-gray-300 truncate">{c.contact}</span>
+                      <span className="text-gray-500 text-xs ml-1">
+                        — {c.outcome}
+                      </span>
+                    </div>
                   </div>
                 ))}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -258,11 +285,14 @@ export default function CommandCenterPage() {
         {/* Alerts & Risks Panel */}
         <div className="container-primary" data-demo-target="alerts-section">
           <h3 className="text-white font-semibold subsection-spacing">Alerts & Risks</h3>
+          {alerts.length === 0 ? (
+            <p className="text-gray-500 text-sm py-4">No active alerts.</p>
+          ) : (
           <div className="space-y-0">
-            {EXTENDED_ALERTS.map((alert, i) => (
+            {alerts.map((alert, i) => (
               <div
                 key={i}
-                className={`flex items-start gap-3 py-3 ${i < EXTENDED_ALERTS.length - 1 ? "border-b border-gray-800" : ""}`}
+                className={`flex items-start gap-3 py-3 ${i < alerts.length - 1 ? "border-b border-gray-800" : ""}`}
               >
                 <span
                   className={`text-lg flex-shrink-0 ${
@@ -278,6 +308,7 @@ export default function CommandCenterPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
         <QuickActions />
       </div>

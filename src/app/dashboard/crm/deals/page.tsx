@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import KanbanBoard, { KanbanColumn } from "@/components/dashboard/KanbanBoard";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
-import { mockDeals, Deal } from "@/lib/mockData";
+import { Deal } from "@/lib/mockData";
+import { getCrmDeals } from "@/lib/dashboardApi";
 
 const STAGES: KanbanColumn[] = [
   { id: "discovery", title: "Discovery", dotColor: "bg-blue-400" },
@@ -138,17 +139,27 @@ export default function DealsPage() {
   const [view, setView] = useState<"kanban" | "table">("kanban");
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [deals, setDeals] = useState<Deal[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCrmDeals().then((data) => {
+      if (cancelled) return;
+      setDeals((data || []) as Deal[]);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const openDeals = useMemo(
-    () => mockDeals.filter((d) => d.stage !== "won" && d.stage !== "lost"),
-    []
+    () => deals.filter((d) => d.stage !== "won" && d.stage !== "lost"),
+    [deals]
   );
   const pipelineValue = useMemo(
     () => openDeals.reduce((sum, d) => sum + d.value, 0),
     [openDeals]
   );
-  const wonDeals = mockDeals.filter((d) => d.stage === "won").length;
-  const lostDeals = mockDeals.filter((d) => d.stage === "lost").length;
+  const wonDeals = deals.filter((d) => d.stage === "won").length;
+  const lostDeals = deals.filter((d) => d.stage === "lost").length;
   const winRate =
     wonDeals + lostDeals > 0
       ? Math.round((wonDeals / (wonDeals + lostDeals)) * 100)
@@ -161,7 +172,7 @@ export default function DealsPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Deals Pipeline</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {mockDeals.length} deals total
+            {deals.length} deals total
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -219,7 +230,7 @@ export default function DealsPage() {
           <p className="text-gray-400 text-sm mt-1">Won</p>
           <p className="text-gray-600 text-xs mt-1">
             {formatCurrency(
-              mockDeals
+              deals
                 .filter((d) => d.stage === "won")
                 .reduce((s, d) => s + d.value, 0)
             )}{" "}
@@ -239,7 +250,7 @@ export default function DealsPage() {
       {view === "kanban" ? (
         <KanbanBoard<Deal>
           columns={STAGES}
-          items={mockDeals}
+          items={deals}
           getItemColumn={(deal) => deal.stage}
           getItemKey={(deal) => deal.id}
           renderCard={(deal) => (
@@ -281,7 +292,7 @@ export default function DealsPage() {
         />
       ) : (
         <DataTable<DealRow>
-          data={mockDeals as DealRow[]}
+          data={deals as DealRow[]}
           columns={TABLE_COLUMNS}
           onRowClick={(row) => setSelectedDeal(row as Deal)}
           searchable

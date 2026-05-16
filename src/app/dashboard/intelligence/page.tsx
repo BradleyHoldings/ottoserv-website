@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import {
-  mockMaterialTrends,
-  mockIntelRecommendations,
-  mockCostAssumptions,
-  mockPermitActivity,
-  mockRiskAlerts,
   type IntelRecommendation,
   type RiskAlert,
 } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockMaterialTrends: any[] = [];
+const mockIntelRecommendations: IntelRecommendation[] = [];
+const mockCostAssumptions: any[] = [];
+const mockPermitActivity: any[] = [];
+const mockRiskAlerts: RiskAlert[] = [];
 
 const TABS = [
   { id: "market", label: "Market Pulse" },

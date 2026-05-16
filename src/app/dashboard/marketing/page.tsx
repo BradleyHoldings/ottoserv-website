@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { mockMarketingPosts, MarketingPost } from "@/lib/mockData";
+import { MarketingPost } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const PLATFORM_ICONS: Record<string, string> = {
   Facebook: "📘",
@@ -40,7 +41,7 @@ const EMPTY_POST_FORM = { platform: "facebook", content: "", schedule_date: "" }
 export default function MarketingPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>("all");
   const [editingPost, setEditingPost] = useState<MarketingPost | null>(null);
-  const [posts, setPosts] = useState<MarketingPost[]>(mockMarketingPosts);
+  const [posts, setPosts] = useState<MarketingPost[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_POST_FORM);
 

@@ -4,7 +4,8 @@ import { useState } from "react";
 import KanbanBoard, { KanbanColumn } from "@/components/dashboard/KanbanBoard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import PriorityBadge from "@/components/dashboard/PriorityBadge";
-import { mockWorkOrders, WorkOrder } from "@/lib/mockData";
+import { WorkOrder } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const COLUMNS: KanbanColumn[] = [
   { id: "new", title: "New", dotColor: "bg-blue-500" },
@@ -49,7 +50,7 @@ const EMPTY_WO_FORM = {
 
 export default function WorkOrdersPage() {
   const [view, setView] = useState<"kanban" | "table">("kanban");
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(mockWorkOrders);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_WO_FORM);
 

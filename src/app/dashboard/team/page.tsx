@@ -2,7 +2,10 @@
 
 import KpiCard from "@/components/dashboard/KpiCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { mockTeamMembers, mockProjects } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockTeamMembers: any[] = [];
+const mockProjects: any[] = [];
 
 const TYPE_COLORS: Record<string, string> = {
   employee: "bg-blue-900/40 text-blue-400 border border-blue-800",

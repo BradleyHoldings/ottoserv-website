@@ -1,14 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import KpiCard from "@/components/dashboard/KpiCard";
 import {
-  mockContacts,
-  mockDeals,
-  mockCRMActivities,
-  mockTasks,
-  mockCompanies,
-} from "@/lib/mockData";
+  getCrmContacts,
+  getCrmDeals,
+  getCrmCompanies,
+  getCrmActivities,
+  getCrmTasks,
+} from "@/lib/dashboardApi";
 
 const ACTIVITY_ICONS: Record<string, string> = {
   call: "📞",
@@ -32,52 +33,6 @@ const ACTIVITY_TYPE_COLORS: Record<string, string> = {
   ai_action: "bg-orange-900/40 text-orange-400 border-orange-800",
 };
 
-const totalContacts = mockContacts.length;
-const activeLeads = mockContacts.filter((c) => c.contact_type === "lead").length;
-const openDeals = mockDeals.filter((d) => d.stage !== "won" && d.stage !== "lost");
-const pipelineValue = openDeals.reduce((sum, d) => sum + d.value, 0);
-const wonDeals = mockDeals.filter((d) => d.stage === "won").length;
-const lostDeals = mockDeals.filter((d) => d.stage === "lost").length;
-const winRate =
-  wonDeals + lostDeals > 0
-    ? Math.round((wonDeals / (wonDeals + lostDeals)) * 100)
-    : 0;
-const tasksDue = mockTasks.filter(
-  (t) => t.status === "open" || t.status === "overdue"
-).length;
-
-const recentActivities = mockCRMActivities.slice(0, 10);
-
-const QUICK_LINKS = [
-  {
-    href: "/dashboard/crm/contacts",
-    emoji: "👤",
-    label: "Contacts",
-    count: mockContacts.length,
-    desc: "People & leads",
-  },
-  {
-    href: "/dashboard/crm/companies",
-    emoji: "🏢",
-    label: "Companies",
-    count: mockCompanies.length,
-    desc: "Accounts",
-  },
-  {
-    href: "/dashboard/crm/deals",
-    emoji: "💰",
-    label: "Deals",
-    count: openDeals.length,
-    desc: "Open pipeline",
-  },
-  {
-    href: "/dashboard/crm/activity",
-    emoji: "📋",
-    label: "Activity",
-    count: mockCRMActivities.length,
-    desc: "All activities",
-  },
-];
 
 const JARVIS_PROMPTS = [
   "Which leads need follow-up today?",
@@ -102,6 +57,55 @@ function formatTimestamp(ts: string) {
 }
 
 export default function CRMPage() {
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [deals, setDeals] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      getCrmContacts(),
+      getCrmDeals(),
+      getCrmCompanies(),
+      getCrmActivities(),
+      getCrmTasks(),
+    ]).then(([cs, ds, comps, acts, ts]) => {
+      if (cancelled) return;
+      setContacts(cs);
+      setDeals(ds);
+      setCompanies(comps);
+      setActivities(acts);
+      setTasks(ts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totalContacts = contacts.length;
+  const activeLeads = contacts.filter((c: any) => c.contact_type === "lead").length;
+  const openDeals = deals.filter((d: any) => d.stage !== "won" && d.stage !== "lost");
+  const pipelineValue = openDeals.reduce((sum: number, d: any) => sum + (d.value || 0), 0);
+  const wonDeals = deals.filter((d: any) => d.stage === "won").length;
+  const lostDeals = deals.filter((d: any) => d.stage === "lost").length;
+  const winRate =
+    wonDeals + lostDeals > 0
+      ? Math.round((wonDeals / (wonDeals + lostDeals)) * 100)
+      : 0;
+  const tasksDue = tasks.filter(
+    (t: any) => t.status === "open" || t.status === "overdue"
+  ).length;
+  const recentActivities = activities.slice(0, 10);
+
+  const QUICK_LINKS = [
+    { href: "/dashboard/crm/contacts", emoji: "👤", label: "Contacts", count: contacts.length, desc: "People & leads" },
+    { href: "/dashboard/crm/companies", emoji: "🏢", label: "Companies", count: companies.length, desc: "Accounts" },
+    { href: "/dashboard/crm/deals", emoji: "💰", label: "Deals", count: openDeals.length, desc: "Open pipeline" },
+    { href: "/dashboard/crm/activity", emoji: "📋", label: "Activity", count: activities.length, desc: "All activities" },
+  ];
+
   return (
     <div>
       <div className="mb-6">
@@ -261,11 +265,11 @@ export default function CRMPage() {
                 { stage: "Proposal", color: "bg-purple-500" },
                 { stage: "Negotiation", color: "bg-yellow-500" },
               ].map(({ stage, color }) => {
-                const stageDeals = mockDeals.filter(
-                  (d) => d.stage === stage.toLowerCase()
+                const stageDeals = deals.filter(
+                  (d: any) => d.stage === stage.toLowerCase()
                 );
                 const stageValue = stageDeals.reduce(
-                  (sum, d) => sum + d.value,
+                  (sum: number, d: any) => sum + (d.value || 0),
                   0
                 );
                 return (

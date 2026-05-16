@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { mockDispatchPackets, DispatchPacket } from "@/lib/mockData";
+import { DispatchPacket } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockDispatchPackets: DispatchPacket[] = [];
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-800 text-gray-400 border-gray-700",

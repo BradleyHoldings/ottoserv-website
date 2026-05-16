@@ -3,7 +3,18 @@
 import { useState } from "react";
 import ReportCard from "@/components/dashboard/ReportCard";
 import KpiCard from "@/components/dashboard/KpiCard";
-import { mockReports, mockFinancialSummary, mockProjects, mockLeads, mockWorkOrders, Report } from "@/lib/mockData";
+import { Report } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockReports: Report[] = [];
+const mockFinancialSummary: any = {
+  revenue_this_month: 0,
+  gross_profit_this_month: 0,
+  outstanding_receivables: 0,
+};
+const mockProjects: any[] = [];
+const mockLeads: any[] = [];
+const mockWorkOrders: any[] = [];
 
 const DASHBOARD_TABS = ["Owner", "Project", "Operations", "Sales"] as const;
 type DashboardTab = typeof DASHBOARD_TABS[number];

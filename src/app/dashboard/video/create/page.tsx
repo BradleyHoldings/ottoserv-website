@@ -3,7 +3,8 @@
 import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { mockVideoTemplates, mockBrandProfile } from "@/lib/mockData";
+const mockVideoTemplates: any[] = [];
+const mockBrandProfile: any = { brand_name: "", primary_color: "#3b82f6", logo_url: null, voice: "" };
 
 const PLATFORMS   = ["Instagram Reels", "TikTok", "YouTube", "LinkedIn", "Facebook", "Internal / Slack", "Twitter/X"];
 const ASPECT_RATIOS = ["9:16", "16:9", "1:1"] as const;

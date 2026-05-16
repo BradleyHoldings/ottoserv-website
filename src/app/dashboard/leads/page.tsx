@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import KanbanBoard, { KanbanColumn } from "@/components/dashboard/KanbanBoard";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { mockLeads, Lead } from "@/lib/mockData";
-import { getLeads, getToken } from "@/lib/dashboardApi";
+import { Lead } from "@/lib/mockData";
+import { getLeads, hasPlatformAccess } from "@/lib/dashboardApi";
 
 const STAGES: KanbanColumn[] = [
   { id: "new", title: "New", dotColor: "bg-blue-400" },
@@ -74,10 +74,11 @@ const EMPTY_LEAD_FORM = {
 export default function LeadsPage() {
   const [view, setView] = useState<"kanban" | "table">("kanban");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [leads, setLeads] = useState(mockLeads);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_LEAD_FORM);
+  const platformAccess = hasPlatformAccess();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -100,12 +101,18 @@ export default function LeadsPage() {
   }
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      getLeads(token).then((data) => { if (data) setLeads(data); setLoading(false); });
-    } else {
-      setLoading(false);
-    }
+    let cancelled = false;
+    getLeads()
+      .then((data) => {
+        if (cancelled) return;
+        setLeads(data as Lead[]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -139,6 +146,17 @@ export default function LeadsPage() {
           </button>
         </div>
       </div>
+
+      {!loading && leads.length === 0 && (
+        <div className="bg-[#111827] border border-gray-800 rounded-xl p-8 text-center mb-6">
+          <p className="text-white font-medium mb-1">No leads yet</p>
+          <p className="text-gray-500 text-sm">
+            {platformAccess
+              ? "When new leads land — from your CRM, voice intake, or form fills — they'll show up here."
+              : "Sign in with a platform-enabled account to see your company's leads."}
+          </p>
+        </div>
+      )}
 
       {view === "kanban" ? (
         <KanbanBoard<Lead>

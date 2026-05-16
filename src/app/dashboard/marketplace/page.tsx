@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 import {
-  mockResources,
-  mockMonetizationAlerts,
-  mockClientPackages,
-  mockResourceRequests,
-  mockUsageLog,
   type MarketplaceResource,
   type MonetizationAlert,
   type ClientPackage,
   type ResourceRequest,
   type UsageLogEntry,
 } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockResources: MarketplaceResource[] = [];
+const mockMonetizationAlerts: MonetizationAlert[] = [];
+const mockClientPackages: ClientPackage[] = [];
+const mockResourceRequests: ResourceRequest[] = [];
+const mockUsageLog: UsageLogEntry[] = [];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

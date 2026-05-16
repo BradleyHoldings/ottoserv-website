@@ -3,13 +3,13 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import {
-  mockProjects,
-  mockTasks,
-  mockMaterials,
-  mockExpenses,
-  Project,
-} from "@/lib/mockData";
+import { Project } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockProjects: Project[] = [];
+const mockTasks: any[] = [];
+const mockMaterials: any[] = [];
+const mockExpenses: any[] = [];
 
 const PROJECT_PHASES = [
   "Planning", "Estimate", "Contract", "Materials", "Scheduled",

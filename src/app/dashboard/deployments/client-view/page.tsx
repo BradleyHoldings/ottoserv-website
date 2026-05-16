@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import {
-  mockDeployment,
-  mockToolInventory,
-  mockAgentRoster,
-  mockChangeRequests,
-} from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockDeployment: any = { id: "", client_name: "", status: "no_data", model: "client_owned", health: "healthy" };
+const mockToolInventory: any[] = [];
+const mockAgentRoster: any[] = [];
+const mockChangeRequests: any[] = [];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

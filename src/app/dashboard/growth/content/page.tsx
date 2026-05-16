@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  mockContentLibrary,
-  mockContentPerformance,
-  type ContentPiece,
-} from "@/lib/mockData";
+import { type ContentPiece } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockContentLibrary: ContentPiece[] = [];
+const mockContentPerformance: any[] = [];
 
 const PLATFORM_COLORS: Record<string, string> = {
   instagram: "bg-pink-900/40 text-pink-400 border-pink-800",

@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { mockKBArticles, KBArticle } from "@/lib/mockData";
+import { KBArticle } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockKBArticles: KBArticle[] = [];
 
 const RISK_COLORS: Record<string, string> = {
   low: "bg-green-900/40 text-green-400 border-green-800",

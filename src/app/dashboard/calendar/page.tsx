@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { mockCalendarEvents, CalendarEvent } from "@/lib/mockData";
+import { CalendarEvent } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const TYPE_COLORS: Record<string, string> = {
   site_visit: "bg-blue-600",
@@ -70,7 +71,7 @@ const EMPTY_EVENT_FORM = {
 export default function CalendarPage() {
   const [monthIdx, setMonthIdx] = useState(1); // Start on May
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
-  const [events, setEvents] = useState<CalendarEvent[]>(mockCalendarEvents);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_EVENT_FORM);
 

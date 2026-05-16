@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { mockCRMActivities, CRMActivity } from "@/lib/mockData";
+import { useEffect, useState, useMemo } from "react";
+import { CRMActivity } from "@/lib/mockData";
+import { getCrmActivities } from "@/lib/dashboardApi";
 
 const ACTIVITY_ICONS: Record<string, string> = {
   call: "📞",
@@ -82,13 +83,23 @@ export default function ActivityPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [contactFilter, setContactFilter] = useState("");
   const [dateRange, setDateRange] = useState(0);
+  const [activities, setActivities] = useState<CRMActivity[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCrmActivities().then((data) => {
+      if (cancelled) return;
+      setActivities((data || []) as CRMActivity[]);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const allContacts = useMemo(() => {
-    const names = mockCRMActivities
+    const names = activities
       .map((a) => a.contact_name)
       .filter(Boolean) as string[];
     return [...new Set(names)].sort();
-  }, []);
+  }, [activities]);
 
   const cutoff = useMemo(() => {
     if (!dateRange) return null;
@@ -98,14 +109,14 @@ export default function ActivityPage() {
   }, [dateRange]);
 
   const filtered = useMemo(() => {
-    return mockCRMActivities.filter((a) => {
+    return activities.filter((a) => {
       const matchType = typeFilter === "all" || a.type === typeFilter;
       const matchContact =
         !contactFilter || a.contact_name === contactFilter;
       const matchDate = !cutoff || a.timestamp >= cutoff;
       return matchType && matchContact && matchDate;
     });
-  }, [typeFilter, contactFilter, cutoff]);
+  }, [activities, typeFilter, contactFilter, cutoff]);
 
   // Group by date
   const grouped = useMemo(() => {
@@ -132,7 +143,7 @@ export default function ActivityPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Activity Timeline</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {filtered.length} of {mockCRMActivities.length} activities
+            {filtered.length} of {activities.length} activities
           </p>
         </div>
         <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
@@ -155,7 +166,7 @@ export default function ActivityPage() {
             All
           </button>
           {ACTIVITY_TYPES.map((type) => {
-            const count = mockCRMActivities.filter(
+            const count = activities.filter(
               (a) => a.type === type
             ).length;
             return (

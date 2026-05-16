@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import {
-  mockProcesses,
-  mockProcessSOPs,
-  mockAutomationOpportunities,
   PROCESS_STATUSES,
   Process,
   ProcessSOP,
   AutomationOpportunity,
 } from "@/lib/mockData";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+
+const mockProcesses: Process[] = [];
+const mockProcessSOPs: ProcessSOP[] = [];
+const mockAutomationOpportunities: AutomationOpportunity[] = [];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
