@@ -441,6 +441,8 @@ export default function DeploymentsPage() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-white text-2xl font-bold">Deployment Management</h1>
+      <ComingSoonBanner />
+
         <p className="text-gray-500 text-sm mt-1">Manage client deployments, tools, agents, and handoff packages</p>
       </div>
 

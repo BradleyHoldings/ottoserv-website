@@ -25,6 +25,8 @@ export default function TeamPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Team / Labor</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-500 text-sm mt-1">
             {employees} employees · {contractors} contractors
           </p>

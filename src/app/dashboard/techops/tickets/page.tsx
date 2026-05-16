@@ -64,6 +64,8 @@ export default function TicketsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Tickets</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-500 text-sm mt-1">{filtered.length} tickets</p>
         </div>
         <Link

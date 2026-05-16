@@ -38,6 +38,8 @@ export default function SOPsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">SOPs</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-500 text-sm mt-1">
             {activeCount} active · {mockSOPs.length} total standard operating procedures
           </p>

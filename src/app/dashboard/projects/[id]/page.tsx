@@ -171,6 +171,8 @@ export default function ProjectDetailPage({
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
             <h1 className="text-2xl font-bold text-white mb-1">{project.project_name}</h1>
+      <ComingSoonBanner />
+
             <p className="text-gray-400 text-sm">{project.client_name} · {project.address}</p>
             <p className="text-gray-600 text-xs mt-0.5">{project.id}</p>
           </div>

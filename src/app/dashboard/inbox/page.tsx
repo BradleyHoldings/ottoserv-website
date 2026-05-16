@@ -60,6 +60,8 @@ export default function InboxPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Inbox</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-500 text-sm mt-1">
             {unreadCount} unread · {messages.length} total
           </p>

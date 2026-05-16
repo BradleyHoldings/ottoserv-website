@@ -549,6 +549,8 @@ export default function MarketplacePage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-white">Agent Resource Marketplace</h1>
+      <ComingSoonBanner />
+
             <p className="text-gray-400 text-sm mt-1">Browse, request, and manage tools, workflows, templates, and human services for your agents.</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500">

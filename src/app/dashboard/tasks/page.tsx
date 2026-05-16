@@ -5,7 +5,8 @@ import DataTable, { Column } from "@/components/dashboard/DataTable";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import PriorityBadge from "@/components/dashboard/PriorityBadge";
 import { Task } from "@/lib/mockData";
-import { getTasks, getProjects } from "@/lib/dashboardApi";
+import { getTasks, getProjects, hasPlatformAccess } from "@/lib/dashboardApi";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const STATUS_OPTIONS = ["all", "open", "in_progress", "overdue", "waiting", "needs_approval", "done"];
 const PRIORITY_OPTIONS = ["all", "urgent", "high", "medium", "low"];
@@ -98,6 +99,7 @@ export default function TasksPage() {
 
   const overdueCount = tasks.filter((t) => t.status === "overdue").length;
   const openCount = tasks.filter((t) => t.status === "open").length;
+  const platformAccess = hasPlatformAccess();
 
   return (
     <div>
@@ -112,6 +114,18 @@ export default function TasksPage() {
           + New Task
         </button>
       </div>
+
+      {!loading && tasks.length === 0 && (
+        platformAccess ? (
+          <ComingSoonBanner
+            tone="empty"
+            title="No tasks yet"
+            description="Tasks created by your team, by Jarvis, or by Otto will appear here. Click + New Task to add one manually."
+          />
+        ) : (
+          <ComingSoonBanner tone="auth" />
+        )
+      )}
 
       {/* New Task Modal */}
       {showModal && (

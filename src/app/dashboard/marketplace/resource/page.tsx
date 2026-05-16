@@ -152,6 +152,8 @@ export default function ResourceDetailPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-white">{r.name}</h1>
+      <ComingSoonBanner />
+
               {typeBadge(r.type)}
             </div>
             <p className="text-gray-400">{r.description}</p>

@@ -9,7 +9,9 @@ import {
   getCrmCompanies,
   getCrmActivities,
   getCrmTasks,
+  hasPlatformAccess,
 } from "@/lib/dashboardApi";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const ACTIVITY_ICONS: Record<string, string> = {
   call: "📞",
@@ -106,6 +108,14 @@ export default function CRMPage() {
     { href: "/dashboard/crm/activity", emoji: "📋", label: "Activity", count: activities.length, desc: "All activities" },
   ];
 
+  const platformAccess = hasPlatformAccess();
+  const isEmpty =
+    contacts.length === 0 &&
+    deals.length === 0 &&
+    activities.length === 0 &&
+    companies.length === 0 &&
+    tasks.length === 0;
+
   return (
     <div>
       <div className="mb-6">
@@ -114,6 +124,16 @@ export default function CRMPage() {
           Customer relationships — contacts, deals, and activity
         </p>
       </div>
+
+      {!platformAccess ? (
+        <ComingSoonBanner tone="auth" />
+      ) : isEmpty ? (
+        <ComingSoonBanner
+          tone="empty"
+          title="No CRM activity yet"
+          description="Contacts, deals, and activity will appear here as your team — or your agents — add them. Start by importing contacts or letting Otto's voice intake create the first lead."
+        />
+      ) : null}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">

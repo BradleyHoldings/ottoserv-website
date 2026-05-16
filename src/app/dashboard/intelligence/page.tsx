@@ -468,6 +468,8 @@ export default function IntelligencePage() {
             <span className="text-2xl">🔮</span>
             <h1 className="text-white text-2xl font-bold">Intelligence Center</h1>
           </div>
+      <ComingSoonBanner />
+
           <p className="text-gray-400 text-sm">
             Market signals, pricing intelligence, and AI-driven recommendations for your business.
           </p>

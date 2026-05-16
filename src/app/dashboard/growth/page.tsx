@@ -588,6 +588,8 @@ export default function GrowthEnginePage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-white text-xl font-bold">Growth Engine</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-400 text-sm mt-0.5">
             OGIS — Omni-Channel Growth Intelligence System
           </p>

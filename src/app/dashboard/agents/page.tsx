@@ -63,6 +63,8 @@ export default function AgentsPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">AI Agents</h1>
+      <ComingSoonBanner />
+
         <p className="text-gray-500 text-sm mt-1">
           {pendingCount} pending approval · {completedCount} completed today · {failedCount} failed
         </p>

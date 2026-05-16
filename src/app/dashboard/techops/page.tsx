@@ -41,6 +41,8 @@ export default function TechOpsDashboard() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">TechOps</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-500 text-sm mt-1">AI-powered tech support hub</p>
         </div>
         <div className="flex gap-3">

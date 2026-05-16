@@ -72,6 +72,8 @@ export default function ClientViewPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-white text-2xl font-bold">{mockDeployment.company}</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-500 text-sm mt-0.5">Your OttoServ AI Operations Dashboard</p>
         </div>
         <div className="flex items-center gap-2 text-sm">

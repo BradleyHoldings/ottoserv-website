@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { SOCIAL_PLATFORMS, SocialPost } from "@/lib/mockData";
 import { getPlatformSocialPosts, hasPlatformAccess } from "@/lib/dashboardApi";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -311,14 +312,15 @@ export default function SocialPage() {
       </div>
 
       {!loading && posts.length === 0 && (
-        <div className="bg-[#111827] border border-gray-800 rounded-xl p-8 text-center mb-6">
-          <p className="text-white font-medium mb-1">No posts yet</p>
-          <p className="text-gray-500 text-sm">
-            {platformAccess
-              ? "Drafts, approval-queue items, and scheduled posts from your agents will land here once you connect a social account."
-              : "Sign in with a platform-enabled account to see your company's posts."}
-          </p>
-        </div>
+        platformAccess ? (
+          <ComingSoonBanner
+            tone="empty"
+            title="No posts yet"
+            description="Drafts, approval-queue items, and scheduled posts from your agents will land here once you connect a social account."
+          />
+        ) : (
+          <ComingSoonBanner tone="auth" />
+        )
       )}
 
       {/* Tabs */}

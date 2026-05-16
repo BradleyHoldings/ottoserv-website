@@ -6,6 +6,7 @@ import DataTable, { Column } from "@/components/dashboard/DataTable";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Lead } from "@/lib/mockData";
 import { getLeads, hasPlatformAccess } from "@/lib/dashboardApi";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const STAGES: KanbanColumn[] = [
   { id: "new", title: "New", dotColor: "bg-blue-400" },
@@ -148,14 +149,15 @@ export default function LeadsPage() {
       </div>
 
       {!loading && leads.length === 0 && (
-        <div className="bg-[#111827] border border-gray-800 rounded-xl p-8 text-center mb-6">
-          <p className="text-white font-medium mb-1">No leads yet</p>
-          <p className="text-gray-500 text-sm">
-            {platformAccess
-              ? "When new leads land — from your CRM, voice intake, or form fills — they'll show up here."
-              : "Sign in with a platform-enabled account to see your company's leads."}
-          </p>
-        </div>
+        platformAccess ? (
+          <ComingSoonBanner
+            tone="empty"
+            title="No leads yet"
+            description="When new leads land — from your CRM, voice intake (Otto), or form fills — they'll show up here automatically."
+          />
+        ) : (
+          <ComingSoonBanner tone="auth" />
+        )
       )}
 
       {view === "kanban" ? (

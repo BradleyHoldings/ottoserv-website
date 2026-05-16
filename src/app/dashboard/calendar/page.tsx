@@ -112,6 +112,8 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Calendar</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-500 text-sm mt-1">{events.length} upcoming events</p>
         </div>
         <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">

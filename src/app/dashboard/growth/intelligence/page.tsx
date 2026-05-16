@@ -317,6 +317,8 @@ export default function SocialIntelligencePage() {
       {/* Header */}
       <div>
         <h1 className="text-white text-xl font-bold">Social Intelligence Hub</h1>
+      <ComingSoonBanner />
+
         <p className="text-gray-400 text-sm mt-0.5">
           AI-detected posts with buying signals — approve, comment, and convert
         </p>

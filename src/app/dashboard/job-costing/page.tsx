@@ -45,6 +45,8 @@ export default function JobCostingPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Job Costing</h1>
+      <ComingSoonBanner />
+
         <p className="text-gray-500 text-sm mt-1">Estimated vs. actual cost tracking across all active projects</p>
       </div>
 

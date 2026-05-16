@@ -19,6 +19,7 @@ import {
   hasPlatformAccess,
   RecentCall,
 } from "@/lib/dashboardApi";
+import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 export default function CommandCenterPage() {
   const [loading, setLoading] = useState(true);
@@ -114,11 +115,11 @@ export default function CommandCenterPage() {
       </div>
 
       {!platformAccess && (
-        <div className="bg-yellow-900/20 border border-yellow-800/60 rounded-xl p-4 mb-6 text-sm text-yellow-300">
-          You're signed in to the OS Dashboard, but this account isn't linked
-          to a platform tenant yet. Live leads, calls, and social posts won't
-          load until your platform account is provisioned.
-        </div>
+        <ComingSoonBanner
+          tone="auth"
+          title="Platform access required"
+          description="You're signed in to the OS Dashboard, but this browser doesn't have a platform JWT yet. Sign out and sign back in to refresh it, or contact OttoServ if your account isn't provisioned on the platform yet."
+        />
       )}
 
       {/* KPI Grid */}

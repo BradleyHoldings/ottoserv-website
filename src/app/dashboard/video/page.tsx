@@ -73,6 +73,8 @@ export default function VideoPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">🎬 Video Studio</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-400 text-sm mt-1">
             AI-generated video requests, approvals, and publishing pipeline
           </p>

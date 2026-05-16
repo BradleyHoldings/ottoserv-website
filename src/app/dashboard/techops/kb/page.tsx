@@ -44,6 +44,8 @@ export default function KBPage() {
           <p className="text-gray-500 text-sm mt-1">{mockKBArticles.length} articles</p>
         </div>
       </div>
+      <ComingSoonBanner />
+
 
       {/* Search & Filter */}
       <div className="flex flex-wrap gap-3 mb-6">

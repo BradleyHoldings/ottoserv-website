@@ -369,6 +369,8 @@ export default function ContentLibraryPage() {
           </div>
           <h1 className="text-white text-xl font-bold">Content Library</h1>
         </div>
+      <ComingSoonBanner />
+
         <button
           onClick={() => setShowGenerate(true)}
           className="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"

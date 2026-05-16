@@ -34,6 +34,8 @@ export default function VendorsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Vendors & Subs</h1>
+      <ComingSoonBanner />
+
           <p className="text-gray-500 text-sm mt-1">
             {activeCount} active vendors · ${totalSpent.toLocaleString()} total spent
           </p>

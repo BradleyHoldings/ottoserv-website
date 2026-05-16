@@ -246,15 +246,36 @@ export async function getDashboard(_token?: string): Promise<DashboardSummary | 
 
   const kpis = [
     {
-      label: "Active Leads",
-      value: summary.active_leads ?? summary.lead_count ?? 0,
+      label: "New Leads",
+      value:
+        summary.new_leads_count ??
+        summary.active_leads ??
+        summary.lead_count ??
+        0,
     },
     {
       label: "Open Deals",
-      value: summary.open_deals ?? summary.deal_count ?? 0,
+      value:
+        summary.open_deals_count ??
+        summary.open_deals ??
+        summary.deal_count ??
+        0,
     },
-    { label: "Due Today", value: dueToday.length },
-    { label: "Overdue", value: overdue.length },
+    {
+      label: "Pipeline Value",
+      value:
+        typeof summary.pipeline_value === "number"
+          ? `$${summary.pipeline_value.toLocaleString()}`
+          : "$0",
+    },
+    {
+      label: "Due Today",
+      value: summary.due_today_count ?? dueToday.length ?? 0,
+    },
+    {
+      label: "Overdue",
+      value: summary.overdue_tasks_count ?? overdue.length ?? 0,
+    },
   ];
 
   const alerts = overdue.slice(0, 5).map((t: any) => ({
