@@ -1,0 +1,156 @@
+{
+  "slug": "ottoserv",
+  "companyName": "OttoServ",
+  "website": "https://ottoserv.com",
+  "mainService": "AI receptionist and lead-handling service",
+  "secondaryServices": [
+    "Missed-call answering",
+    "After-hours call answering",
+    "Lead qualification",
+    "Appointment capture",
+    "Call summaries and routing",
+    "Expanded Operations Package (SOPs, dashboards, CRM cleanup, customer comms)"
+  ],
+  "industriesServed": [
+    "Property management",
+    "HVAC",
+    "Plumbing",
+    "Electrical",
+    "Roofing",
+    "Contractors and remodelers",
+    "Home services (cleaning, landscaping, pest, pool)",
+    "Smart home / AV / low-voltage",
+    "IT / MSP"
+  ],
+  "serviceAreas": ["United States"],
+  "bestFitCustomers": [
+    "Service businesses losing leads to missed calls",
+    "Property managers handling high inbound call volume from tenants, owners, vendors, and applicants",
+    "Trades and contractors who can't staff a full-time receptionist",
+    "Owners who want a 30-day way to test AI without ripping out their existing stack"
+  ],
+  "badFitCustomers": [
+    "Businesses that need a full national call center with hundreds of seats",
+    "Companies that want a heavyweight FSM platform replacement on day one (try ServiceTitan)",
+    "DIY hobbyists looking for a free voice-bot kit"
+  ],
+  "commonProblems": [
+    "Calls go to voicemail during busy seasons",
+    "After-hours leads call a competitor",
+    "Slow follow-up loses the sale",
+    "No visibility into how many leads are leaking",
+    "Front-desk turnover or absence stalls the business",
+    "Receptionist quality varies day to day"
+  ],
+  "urgentSituations": [
+    "Receptionist out and the phone is ringing",
+    "Storm or seasonal surge produced more calls than the team can handle",
+    "Mid-rollout switch from a generic answering service that misqualifies leads",
+    "Lost a key inbound rep this week"
+  ],
+  "commonSalesQuestions": [
+    "How fast can OttoServ go live?",
+    "Will it sound like a robot?",
+    "What happens to a call OttoServ can't handle?",
+    "Does it integrate with my phone system?",
+    "How does pricing work after the pilot?",
+    "How is OttoServ different from a national answering service?"
+  ],
+  "pricing": {
+    "summary": "30-Day Pilot is $299 one-time. Monthly plans start at $249 (Starter). Most clients land on Core at $499/mo. Growth at $997/mo. Custom Operations from $2,500/mo.",
+    "ranges": [
+      "30-Day Pilot: $299 one-time",
+      "Starter: $249/mo (100 AI minutes)",
+      "Core: $499/mo (Most Popular)",
+      "Growth: $997/mo (SMS/email follow-up, CRM updates)",
+      "Custom Operations: from $2,500/mo (Expanded Operations Package)"
+    ],
+    "pricingFactors": [
+      "Call volume",
+      "Hours of coverage (business hours vs. 24/7)",
+      "Integrations required (CRM, calendar, phone system)",
+      "Depth of follow-up sequences",
+      "Whether the Expanded Operations Package is included"
+    ]
+  },
+  "differentiators": [
+    "Service, not just software — we set it up, tune it, and report on results",
+    "$299 30-day pilot lets owners prove value before committing to a monthly plan",
+    "Built specifically for service businesses (property managers, contractors, trades, home services)",
+    "Clean call summaries that route to the right person on the team",
+    "Founder background in low-voltage / AV / fiber / IT infrastructure / SMB operations"
+  ],
+  "guarantees": [
+    "If the 30-day pilot doesn't produce captured leads, we credit the next plan",
+    "Clear scope and pricing written down before any work starts",
+    "No multi-year contracts on monthly plans"
+  ],
+  "reviews": [
+    {
+      "author": "Founding Partner",
+      "source": "Customer interview",
+      "rating": 5,
+      "text": "We saw the first captured after-hours lead inside week one. The summary email made it obvious which lead to call first the next morning.",
+      "verified": true
+    }
+  ],
+  "caseStudies": [
+    {
+      "title": "Contractor stopped losing weekend leads",
+      "customer": "Brandon Croom Contracting",
+      "problem": "Weekend and after-hours calls went to voicemail; most prospects didn't call back.",
+      "approach": "Front Desk AI deployed with a tuned qualification flow, lead summaries routed to the owner by SMS.",
+      "result": "Captured leads on the first weekend live; reduced morning callback queue from hours to minutes."
+    }
+  ],
+  "competitors": [
+    {
+      "name": "ServiceTitan",
+      "positioning": "Full FSM platform replacement for larger trades businesses",
+      "whenTheyWin": "When the team already has FSM-grade processes and wants the platform-of-record",
+      "whenClientWins": "When the team needs lead capture and operational lift this month, not a 6-month implementation"
+    },
+    {
+      "name": "Traditional answering service",
+      "positioning": "Human call center, often offshore",
+      "whenTheyWin": "When the buyer specifically wants a human voice and complex objection handling on every call",
+      "whenClientWins": "When consistency, 24/7 coverage, and clean lead summaries matter more than scripted handoffs"
+    },
+    {
+      "name": "DIY voicebot / Twilio + GPT",
+      "positioning": "Roll-your-own voice automation",
+      "whenTheyWin": "When the team has engineering capacity to maintain the integration",
+      "whenClientWins": "When the team would rather hire a service that owns the outcome"
+    }
+  ],
+  "contact": {
+    "primaryPhone": "(407) 798-8172",
+    "email": "hello@ottoserv.com",
+    "bookingUrl": "https://ottoserv.com/process-audit",
+    "address": {
+      "region": "Florida",
+      "country": "US"
+    },
+    "hours": "Mo-Su 00:00-23:59 (AI), Mo-Fr 09:00-18:00 ET (humans)",
+    "ctaLabel": "Start the 30-Day Pilot"
+  },
+  "founderStory": "Founded by Jonathan Bradley with a background in low-voltage, AV, fiber, IT infrastructure, SMB operations, automation, real estate, and business process improvement. OttoServ exists because most service businesses are losing 10-30% of their revenue to missed calls, slow follow-up, and broken handoffs.",
+  "tools": [
+    "n8n",
+    "Retell",
+    "ElevenLabs",
+    "Supabase",
+    "Vercel"
+  ],
+  "problemSpaceTopics": [],
+  "faq": { "items": [], "status": "draft", "gates": { "clientApprovalRequired": true, "legalConcernsCleared": false, "pricingVerified": false, "testimonialsVerified": false, "claimsVerified": false, "schemaValidated": false } },
+  "comparisonPages": [],
+  "aiLearnPageStatus": "published",
+  "aiLearnPageGates": { "clientApprovalRequired": false, "legalConcernsCleared": true, "pricingVerified": true, "testimonialsVerified": true, "claimsVerified": true, "schemaValidated": true },
+  "pricingPageStatus": "published",
+  "pricingPageGates": { "clientApprovalRequired": false, "legalConcernsCleared": true, "pricingVerified": true, "testimonialsVerified": true, "claimsVerified": true, "schemaValidated": true },
+  "promptTracker": [],
+  "authorityChecklist": [],
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "updatedAt": "2026-05-19T00:00:00.000Z"
+}
