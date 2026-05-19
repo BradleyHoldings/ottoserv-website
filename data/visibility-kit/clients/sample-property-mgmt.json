@@ -1,0 +1,106 @@
+{
+  "slug": "sample-property-mgmt",
+  "companyName": "Sunshine Property Management",
+  "website": "https://example.com",
+  "mainService": "Full-service property management for single-family rentals",
+  "secondaryServices": ["Tenant placement", "Maintenance coordination", "Owner reporting"],
+  "industriesServed": ["Property management", "Real estate investment"],
+  "serviceAreas": ["Orlando, FL", "Lake Mary, FL", "Winter Park, FL"],
+  "bestFitCustomers": [
+    "Out-of-state owners with 1-10 single-family rentals",
+    "Real estate investors growing portfolios in Central Florida"
+  ],
+  "badFitCustomers": [
+    "Owners who want hands-on day-to-day involvement",
+    "Properties outside Central Florida",
+    "Short-term / vacation rental owners"
+  ],
+  "commonProblems": [
+    "Vacancies sitting too long",
+    "Tenant screening producing bad fits",
+    "Maintenance complaints not resolved quickly",
+    "Owner statements not arriving on time"
+  ],
+  "urgentSituations": [
+    "Tenant lock-out at night",
+    "Water leak in occupied unit",
+    "Eviction notice required"
+  ],
+  "commonSalesQuestions": [
+    "What is the management fee?",
+    "Is there a leasing fee?",
+    "How do you screen tenants?",
+    "How fast do you respond to maintenance?"
+  ],
+  "pricing": {
+    "summary": "Management fee is 10% of collected rent; leasing fee is 1 month's rent for new tenants.",
+    "ranges": [
+      "Management fee: 8-10% of collected rent",
+      "Leasing fee: 50-100% of one month's rent",
+      "Lease renewal fee: $250-$400"
+    ],
+    "pricingFactors": [
+      "Portfolio size and unit type",
+      "Whether leasing is included or per-event",
+      "Maintenance markup policy",
+      "Reporting frequency"
+    ]
+  },
+  "differentiators": [
+    "Owner statements by the 10th of every month",
+    "Vetted vendor network with bid-required threshold",
+    "Tenant screening with credit, criminal, eviction, and income verification"
+  ],
+  "guarantees": [
+    "If a placed tenant leaves in the first 6 months, the next placement is free",
+    "Maintenance dispatch SLA: 24 hours non-urgent, immediate for emergencies"
+  ],
+  "reviews": [
+    {
+      "author": "Out-of-state owner",
+      "source": "Google",
+      "rating": 5,
+      "text": "I haven't had to think about my rental in 18 months. Statements always arrive on time and tenants are quiet.",
+      "verified": true
+    }
+  ],
+  "caseStudies": [
+    {
+      "title": "Filled a stale vacancy in 12 days for an investor",
+      "customer": "Investor with 4 SFRs",
+      "problem": "Previous PM had a unit vacant 60+ days.",
+      "approach": "Repriced, repainted, restaged photos, and re-marketed across 3 channels.",
+      "result": "Qualified tenant placed in 12 days at $50/mo above original ask."
+    }
+  ],
+  "competitors": [
+    { "name": "Big PM Co.", "positioning": "National PM brand", "whenTheyWin": "Owners wanting a national brand", "whenClientWins": "Owners wanting a local team and direct point of contact" }
+  ],
+  "contact": {
+    "primaryPhone": "(407) 555-0200",
+    "email": "owners@example.com",
+    "bookingUrl": "https://example.com/owner-call",
+    "address": {
+      "street": "200 N Park Ave",
+      "city": "Winter Park",
+      "region": "FL",
+      "postalCode": "32789",
+      "country": "US"
+    },
+    "hours": "Mo-Fr 09:00-18:00",
+    "ctaLabel": "Schedule an owner call"
+  },
+  "founderStory": "Founded by a former landlord who got tired of being on call 24/7.",
+  "tools": ["AppFolio", "QuickBooks", "Tenant Turner"],
+  "problemSpaceTopics": [],
+  "faq": { "items": [], "status": "draft", "gates": { "clientApprovalRequired": true, "legalConcernsCleared": false, "pricingVerified": false, "testimonialsVerified": false, "claimsVerified": false, "schemaValidated": false } },
+  "comparisonPages": [],
+  "aiLearnPageStatus": "draft",
+  "aiLearnPageGates": { "clientApprovalRequired": true, "legalConcernsCleared": false, "pricingVerified": false, "testimonialsVerified": false, "claimsVerified": false, "schemaValidated": false },
+  "pricingPageStatus": "draft",
+  "pricingPageGates": { "clientApprovalRequired": true, "legalConcernsCleared": false, "pricingVerified": false, "testimonialsVerified": false, "claimsVerified": false, "schemaValidated": false },
+  "promptTracker": [],
+  "authorityChecklist": [],
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "updatedAt": "2026-05-19T00:00:00.000Z"
+}

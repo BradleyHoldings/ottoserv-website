@@ -1,0 +1,104 @@
+{
+  "slug": "sample-hvac",
+  "companyName": "Sample HVAC Co.",
+  "website": "https://example.com",
+  "mainService": "HVAC repair and installation",
+  "secondaryServices": ["Maintenance plans", "Air quality"],
+  "industriesServed": ["HVAC", "Residential", "Property management"],
+  "serviceAreas": ["Orlando, FL", "Winter Park, FL", "Kissimmee, FL"],
+  "bestFitCustomers": [
+    "Homeowners with systems older than 8 years",
+    "Property managers with 5+ rental units"
+  ],
+  "badFitCustomers": [
+    "DIY enthusiasts looking for parts-only purchases",
+    "Customers outside Central Florida"
+  ],
+  "commonProblems": [
+    "AC stopped cooling",
+    "Loud HVAC noises",
+    "High electric bill",
+    "Uneven temperatures"
+  ],
+  "urgentSituations": [
+    "No cooling during heat advisory",
+    "Water leaking from indoor unit",
+    "Burning smell from system"
+  ],
+  "commonSalesQuestions": [
+    "Do you offer financing?",
+    "How quickly can someone come out?",
+    "What brands do you carry?"
+  ],
+  "pricing": {
+    "summary": "Diagnostic fee is $89 and is waived if you proceed with repairs.",
+    "ranges": [
+      "Diagnostic: $89",
+      "Common repairs: $250 - $1,200",
+      "System replacement: $5,500 - $14,000"
+    ],
+    "pricingFactors": [
+      "System size and brand",
+      "Indoor air quality add-ons",
+      "Ductwork condition",
+      "Permit and inspection fees"
+    ]
+  },
+  "differentiators": [
+    "Live answer 24/7",
+    "Up-front pricing before work begins",
+    "10-year workmanship guarantee on replacements"
+  ],
+  "guarantees": [
+    "10-year workmanship guarantee on installations",
+    "If we can't fix it on the first visit, the next visit is free"
+  ],
+  "reviews": [
+    {
+      "author": "Jamie R.",
+      "source": "Google",
+      "rating": 5,
+      "text": "Same-day visit on a Sunday. Tech explained the options without pressure.",
+      "verified": true
+    }
+  ],
+  "caseStudies": [
+    {
+      "title": "Replaced aging 4-ton system for an out-of-state landlord",
+      "customer": "Property manager (5 SFRs)",
+      "problem": "System failing repeatedly during summer turnover.",
+      "approach": "Right-sized replacement with insulated ducts and remote thermostat.",
+      "result": "Zero service calls in 12 months and tenant utility complaints dropped to zero."
+    }
+  ],
+  "competitors": [
+    { "name": "Big Box HVAC", "positioning": "National brand with high marketing spend", "whenTheyWin": "Large multi-unit complexes with national procurement", "whenClientWins": "When the customer wants a local owner-operated relationship" }
+  ],
+  "contact": {
+    "primaryPhone": "(407) 555-0100",
+    "email": "hello@example.com",
+    "bookingUrl": "https://example.com/book",
+    "address": {
+      "street": "123 Main St",
+      "city": "Orlando",
+      "region": "FL",
+      "postalCode": "32801",
+      "country": "US"
+    },
+    "hours": "Mo-Su 00:00-23:59",
+    "ctaLabel": "Book a visit"
+  },
+  "founderStory": "Family-owned in Central Florida since 2009. Started as a service truck and a flip phone.",
+  "tools": ["ServiceTitan", "QuickBooks", "Google Workspace"],
+  "problemSpaceTopics": [],
+  "faq": { "items": [], "status": "draft", "gates": { "clientApprovalRequired": true, "legalConcernsCleared": false, "pricingVerified": false, "testimonialsVerified": false, "claimsVerified": false, "schemaValidated": false } },
+  "comparisonPages": [],
+  "aiLearnPageStatus": "draft",
+  "aiLearnPageGates": { "clientApprovalRequired": true, "legalConcernsCleared": false, "pricingVerified": false, "testimonialsVerified": false, "claimsVerified": false, "schemaValidated": false },
+  "pricingPageStatus": "draft",
+  "pricingPageGates": { "clientApprovalRequired": true, "legalConcernsCleared": false, "pricingVerified": false, "testimonialsVerified": false, "claimsVerified": false, "schemaValidated": false },
+  "promptTracker": [],
+  "authorityChecklist": [],
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "updatedAt": "2026-05-19T00:00:00.000Z"
+}
