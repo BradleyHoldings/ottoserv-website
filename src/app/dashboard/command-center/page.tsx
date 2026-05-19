@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/userAuth";
 import KpiCard from "@/components/dashboard/KpiCard";
+import LeadSupplyTile from "@/components/dashboard/LeadSupplyTile";
 import BusinessBrief from "@/components/dashboard/BusinessBrief";
 import AlertList from "@/components/dashboard/AlertList";
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -177,6 +178,11 @@ export default function CommandCenterPage() {
           trend={aiPendingCount > 0 ? "Review required" : "All clear"}
           trendDirection={aiPendingCount > 0 ? "down" : "neutral"}
         />
+      </div>
+
+      {/* Lead supply vs 200/day target */}
+      <div className="section-spacing">
+        <LeadSupplyTile />
       </div>
 
       {/* Business Brief */}

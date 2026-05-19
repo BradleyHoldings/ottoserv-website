@@ -144,6 +144,34 @@ function parseCallTitle(title: string): { name: string; phone: string } {
   return { name: title.replace(/^Outbound call to\s*/i, "").trim(), phone: "" };
 }
 
+export type LeadSupply = {
+  asOf: string;
+  targetPerDay: number;
+  attained: number;
+  attainmentPct: number;
+  totalsToday: { calls: number; completed: number; dispatched: number; failed: number; blocked: number; in_progress: number };
+  dedupBlocked: number;
+  otherBlocked: number;
+  bySource: Record<string, Record<string, number>>;
+  scope: "platform" | "company";
+};
+
+export async function getLeadSupply(): Promise<LeadSupply | null> {
+  const data = await fetchPlatformApi("/calls/lead-supply");
+  if (!data) return null;
+  return {
+    asOf: data.as_of,
+    targetPerDay: Number(data.target_per_day || 200),
+    attained: Number(data.attained || 0),
+    attainmentPct: Number(data.attainment_pct || 0),
+    totalsToday: data.totals_today || { calls: 0, completed: 0, dispatched: 0, failed: 0, blocked: 0, in_progress: 0 },
+    dedupBlocked: Number(data.dedup_blocked || 0),
+    otherBlocked: Number(data.other_blocked || 0),
+    bySource: data.by_source || {},
+    scope: data.scope || "company",
+  };
+}
+
 export async function getRecentCalls(limit = 50): Promise<RecentCall[]> {
   const data = await fetchPlatformApi(`/calls/recent?limit=${limit}`);
   if (!data?.items) return [];
