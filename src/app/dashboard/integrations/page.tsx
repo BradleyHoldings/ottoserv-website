@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getIntegrations } from "@/lib/dashboardApi";
+import { getCurrentUser } from "@/lib/userAuth";
 import {
   SOCIAL_PLATFORMS,
   Integration,
@@ -92,12 +93,11 @@ export default function IntegrationsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "connected" | "not_connected">("all");
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      getIntegrations(token).then((data) => {
-        if (data) setIntegrations([...data, ...EXTRA_INTEGRATIONS]);
-      });
-    }
+    getIntegrations().then((data) => {
+      if (data) setIntegrations([...data, ...EXTRA_INTEGRATIONS]);
+    }).catch(() => {
+      // Integration data unavailable - use defaults
+    });
   }, []);
 
   const connectedCount = integrations.filter((i) => i.status === "connected").length;
