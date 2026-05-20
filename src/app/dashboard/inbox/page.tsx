@@ -26,6 +26,7 @@ export default function InboxPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [showCompose, setShowCompose] = useState(false);
   const [form, setForm] = useState(EMPTY_COMPOSE_FORM);
+  const [replyText, setReplyText] = useState("");
 
   function handleCompose(e: React.FormEvent) {
     e.preventDefault();
@@ -46,6 +47,35 @@ export default function InboxPage() {
     setShowCompose(false);
   }
 
+  function handleReply() {
+    if (!selected || !replyText.trim()) return;
+    const replyMessage: Message = {
+      id: Date.now().toString(),
+      from: "You (Reply)",
+      from_email: "me@ottoserv.com",
+      subject: `Re: ${selected.subject}`,
+      preview: replyText.slice(0, 80),
+      body: replyText,
+      status: "read",
+      received_at: new Date().toISOString(),
+      category: selected.category,
+    };
+    setMessages((prev) => [replyMessage, ...prev]);
+    setReplyText("");
+  }
+
+  function markSelectedAsRead() {
+    if (!selected) return;
+    setMessages((prev) => prev.map((msg) => (msg.id === selected.id ? { ...msg, status: "read" } : msg)));
+    setSelected((prev) => (prev ? { ...prev, status: "read" } : prev));
+  }
+
+  function archiveSelected() {
+    if (!selected) return;
+    setMessages((prev) => prev.filter((msg) => msg.id !== selected.id));
+    setSelected(null);
+  }
+
   const filtered = messages.filter((m) => {
     if (filter === "unread") return m.status === "unread";
     if (filter === "client") return m.category === "client";
@@ -60,8 +90,7 @@ export default function InboxPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Inbox</h1>
-      <ComingSoonBanner />
-
+          <ComingSoonBanner />
           <p className="text-gray-500 text-sm mt-1">
             {unreadCount} unread · {messages.length} total
           </p>
@@ -72,20 +101,15 @@ export default function InboxPage() {
       </div>
 
       <div className="flex h-[calc(100vh-220px)] min-h-[500px] gap-0 container-primary overflow-hidden">
-        {/* Conversation List */}
         <div className="w-80 flex-shrink-0 border-r border-gray-800 flex flex-col">
-          {/* Filter tabs */}
           <div className="flex gap-1 p-3 border-b border-gray-800">
             {(["all", "unread", "client", "lead"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`flex-1 touch-target keyboard-navigable py-2 rounded text-xs font-medium transition-colors focus:outline-none ${
-                  filter === f
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-400 hover:text-white"
+                  filter === f ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
                 }`}
-                aria-pressed={filter === f}
                 role="tab"
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -93,7 +117,6 @@ export default function InboxPage() {
             ))}
           </div>
 
-          {/* Messages list */}
           <div className="flex-1 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="p-8 text-center text-gray-500 text-sm">No messages</div>
@@ -102,25 +125,16 @@ export default function InboxPage() {
                 <button
                   key={msg.id}
                   onClick={() => setSelected(msg)}
-                  className={`w-full text-left touch-target mobile-touch-target keyboard-navigable
-                    px-4 py-4 border-b border-gray-800 transition-colors focus:outline-none ${
-                    selected?.id === msg.id
-                      ? "bg-blue-900/20"
-                      : "hover:bg-[#1a2230]"
+                  className={`w-full text-left touch-target mobile-touch-target keyboard-navigable px-4 py-4 border-b border-gray-800 transition-colors focus:outline-none ${
+                    selected?.id === msg.id ? "bg-blue-900/20" : "hover:bg-[#1a2230]"
                   }`}
                   role="option"
                   aria-selected={selected?.id === msg.id}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="flex items-center gap-2 min-w-0">
-                      {msg.status === "unread" && (
-                        <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                      )}
-                      <p
-                        className={`text-sm truncate ${
-                          msg.status === "unread" ? "text-white font-semibold" : "text-gray-300"
-                        }`}
-                      >
+                      {msg.status === "unread" && <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />}
+                      <p className={`text-sm truncate ${msg.status === "unread" ? "text-white font-semibold" : "text-gray-300"}`}>
                         {msg.from}
                       </p>
                     </div>
@@ -129,11 +143,7 @@ export default function InboxPage() {
                   <p className="text-gray-300 text-xs font-medium truncate mb-0.5">{msg.subject}</p>
                   <div className="flex items-center gap-2">
                     <p className="text-gray-500 text-xs truncate flex-1">{msg.preview}</p>
-                    <span
-                      className={`text-white text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${
-                        CATEGORY_COLORS[msg.category] ?? "bg-gray-600"
-                      }`}
-                    >
+                    <span className={`text-white text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${CATEGORY_COLORS[msg.category] ?? "bg-gray-600"}`}>
                       {msg.category}
                     </span>
                   </div>
@@ -143,10 +153,8 @@ export default function InboxPage() {
           </div>
         </div>
 
-        {/* Message Panel */}
         {selected ? (
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Header */}
             <div className="px-6 py-4 border-b border-gray-800">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -162,45 +170,41 @@ export default function InboxPage() {
                     <span className="text-gray-600 text-xs ml-2">{timeAgo(selected.received_at)}</span>
                   </div>
                 </div>
-                <span
-                  className={`text-white text-xs px-2 py-1 rounded flex-shrink-0 ${
-                    CATEGORY_COLORS[selected.category] ?? "bg-gray-600"
-                  }`}
-                >
+                <span className={`text-white text-xs px-2 py-1 rounded flex-shrink-0 ${CATEGORY_COLORS[selected.category] ?? "bg-gray-600"}`}>
                   {selected.category}
                 </span>
               </div>
             </div>
 
-            {/* Body */}
             <div className="flex-1 overflow-y-auto px-6 py-5">
               <p className="text-gray-300 leading-relaxed">{selected.body}</p>
             </div>
 
-            {/* Reply Bar */}
             <div className="px-6 py-4 border-t border-gray-800">
               <div className="flex gap-3">
                 <input
                   type="text"
-                  placeholder="Type a reply…"
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Type a reply..."
                   className="flex-1 bg-[#1f2937] border border-gray-700 text-gray-300 text-sm rounded-lg px-4 py-2.5 outline-none focus:border-blue-500 placeholder:text-gray-500"
                 />
-                <button className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <button onClick={handleReply} className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
                   Reply
                 </button>
               </div>
               <div className="flex gap-2 mt-2">
-                <button className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                <button onClick={markSelectedAsRead} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
                   Mark as Read
                 </button>
                 <span className="text-gray-700">·</span>
-                <button className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                <button onClick={archiveSelected} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
                   Archive
                 </button>
                 {selected.category === "lead" && (
                   <>
                     <span className="text-gray-700">·</span>
-                    <button className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                    <button onClick={() => window.alert(`Open lead view for ${selected.from}`)} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
                       View Lead
                     </button>
                   </>
@@ -211,14 +215,13 @@ export default function InboxPage() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-4xl mb-3">✉️</p>
+              <p className="text-4xl mb-3">MAIL</p>
               <p className="text-gray-400">Select a message to read</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Compose Modal */}
       {showCompose && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-[#111827] border border-gray-700 rounded-xl p-6 w-full max-w-lg">

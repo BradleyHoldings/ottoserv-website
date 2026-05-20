@@ -3,12 +3,69 @@
 import { useState } from "react";
 import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
-const mockDeployment: any = { id: "", client_name: "", status: "no_data", model: "ottoserv_managed", health: "healthy" };
-const mockToolInventory: any[] = [];
-const mockAgentRoster: any[] = [];
-const mockPermissionMatrix: any[] = [];
-const mockChangeRequests: any[] = [];
-const mockMaintenanceStatus: any = { last_check: null, next_check: null, status: "no_data", reports: [] };
+type DeploymentSummary = {
+  id: string;
+  company?: string;
+  client_name?: string;
+  status: string;
+  model: string;
+  health: string;
+  tools?: number;
+  agents?: number;
+};
+
+type ToolInventoryItem = {
+  id: string;
+  name: string;
+  integration_method: string;
+  status: string;
+  data_sensitivity: string;
+};
+
+type AgentRosterItem = {
+  id: string;
+  name: string;
+  department: string;
+  status: string;
+  allowed_actions: string[];
+  requires_approval: string[];
+};
+
+type PermissionMatrixRow = {
+  agent: string;
+  read: boolean;
+  create: boolean;
+  update: boolean;
+  send: boolean;
+  restricted: boolean;
+};
+
+type ChangeRequest = {
+  id: string;
+  title: string;
+  description: string;
+  requested_by: string;
+  date: string;
+  status: string;
+};
+
+type MaintenanceStatus = {
+  last_check: string | null;
+  next_check: string | null;
+  status: string;
+  reports: string[];
+  failed_tasks?: number;
+  pending_escalations?: number;
+  stale_integrations?: number;
+  next_report?: string;
+};
+
+const mockDeployment: DeploymentSummary = { id: "", company: "OttoServ Deployment", client_name: "", status: "no_data", model: "ottoserv_managed", health: "healthy", tools: 0, agents: 0 };
+const mockToolInventory: ToolInventoryItem[] = [];
+const mockAgentRoster: AgentRosterItem[] = [];
+const mockPermissionMatrix: PermissionMatrixRow[] = [];
+const mockChangeRequests: ChangeRequest[] = [];
+const mockMaintenanceStatus: MaintenanceStatus = { last_check: null, next_check: null, status: "no_data", reports: [], failed_tasks: 0, pending_escalations: 0, stale_integrations: 0, next_report: "Not scheduled" };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -73,7 +130,7 @@ function BoolCell({ val }: { val: boolean }) {
 
 // ─── Tab Components ───────────────────────────────────────────────────────────
 
-function OverviewTab() {
+function OverviewTab({ onSelectTab }: { onSelectTab: (tab: TabId) => void }) {
   return (
     <div className="space-y-4">
       <div className="bg-[#161b2e] border border-gray-800 rounded-xl p-5">
@@ -116,13 +173,14 @@ function OverviewTab() {
             { label: "Maintenance", tab: "maintenance" },
             { label: "Change Requests", tab: "changes" },
             { label: "Handoff Package", tab: "handoff" },
-          ].map(({ label }) => (
-            <div
+          ].map(({ label, tab }) => (
+            <button
               key={label}
+              onClick={() => onSelectTab(tab as TabId)}
               className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-2 text-gray-400 text-sm hover:text-white hover:border-gray-600 cursor-pointer transition-colors"
             >
               {label}
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -295,10 +353,16 @@ function MaintenanceTab() {
   );
 }
 
-function ChangesTab() {
+function ChangesTab({
+  requests,
+  onDecision,
+}: {
+  requests: typeof mockChangeRequests;
+  onDecision: (id: string, status: "completed" | "rejected") => void;
+}) {
   return (
     <div className="space-y-4">
-      {mockChangeRequests.map((req) => (
+      {requests.map((req) => (
         <div key={req.id} className="bg-[#161b2e] border border-gray-800 rounded-xl p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -313,10 +377,16 @@ function ChangesTab() {
             </div>
             {req.status === "pending" && (
               <div className="flex gap-2 flex-shrink-0">
-                <button className="text-xs px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-white transition-colors">
+                <button
+                  onClick={() => onDecision(req.id, "completed")}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-white transition-colors"
+                >
                   Approve
                 </button>
-                <button className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-colors">
+                <button
+                  onClick={() => onDecision(req.id, "rejected")}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-colors"
+                >
                   Reject
                 </button>
               </div>
@@ -435,6 +505,13 @@ type TabId = (typeof TABS)[number]["id"];
 
 export default function DeploymentsPage() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [changeRequests, setChangeRequests] = useState(mockChangeRequests);
+
+  function handleChangeDecision(id: string, status: "completed" | "rejected") {
+    setChangeRequests((prev) =>
+      prev.map((request) => (request.id === id ? { ...request, status } : request))
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6">
@@ -464,12 +541,12 @@ export default function DeploymentsPage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === "overview" && <OverviewTab />}
+      {activeTab === "overview" && <OverviewTab onSelectTab={setActiveTab} />}
       {activeTab === "tools" && <ToolInventoryTab />}
       {activeTab === "agents" && <AgentRosterTab />}
       {activeTab === "permissions" && <PermissionsTab />}
       {activeTab === "maintenance" && <MaintenanceTab />}
-      {activeTab === "changes" && <ChangesTab />}
+      {activeTab === "changes" && <ChangesTab requests={changeRequests} onDecision={handleChangeDecision} />}
       {activeTab === "handoff" && <HandoffTab />}
     </div>
   );

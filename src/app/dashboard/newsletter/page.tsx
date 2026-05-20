@@ -7,9 +7,6 @@ import {
   PaperAirplaneIcon,
   EyeIcon,
   CursorArrowRaysIcon,
-  ExclamationCircleIcon,
-  CheckCircleIcon,
-  ClockIcon,
 } from '@heroicons/react/24/outline';
 
 interface NewsletterStats {
@@ -70,12 +67,14 @@ export default function NewsletterDashboard() {
     content: '',
     status: 'draft'
   });
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiDrafting, setAiDrafting] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
 
-  const loadDashboardData = async () => {
+  async function loadDashboardData() {
     try {
       setLoading(true);
       const response = await fetch('/api/newsletter/dashboard');
@@ -88,7 +87,7 @@ export default function NewsletterDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const syncWithBeehiiv = async () => {
     try {
@@ -137,6 +136,15 @@ export default function NewsletterDashboard() {
       console.error('Failed to publish:', error);
       alert('Failed to schedule newsletter');
     }
+  };
+
+  const generateAiDraft = () => {
+    setAiDrafting(true);
+    const topic = aiTopic.trim() || 'missed calls and slow follow-up';
+    const nextTitle = `What ${topic} is really costing your team`;
+    const nextContent = `Opening:\nA short real-world scenario about ${topic} showing up in daily operations.\n\nThe Waste:\nExplain how slow response, dropped calls, or manual follow-up create quiet revenue leakage.\n\nThe Fix:\nShow the immediate, better, and best path for fixing the workflow with OttoServ.\n\nThe ROI:\nFrame the value carefully around recovered opportunities, faster response, and cleaner handoff.\n\nThe Implementation:\nList the first practical workflow to deploy.\n\nOperator Question:\nWhere does your team currently lose the handoff after first contact?\n\nCTA:\nReply for a free process audit.`;
+    setDraft((prev) => ({ ...prev, title: prev.title || nextTitle, content: prev.content || nextContent }));
+    setTimeout(() => setAiDrafting(false), 400);
   };
 
   if (loading) {
@@ -189,7 +197,7 @@ export default function NewsletterDashboard() {
           ].map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
+              onClick={() => setActiveTab(tab.key as 'overview' | 'subscribers' | 'compose' | 'analytics')}
               className={`px-4 py-2 font-medium transition-colors ${
                 activeTab === tab.key
                   ? 'text-blue-400 border-b-2 border-blue-400'
@@ -367,6 +375,30 @@ export default function NewsletterDashboard() {
           <div className="space-y-8">
             <div className="bg-[#111111] border border-[#222222] rounded-lg p-6">
               <h3 className="text-xl font-bold text-white mb-4">Compose Newsletter Issue</h3>
+              <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr] mb-5">
+                <div className="rounded-lg border border-gray-800 bg-[#0a0a0a] p-4">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    AI Draft Topic
+                  </label>
+                  <input
+                    type="text"
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                    placeholder="e.g., after-hours leasing inquiries"
+                    className="w-full px-3 py-2 bg-[#050505] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                  <button
+                    onClick={generateAiDraft}
+                    disabled={aiDrafting}
+                    className="mt-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                  >
+                    {aiDrafting ? 'Drafting...' : 'Generate Draft'}
+                  </button>
+                </div>
+                <div className="rounded-lg border border-gray-800 bg-[#0a0a0a] p-4 text-sm text-gray-400">
+                  Use this to seed a solid first draft, then edit it into a publishable issue. It is meant to reduce blank-page time, not replace review.
+                </div>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">

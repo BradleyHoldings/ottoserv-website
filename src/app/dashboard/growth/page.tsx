@@ -5,10 +5,52 @@ import Link from "next/link";
 import { type ContentPiece } from "@/lib/mockData";
 import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
-const mockNVP: any[] = [];
+type VoiceProfile = {
+  display_name: string;
+  version: string;
+  last_refreshed: string;
+  confidence: number;
+  tone_rules: string[];
+  banned_phrases: string[];
+  archetypes: Array<{ name: string; description: string }>;
+  vocabulary: { preferred: string[] };
+  trust_signals: string[];
+};
+
+type WinningPattern = {
+  id: string;
+  category: string;
+  label: string;
+  avg_engagement_rate: number;
+  insight: string;
+  sample_count: number;
+};
+
+type ContentPerformance = {
+  id: string;
+  content_id: string;
+  hook_preview: string;
+  engagement_rate: number;
+  impressions: number;
+  saves: number;
+  dms: number;
+  platform: string;
+};
+
+const mockNVP: VoiceProfile = {
+  display_name: "OttoServ Core Voice",
+  version: "1.0",
+  last_refreshed: "Not yet refreshed",
+  confidence: 0,
+  tone_rules: [],
+  banned_phrases: [],
+  archetypes: [],
+  vocabulary: { preferred: [] },
+  trust_signals: [],
+};
 const mockContentLibrary: ContentPiece[] = [];
-const mockWinningPatterns: any[] = [];
-const mockContentPerformance: any[] = [];
+const mockWinningPatterns: WinningPattern[] = [];
+const mockContentPerformance: ContentPerformance[] = [];
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -134,6 +176,24 @@ function KpiCard({
       <p className={`text-2xl font-bold ${colors[color]}`}>{value}</p>
       {sub && <p className="text-gray-500 text-xs mt-1">{sub}</p>}
     </div>
+  );
+}
+
+function ToggleSwitch({
+  on,
+  setOn,
+}: {
+  on: boolean;
+  setOn: (value: boolean) => void;
+}) {
+  return (
+    <button
+      onClick={() => setOn(!on)}
+      className={`w-10 h-5 rounded-full relative transition-colors ${on ? "bg-blue-600" : "bg-gray-700"}`}
+      aria-pressed={on}
+    >
+      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${on ? "translate-x-5" : "translate-x-0.5"}`} />
+    </button>
   );
 }
 
@@ -469,6 +529,10 @@ function AnalyticsTab() {
 }
 
 function SettingsTab() {
+  const [autoSchedule, setAutoSchedule] = useState(true);
+  const [requireCriticScore, setRequireCriticScore] = useState(true);
+  const [humanApproval, setHumanApproval] = useState(true);
+  const [notifyOnFail, setNotifyOnFail] = useState(false);
   const platforms = [
     { name: "Instagram", connected: true, handle: "@ottoserv_pm" },
     { name: "LinkedIn", connected: true, handle: "OttoServ" },
@@ -515,9 +579,7 @@ function SettingsTab() {
               <p className="text-white text-sm">Auto-schedule approved content</p>
               <p className="text-gray-500 text-xs">Automatically queue passed content at optimal times</p>
             </div>
-            <div className="w-10 h-5 rounded-full bg-blue-600 relative cursor-pointer">
-              <div className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-white" />
-            </div>
+            <ToggleSwitch on={autoSchedule} setOn={setAutoSchedule} />
           </div>
           <div className="flex items-center justify-between">
             <div>
@@ -549,27 +611,21 @@ function SettingsTab() {
               <p className="text-white text-sm">Require critic score ≥ 70 to publish</p>
               <p className="text-gray-500 text-xs">Content below threshold is blocked from scheduling</p>
             </div>
-            <div className="w-10 h-5 rounded-full bg-blue-600 relative cursor-pointer">
-              <div className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-white" />
-            </div>
+            <ToggleSwitch on={requireCriticScore} setOn={setRequireCriticScore} />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white text-sm">Human approval before publish</p>
               <p className="text-gray-500 text-xs">All content requires owner sign-off even after critic pass</p>
             </div>
-            <div className="w-10 h-5 rounded-full bg-blue-600 relative cursor-pointer">
-              <div className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-white" />
-            </div>
+            <ToggleSwitch on={humanApproval} setOn={setHumanApproval} />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white text-sm">Notify on critic fail</p>
               <p className="text-gray-500 text-xs">Send alert when content fails critic review</p>
             </div>
-            <div className="w-10 h-5 rounded-full bg-gray-700 relative cursor-pointer">
-              <div className="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white" />
-            </div>
+            <ToggleSwitch on={notifyOnFail} setOn={setNotifyOnFail} />
           </div>
         </div>
       </div>
@@ -581,6 +637,7 @@ function SettingsTab() {
 
 export default function GrowthEnginePage() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [showGenerateHint, setShowGenerateHint] = useState(false);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -607,11 +664,20 @@ export default function GrowthEnginePage() {
           >
             Research
           </Link>
-          <button className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors">
+          <button
+            onClick={() => setShowGenerateHint((prev) => !prev)}
+            className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
+          >
             + Generate Content
           </button>
         </div>
       </div>
+
+      {showGenerateHint && (
+        <div className="mb-5 rounded-xl border border-blue-900/40 bg-blue-950/20 px-4 py-3 text-sm text-blue-200">
+          Use the Content Library generator to create draft pieces, then review them here once they enter the pipeline.
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-800 mb-6">

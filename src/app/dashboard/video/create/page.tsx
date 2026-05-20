@@ -3,8 +3,22 @@
 import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-const mockVideoTemplates: any[] = [];
-const mockBrandProfile: any = { brand_name: "", primary_color: "#3b82f6", logo_url: null, voice: "" };
+type VideoTemplate = {
+  id: string;
+  name: string;
+  aspect_ratio: string;
+  category: string;
+};
+
+const mockVideoTemplates: VideoTemplate[] = [];
+const mockBrandProfile = {
+  brand_name: "OttoServ",
+  primary_color: "#2563eb",
+  secondary_color: "#0f172a",
+  logo_url: null,
+  voice: "Clear, practical, operator-first",
+  font_family: "Inter",
+};
 
 const PLATFORMS   = ["Instagram Reels", "TikTok", "YouTube", "LinkedIn", "Facebook", "Internal / Slack", "Twitter/X"];
 const ASPECT_RATIOS = ["9:16", "16:9", "1:1"] as const;
@@ -31,7 +45,7 @@ function CreateVideoForm() {
     script:          "",
     hook:            "",
     cta:             "",
-    brand_profile:   mockBrandProfile.name,
+    brand_profile:   mockBrandProfile.brand_name,
     target_duration: "60s",
     audience:        "",
     priority:        "Medium",
@@ -41,6 +55,20 @@ function CreateVideoForm() {
 
   const set = (key: string, value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  const fillWithAi = () => {
+    setForm((f) => ({
+      ...f,
+      purpose: f.purpose || "Explain how OttoServ answers, qualifies, and routes missed leads for service businesses.",
+      platform: f.platform || "LinkedIn",
+      hook: f.hook || "Every missed call is a sales conversation your team never gets back.",
+      script:
+        f.script ||
+        "Missed calls create quiet revenue loss. OttoServ answers inbound calls, qualifies the lead, routes urgency, and keeps follow-up moving without adding admin overhead. For service teams, that means faster response and fewer dropped opportunities.",
+      cta: f.cta || "Book a demo to see the lead handling flow live.",
+      audience: f.audience || "Small Business Teams",
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +92,16 @@ function CreateVideoForm() {
     <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
       {/* Purpose */}
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Purpose *</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-300">Purpose *</label>
+          <button
+            type="button"
+            onClick={fillWithAi}
+            className="text-xs px-3 py-1.5 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 border border-blue-800 transition-colors"
+          >
+            AI Fill This
+          </button>
+        </div>
         <input
           type="text"
           required
@@ -224,19 +261,19 @@ function CreateVideoForm() {
             <span className="text-white font-bold">O</span>
           </div>
           <div className="flex-1">
-            <p className="text-white font-medium text-sm">{mockBrandProfile.name}</p>
+            <p className="text-white font-medium text-sm">{mockBrandProfile.brand_name}</p>
             <p className="text-gray-500 text-xs">
-              {mockBrandProfile.font} · {mockBrandProfile.tone}
+              {mockBrandProfile.font_family} · {mockBrandProfile.voice}
             </p>
           </div>
           <div className="flex gap-2">
             <div
               className="w-5 h-5 rounded-full border border-gray-600"
-              style={{ backgroundColor: mockBrandProfile.primary }}
+              style={{ backgroundColor: mockBrandProfile.primary_color }}
             />
             <div
               className="w-5 h-5 rounded-full border border-gray-600"
-              style={{ backgroundColor: mockBrandProfile.secondary }}
+              style={{ backgroundColor: mockBrandProfile.secondary_color }}
             />
           </div>
         </div>

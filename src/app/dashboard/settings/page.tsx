@@ -31,6 +31,7 @@ type Tab = (typeof TABS)[number];
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("Company");
+  const [users, setUsers] = useState(MOCK_USERS);
   const [notifSettings, setNotifSettings] = useState(
     Object.fromEntries(NOTIFICATION_SETTINGS.flatMap((n) => [
       [`${n.id}_email`, n.email],
@@ -42,6 +43,10 @@ export default function SettingsPage() {
     Object.fromEntries(JARVIS_SETTINGS.map((s) => [s.id, true]))
   );
   const [saved, setSaved] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState("sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "", role: "Manager" });
 
   function handleSave() {
     setSaved(true);
@@ -54,6 +59,23 @@ export default function SettingsPage() {
 
   function toggleJarvis(key: string) {
     setJarvisSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function inviteUser(e: React.FormEvent) {
+    e.preventDefault();
+    setUsers((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        name: inviteForm.name,
+        email: inviteForm.email,
+        role: inviteForm.role,
+        status: "active",
+        last_seen: "Invited just now",
+      },
+    ]);
+    setInviteOpen(false);
+    setInviteForm({ name: "", email: "", role: "Manager" });
   }
 
   return (
@@ -163,7 +185,7 @@ export default function SettingsPage() {
         <div className="max-w-3xl">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold">Team Members</h3>
-            <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
+            <button onClick={() => setInviteOpen(true)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
               + Invite User
             </button>
           </div>
@@ -180,7 +202,7 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_USERS.map((user) => (
+                {users.map((user) => (
                   <tr key={user.id} className="border-b border-gray-800 last:border-0">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2.5">
@@ -204,7 +226,7 @@ export default function SettingsPage() {
                     </td>
                     <td className="px-5 py-4 text-gray-500 text-xs">{user.last_seen}</td>
                     <td className="px-5 py-4">
-                      <button className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
+                      <button onClick={() => setEditingUserId(user.id)} className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
                         Edit
                       </button>
                     </td>
@@ -341,10 +363,11 @@ export default function SettingsPage() {
             <div className="flex gap-2">
               <input
                 type="password"
-                defaultValue="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
                 className="flex-1 bg-[#1f2937] border border-gray-700 text-gray-300 text-sm rounded-lg px-4 py-2.5 outline-none focus:border-blue-500 font-mono"
               />
-              <button className="px-4 py-2.5 bg-[#1f2937] hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg border border-gray-700 transition-colors">
+              <button onClick={handleSave} className="px-4 py-2.5 bg-[#1f2937] hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg border border-gray-700 transition-colors">
                 Update
               </button>
             </div>
@@ -358,6 +381,47 @@ export default function SettingsPage() {
           >
             {saved ? "✓ Saved!" : "Save Preferences"}
           </button>
+        </div>
+      )}
+
+      {inviteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-gray-700 bg-[#111827] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white font-semibold">Invite User</h2>
+              <button onClick={() => setInviteOpen(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={inviteUser} className="space-y-4">
+              <input required value={inviteForm.name} onChange={(e) => setInviteForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Full name" className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm" />
+              <input required type="email" value={inviteForm.email} onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="Email" className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm" />
+              <select value={inviteForm.role} onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm">
+                <option>Admin</option>
+                <option>Manager</option>
+                <option>Crew</option>
+              </select>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setInviteOpen(false)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Send Invite</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editingUserId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-700 bg-[#111827] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white font-semibold">User Details</h2>
+              <button onClick={() => setEditingUserId(null)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <p className="text-sm text-gray-400">
+              Editing is staged here for Sprint 2. Full per-user permissions can be wired into real account storage in the next pass.
+            </p>
+            <div className="pt-4">
+              <button onClick={() => setEditingUserId(null)} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Done</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

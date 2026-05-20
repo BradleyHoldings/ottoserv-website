@@ -5,14 +5,14 @@ import { Document } from "@/lib/mockData";
 import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const TYPE_ICONS: Record<string, string> = {
-  contract: "📄",
-  permit: "🏛️",
-  receipt: "🧾",
-  photo: "📸",
-  coi: "🛡️",
-  invoice: "💰",
-  sop: "📋",
-  estimate: "📝",
+  contract: "DOC",
+  permit: "PERMIT",
+  receipt: "RCPT",
+  photo: "IMG",
+  coi: "COI",
+  invoice: "INV",
+  sop: "SOP",
+  estimate: "EST",
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -33,6 +33,14 @@ export default function DocumentsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [folderView, setFolderView] = useState<"type" | "project" | "recent">("type");
 
+  function handleUpload() {
+    window.alert("Document upload will be connected next. This confirms the upload action path.");
+  }
+
+  function handleDocumentAction(action: "preview" | "download", doc: Document) {
+    window.alert(`${action === "preview" ? "Previewing" : "Downloading"} ${doc.name}`);
+  }
+
   const filtered =
     typeFilter === "all" ? documents : documents.filter((d) => d.type === typeFilter);
 
@@ -46,16 +54,17 @@ export default function DocumentsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Documents</h1>
-      <ComingSoonBanner />
-
-          <p className="text-gray-500 text-sm mt-1">{mockDocuments.length} files stored</p>
+          <ComingSoonBanner />
+          <p className="text-gray-500 text-sm mt-1">{documents.length} files stored</p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
-          ↑ Upload Document
+        <button
+          onClick={handleUpload}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          Upload Document
         </button>
       </div>
 
-      {/* Folder View Toggle */}
       <div className="flex gap-2 mb-4">
         {(["type", "project", "recent"] as const).map((v) => (
           <button
@@ -72,7 +81,6 @@ export default function DocumentsPage() {
         ))}
       </div>
 
-      {/* Category Filter Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
         {CATEGORY_TABS.map((t) => (
           <button
@@ -90,7 +98,6 @@ export default function DocumentsPage() {
         ))}
       </div>
 
-      {/* Documents Table */}
       <div className="bg-[#111827] border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -109,7 +116,7 @@ export default function DocumentsPage() {
               <tr key={doc.id} className="border-b border-gray-800 last:border-0 hover:bg-gray-800/30 transition-colors">
                 <td className="px-6 py-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">{TYPE_ICONS[doc.type]}</span>
+                    <span className="text-xs font-semibold text-gray-400">{TYPE_ICONS[doc.type]}</span>
                     <span className="text-white">{doc.name}</span>
                   </div>
                 </td>
@@ -124,8 +131,18 @@ export default function DocumentsPage() {
                 <td className="px-4 py-3 text-right text-gray-500">{doc.size}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    <button className="text-blue-400 hover:text-blue-300 text-xs">Preview</button>
-                    <button className="text-gray-400 hover:text-white text-xs">Download</button>
+                    <button
+                      onClick={() => handleDocumentAction("preview", doc)}
+                      className="text-blue-400 hover:text-blue-300 text-xs"
+                    >
+                      Preview
+                    </button>
+                    <button
+                      onClick={() => handleDocumentAction("download", doc)}
+                      className="text-gray-400 hover:text-white text-xs"
+                    >
+                      Download
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -136,7 +153,7 @@ export default function DocumentsPage() {
 
       {sorted.length === 0 && (
         <div className="mt-4 bg-[#111827] border border-gray-800 rounded-xl p-12 text-center">
-          <p className="text-4xl mb-3">📁</p>
+          <p className="text-4xl mb-3">FILE</p>
           <p className="text-white font-medium">No documents match this filter</p>
         </div>
       )}

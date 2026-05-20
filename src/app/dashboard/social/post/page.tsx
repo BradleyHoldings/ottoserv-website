@@ -154,8 +154,23 @@ export default function PostCreatorPage() {
   const [customCta, setCustomCta] = useState("");
   const [previewPlatform, setPreviewPlatform] = useState<SocialPlatformId>("facebook");
   const [submitted, setSubmitted] = useState<"draft" | "approval" | null>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
 
   const effectiveCta = cta === "Custom…" ? customCta : cta;
+
+  function generateAiDraft() {
+    const topic = aiTopic.trim() || "missed calls and slow follow-up";
+    const triggerLabel =
+      EMOTIONAL_TRIGGERS.find((item) => item.id === emotionalTrigger)?.label ?? "Urgency";
+    const generated = `Most teams do not notice how much revenue slips through ${topic} until the phones get busy and follow-up slows down.\n\nOttoServ helps small business teams answer inbound demand, qualify the lead, and keep the next step moving without relying on someone being free at the exact right moment.\n\nThe practical win is simple: faster response, fewer dropped opportunities, and cleaner handoff when the request is urgent.\n\n${triggerLabel} matters here because buyers remember who responded first.`;
+
+    setContent(generated);
+    if (!cta) {
+      setCta("Book a free call");
+    }
+    setShowAiModal(false);
+  }
 
   function togglePlatform(id: SocialPlatformId) {
     setSelectedPlatforms((prev) =>
@@ -222,6 +237,12 @@ export default function PostCreatorPage() {
           </div>
           <h1 className="text-2xl font-bold text-white">Create Post</h1>
         </div>
+        <button
+          onClick={() => setShowAiModal(true)}
+          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+        >
+          AI Write Post
+        </button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -467,6 +488,50 @@ export default function PostCreatorPage() {
           </div>
         </div>
       </div>
+
+      {showAiModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-xl border border-gray-800 bg-[#111827] p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white font-semibold">Generate Draft</h2>
+              <button
+                onClick={() => setShowAiModal(false)}
+                className="text-gray-500 hover:text-white text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Post Topic</label>
+                <input
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  placeholder="e.g. after-hours lead capture for property managers"
+                  className="w-full bg-[#0d1117] border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-600"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                The draft will use your selected platforms, trigger, and CTA.
+              </p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowAiModal(false)}
+                  className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={generateAiDraft}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium"
+                >
+                  Generate Draft
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

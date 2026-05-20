@@ -44,6 +44,50 @@ export default function MarketingPage() {
   const [posts, setPosts] = useState<MarketingPost[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_POST_FORM);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editPlatform, setEditPlatform] = useState("Facebook");
+
+  function startEditing(post: MarketingPost) {
+    setEditingPost(post);
+    setEditTitle(post.title);
+    setEditContent(post.content);
+    setEditPlatform(post.platform);
+  }
+
+  function schedulePost(id: string) {
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === id
+          ? {
+              ...post,
+              status: "scheduled",
+              scheduled_for: post.scheduled_for ?? new Date(Date.now() + 86400000).toISOString(),
+            }
+          : post
+      )
+    );
+  }
+
+  function unschedulePost(id: string) {
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === id ? { ...post, status: "draft", scheduled_for: undefined } : post
+      )
+    );
+  }
+
+  function saveEditedPost() {
+    if (!editingPost) return;
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === editingPost.id
+          ? { ...post, title: editTitle, content: editContent, platform: editPlatform }
+          : post
+      )
+    );
+    setEditingPost(null);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -199,12 +243,15 @@ export default function MarketingPage() {
               {post.status === "draft" && (
                 <>
                   <button
-                    onClick={() => setEditingPost(post)}
+                    onClick={() => startEditing(post)}
                     className="flex-1 py-1.5 text-xs bg-[#1f2937] hover:bg-gray-700 text-gray-300 border border-gray-700 rounded-lg transition-colors"
                   >
                     Edit
                   </button>
-                  <button className="flex-1 py-1.5 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-900/40 rounded-lg transition-colors">
+                  <button
+                    onClick={() => schedulePost(post.id)}
+                    className="flex-1 py-1.5 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-900/40 rounded-lg transition-colors"
+                  >
                     Schedule
                   </button>
                 </>
@@ -212,18 +259,24 @@ export default function MarketingPage() {
               {post.status === "scheduled" && (
                 <>
                   <button
-                    onClick={() => setEditingPost(post)}
+                    onClick={() => startEditing(post)}
                     className="flex-1 py-1.5 text-xs bg-[#1f2937] hover:bg-gray-700 text-gray-300 border border-gray-700 rounded-lg transition-colors"
                   >
                     Edit
                   </button>
-                  <button className="flex-1 py-1.5 text-xs bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-900/40 rounded-lg transition-colors">
+                  <button
+                    onClick={() => unschedulePost(post.id)}
+                    className="flex-1 py-1.5 text-xs bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-900/40 rounded-lg transition-colors"
+                  >
                     Unschedule
                   </button>
                 </>
               )}
               {post.status === "published" && (
-                <button className="flex-1 py-1.5 text-xs bg-[#1f2937] hover:bg-gray-700 text-gray-400 border border-gray-700 rounded-lg transition-colors">
+                <button
+                  onClick={() => window.alert(`Open published post: ${post.title}`)}
+                  className="flex-1 py-1.5 text-xs bg-[#1f2937] hover:bg-gray-700 text-gray-400 border border-gray-700 rounded-lg transition-colors"
+                >
                   View Post
                 </button>
               )}
@@ -232,7 +285,10 @@ export default function MarketingPage() {
         ))}
 
         {/* Create new post card */}
-        <button className="bg-[#111827] border-2 border-dashed border-gray-700 hover:border-blue-700 rounded-xl p-5 flex flex-col items-center justify-center gap-3 transition-colors min-h-[200px]">
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-[#111827] border-2 border-dashed border-gray-700 hover:border-blue-700 rounded-xl p-5 flex flex-col items-center justify-center gap-3 transition-colors min-h-[200px]"
+        >
           <span className="text-3xl">✍️</span>
           <div className="text-center">
             <p className="text-gray-400 font-medium text-sm">Create New Post</p>
@@ -295,7 +351,8 @@ export default function MarketingPage() {
                 <label className="text-gray-400 text-xs font-medium block mb-1">Title</label>
                 <input
                   type="text"
-                  defaultValue={editingPost.title}
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
                   className="w-full bg-[#1f2937] border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500"
                 />
               </div>
@@ -303,14 +360,16 @@ export default function MarketingPage() {
                 <label className="text-gray-400 text-xs font-medium block mb-1">Content</label>
                 <textarea
                   rows={4}
-                  defaultValue={editingPost.content}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
                   className="w-full bg-[#1f2937] border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500 resize-none"
                 />
               </div>
               <div>
                 <label className="text-gray-400 text-xs font-medium block mb-1">Platform</label>
                 <select
-                  defaultValue={editingPost.platform}
+                  value={editPlatform}
+                  onChange={(e) => setEditPlatform(e.target.value)}
                   className="w-full bg-[#1f2937] border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500"
                 >
                   <option>Facebook</option>
@@ -321,7 +380,7 @@ export default function MarketingPage() {
               </div>
               <div className="flex gap-2 pt-2">
                 <button
-                  onClick={() => setEditingPost(null)}
+                  onClick={saveEditedPost}
                   className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   Save Changes

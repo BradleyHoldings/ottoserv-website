@@ -4,9 +4,37 @@ import { useState } from "react";
 import Link from "next/link";
 import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
-const mockVideoRequests: any[] = [];
-const mockVideoTemplates: any[] = [];
-const mockBrandProfile: any = { brand_name: "", primary_color: "#000", logo_url: null, voice: "" };
+type VideoRequest = {
+  id: string;
+  status: string;
+  qa_status: string;
+  purpose: string;
+  agent: string;
+  platform: string;
+  aspect_ratio: string;
+  hook: string;
+  cta: string;
+  template: string;
+};
+
+type VideoTemplate = {
+  id: string;
+  name: string;
+  aspect_ratio: string;
+  category: string;
+  description: string;
+};
+
+const mockVideoRequests: VideoRequest[] = [];
+const mockVideoTemplates: VideoTemplate[] = [];
+const mockBrandProfile = {
+  brand_name: "OttoServ",
+  primary_color: "#2563eb",
+  secondary_color: "#0f172a",
+  logo_url: "ottoserv-logo.svg",
+  voice: "Clear, practical, operator-first",
+  font_family: "Inter",
+};
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft:            { label: "Draft",            color: "bg-gray-700 text-gray-300" },
@@ -147,9 +175,9 @@ export default function VideoPage() {
                 <span className="text-white font-bold text-base">O</span>
               </div>
               <div>
-                <p className="text-white font-semibold">{mockBrandProfile.name}</p>
+                <p className="text-white font-semibold">{mockBrandProfile.brand_name}</p>
                 <p className="text-gray-500 text-xs">
-                  {mockBrandProfile.font} · {mockBrandProfile.tone}
+                  {mockBrandProfile.font_family} · {mockBrandProfile.voice}
                 </p>
               </div>
             </div>
@@ -159,26 +187,26 @@ export default function VideoPage() {
                 <div className="flex items-center gap-2">
                   <div
                     className="w-6 h-6 rounded-full border border-gray-700"
-                    style={{ backgroundColor: mockBrandProfile.primary }}
+                    style={{ backgroundColor: mockBrandProfile.primary_color }}
                   />
-                  <span className="text-gray-400 text-xs font-mono">{mockBrandProfile.primary}</span>
+                  <span className="text-gray-400 text-xs font-mono">{mockBrandProfile.primary_color}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div
                     className="w-6 h-6 rounded-full border border-gray-700"
-                    style={{ backgroundColor: mockBrandProfile.secondary }}
+                    style={{ backgroundColor: mockBrandProfile.secondary_color }}
                   />
-                  <span className="text-gray-400 text-xs font-mono">{mockBrandProfile.secondary}</span>
+                  <span className="text-gray-400 text-xs font-mono">{mockBrandProfile.secondary_color}</span>
                 </div>
               </div>
             </div>
             <div>
               <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Tone</p>
-              <p className="text-gray-300 text-sm">{mockBrandProfile.tone}</p>
+              <p className="text-gray-300 text-sm">{mockBrandProfile.voice}</p>
             </div>
             <div>
               <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Logo</p>
-              <p className="text-gray-400 text-xs font-mono">{mockBrandProfile.logo}</p>
+              <p className="text-gray-400 text-xs font-mono">{mockBrandProfile.logo_url}</p>
             </div>
           </div>
         </div>

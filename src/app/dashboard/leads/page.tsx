@@ -81,6 +81,11 @@ export default function LeadsPage() {
   const [form, setForm] = useState(EMPTY_LEAD_FORM);
   const platformAccess = hasPlatformAccess();
 
+  function updateLeadStatus(id: string, status: Lead["status"]) {
+    setLeads((prev) => prev.map((lead) => (lead.id === id ? { ...lead, status } : lead)));
+    setSelectedLead((prev) => (prev && prev.id === id ? { ...prev, status } : prev));
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const newLead: Lead = {
@@ -327,13 +332,22 @@ export default function LeadsPage() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <button
+                  onClick={() => updateLeadStatus(selectedLead.id, "estimate_scheduled")}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
                   Schedule Estimate
                 </button>
-                <button className="w-full py-2.5 bg-[#1f2937] hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors border border-gray-700">
+                <button
+                  onClick={() => window.alert(`Draft email to ${selectedLead.email || selectedLead.name}`)}
+                  className="w-full py-2.5 bg-[#1f2937] hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors border border-gray-700"
+                >
                   Send Email
                 </button>
-                <button className="w-full py-2.5 bg-[#1f2937] hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors border border-gray-700">
+                <button
+                  onClick={() => updateLeadStatus(selectedLead.id, "won")}
+                  className="w-full py-2.5 bg-[#1f2937] hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors border border-gray-700"
+                >
                   Convert to Project
                 </button>
               </div>

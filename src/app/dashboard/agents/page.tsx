@@ -7,13 +7,13 @@ import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 const mockAgentActivity: AgentAction[] = [];
 
 const AGENTS = [
-  { name: "Growth Agent", emoji: "📣", description: "Generates social posts, review requests, and lead nurture content", successRate: 94 },
-  { name: "Operations Agent", emoji: "⚙️", description: "Monitors project budgets, schedules, and flags risks", successRate: 98 },
-  { name: "Project Agent", emoji: "🏗️", description: "Tracks milestones, task progress, and site visit summaries", successRate: 91 },
-  { name: "Finance Agent", emoji: "💰", description: "Sends invoice reminders, categorizes expenses, tracks cash flow", successRate: 97 },
-  { name: "Customer Service Agent", emoji: "💬", description: "Drafts client replies, schedules walkthroughs, sends updates", successRate: 88 },
-  { name: "Reporting Agent", emoji: "📈", description: "Generates weekly/monthly reports and performance summaries", successRate: 100 },
-  { name: "Data Prep Agent", emoji: "🗂️", description: "Categorizes receipts, normalizes data, preps imports", successRate: 72 },
+  { name: "Growth Agent", emoji: "GE", description: "Generates social posts, review requests, and lead nurture content", successRate: 94 },
+  { name: "Operations Agent", emoji: "OP", description: "Monitors project budgets, schedules, and flags risks", successRate: 98 },
+  { name: "Project Agent", emoji: "PJ", description: "Tracks milestones, task progress, and site visit summaries", successRate: 91 },
+  { name: "Finance Agent", emoji: "FN", description: "Sends invoice reminders, categorizes expenses, tracks cash flow", successRate: 97 },
+  { name: "Customer Service Agent", emoji: "CS", description: "Drafts client replies, schedules walkthroughs, sends updates", successRate: 88 },
+  { name: "Reporting Agent", emoji: "RP", description: "Generates weekly/monthly reports and performance summaries", successRate: 100 },
+  { name: "Data Prep Agent", emoji: "DP", description: "Categorizes receipts, normalizes data, preps imports", successRate: 72 },
 ];
 
 const STATUS_STYLES: Record<string, string> = {
@@ -46,6 +46,8 @@ export default function AgentsPage() {
   const [approvals, setApprovals] = useState<AgentAction[]>(
     mockAgentActivity.filter((a) => a.requires_approval && a.status === "waiting_approval")
   );
+  const [editingApproval, setEditingApproval] = useState<AgentAction | null>(null);
+  const [editResult, setEditResult] = useState("");
 
   function handleApprove(id: string) {
     setApprovals((prev) => prev.filter((a) => a.id !== id));
@@ -53,6 +55,19 @@ export default function AgentsPage() {
 
   function handleReject(id: string) {
     setApprovals((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  function startEdit(action: AgentAction) {
+    setEditingApproval(action);
+    setEditResult(action.result ?? "");
+  }
+
+  function saveApprovalEdit() {
+    if (!editingApproval) return;
+    setApprovals((prev) =>
+      prev.map((item) => (item.id === editingApproval.id ? { ...item, result: editResult } : item))
+    );
+    setEditingApproval(null);
   }
 
   const pendingCount = approvals.length;
@@ -63,14 +78,12 @@ export default function AgentsPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">AI Agents</h1>
-      <ComingSoonBanner />
-
+        <ComingSoonBanner />
         <p className="text-gray-500 text-sm mt-1">
           {pendingCount} pending approval · {completedCount} completed today · {failedCount} failed
         </p>
       </div>
 
-      {/* Approvals Queue */}
       {approvals.length > 0 && (
         <div className="mb-8">
           <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
@@ -84,9 +97,7 @@ export default function AgentsPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-orange-400 text-xs font-medium">{action.agent_name}</span>
-                      {action.project && (
-                        <span className="text-gray-600 text-xs">· {action.project}</span>
-                      )}
+                      {action.project && <span className="text-gray-600 text-xs">· {action.project}</span>}
                     </div>
                     <p className="text-white text-sm font-medium">{action.task}</p>
                   </div>
@@ -96,7 +107,7 @@ export default function AgentsPage() {
                 </div>
                 {action.result && (
                   <p className="text-gray-400 text-sm bg-[#0f1117] border border-gray-800 rounded-lg px-3 py-2 mb-3 italic">
-                    "{action.result}"
+                    {action.result}
                   </p>
                 )}
                 <div className="flex gap-2">
@@ -104,16 +115,19 @@ export default function AgentsPage() {
                     onClick={() => handleApprove(action.id)}
                     className="flex-1 py-2 bg-green-700 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors"
                   >
-                    ✓ Approve
+                    Approve
                   </button>
                   <button
                     onClick={() => handleReject(action.id)}
                     className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors"
                   >
-                    ✗ Reject
+                    Reject
                   </button>
-                  <button className="px-4 py-2 bg-blue-900/40 hover:bg-blue-900/60 text-blue-400 text-sm font-medium rounded-lg transition-colors border border-blue-800">
-                    ✏️ Edit
+                  <button
+                    onClick={() => startEdit(action)}
+                    className="px-4 py-2 bg-blue-900/40 hover:bg-blue-900/60 text-blue-400 text-sm font-medium rounded-lg transition-colors border border-blue-800"
+                  >
+                    Edit
                   </button>
                 </div>
               </div>
@@ -122,7 +136,6 @@ export default function AgentsPage() {
         </div>
       )}
 
-      {/* Agent Cards Grid */}
       <div className="mb-8">
         <h2 className="text-white font-semibold mb-3">Agent Status</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -133,7 +146,7 @@ export default function AgentsPage() {
               <div key={agent.name} className="bg-[#111827] border border-gray-800 rounded-xl p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">{agent.emoji}</span>
+                    <span className="text-sm font-semibold text-blue-300">{agent.emoji}</span>
                     <div>
                       <h3 className="text-white font-semibold text-sm">{agent.name}</h3>
                     </div>
@@ -162,7 +175,6 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Activity Feed */}
       <div className="bg-[#111827] border border-gray-800 rounded-xl p-6">
         <h2 className="text-white font-semibold mb-4">Recent Activity</h2>
         <div className="space-y-0">
@@ -175,14 +187,10 @@ export default function AgentsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-gray-400 text-xs font-medium">{action.agent_name}</span>
-                  {action.project && (
-                    <span className="text-gray-600 text-xs">· {action.project}</span>
-                  )}
+                  {action.project && <span className="text-gray-600 text-xs">· {action.project}</span>}
                 </div>
                 <p className="text-white text-sm">{action.task}</p>
-                {action.result && (
-                  <p className="text-gray-500 text-xs mt-0.5">{action.result}</p>
-                )}
+                {action.result && <p className="text-gray-500 text-xs mt-0.5">{action.result}</p>}
               </div>
               <div className="text-right flex-shrink-0">
                 <span className={`text-xs px-2 py-0.5 rounded border ${STATUS_STYLES[action.status]}`}>
@@ -196,6 +204,28 @@ export default function AgentsPage() {
           ))}
         </div>
       </div>
+
+      {editingApproval && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-xl rounded-xl border border-gray-700 bg-[#111827] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white font-semibold">Edit Approval Draft</h2>
+              <button onClick={() => setEditingApproval(null)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <p className="text-gray-400 text-sm mb-3">{editingApproval.task}</p>
+            <textarea
+              value={editResult}
+              onChange={(e) => setEditResult(e.target.value)}
+              rows={5}
+              className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm resize-none"
+            />
+            <div className="flex gap-3 pt-4">
+              <button onClick={saveApprovalEdit} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Save Draft</button>
+              <button onClick={() => setEditingApproval(null)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

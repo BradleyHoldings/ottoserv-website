@@ -95,6 +95,7 @@ export default function CalendarPage() {
 
   const { label, year, month } = MONTHS[monthIdx];
   const days = buildCalendarDays(year, month);
+  const todayKey = new Date().toISOString().slice(0, 10);
 
   const eventsByDay: Record<string, CalendarEvent[]> = {};
   for (const evt of events) {
@@ -160,7 +161,7 @@ export default function CalendarPage() {
                   ? `${year}-${padDate(month + 1)}-${padDate(day)}`
                   : null;
               const evts = dateKey ? (eventsByDay[dateKey] ?? []) : [];
-              const isToday = dateKey === "2026-04-30";
+              const isToday = dateKey === todayKey;
 
               return (
                 <div

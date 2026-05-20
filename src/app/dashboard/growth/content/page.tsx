@@ -6,7 +6,7 @@ import { type ContentPiece } from "@/lib/mockData";
 import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 const mockContentLibrary: ContentPiece[] = [];
-const mockContentPerformance: any[] = [];
+const mockContentPerformance: Array<{ content_id: string }> = [];
 
 const PLATFORM_COLORS: Record<string, string> = {
   instagram: "bg-pink-900/40 text-pink-400 border-pink-800",
@@ -94,11 +94,40 @@ function FilterSelect({
   );
 }
 
-function GenerateForm({ onClose }: { onClose: () => void }) {
+function GenerateForm({
+  onClose,
+  onGenerate,
+}: {
+  onClose: () => void;
+  onGenerate: (pieces: ContentPiece[]) => void;
+}) {
   const [niche, setNiche] = useState("property_management");
   const [platform, setPlatform] = useState("linkedin");
   const [context, setContext] = useState("");
   const [count, setCount] = useState(3);
+
+  function handleGenerate() {
+    const trimmedContext = context.trim() || "missed-call recovery and AI lead handling";
+    const nextPieces: ContentPiece[] = Array.from({ length: count }, (_, index) => ({
+      id: `content-${Date.now()}-${index}`,
+      niche,
+      platform,
+      hook: `${index + 1}. ${trimmedContext} for ${platform} buyers`,
+      body: `OttoServ helps teams respond faster, qualify demand, and keep follow-up moving when inbound volume spikes. This draft focuses on ${trimmedContext.toLowerCase()}.`,
+      cta: "Book a demo to see the workflow.",
+      emotional_trigger: "urgency",
+      hypothesis: `Posts about ${trimmedContext.toLowerCase()} will earn attention from owner-operators who feel response-time pain.`,
+      critic_status: "pending",
+      critic_score: null,
+      critic_notes: null,
+      distribution_status: "draft",
+      created_at: new Date().toISOString().slice(0, 10),
+      scheduled_for: null,
+      published_at: null,
+    }));
+    onGenerate(nextPieces);
+    onClose();
+  }
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -164,7 +193,7 @@ function GenerateForm({ onClose }: { onClose: () => void }) {
             Cancel
           </button>
           <button
-            onClick={onClose}
+            onClick={handleGenerate}
             className="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
           >
             Generate {count} piece{count !== 1 ? "s" : ""}
@@ -343,8 +372,9 @@ export default function ContentLibraryPage() {
   const [distFilter, setDistFilter] = useState("all");
   const [selectedPiece, setSelectedPiece] = useState<ContentPiece | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [contentLibrary, setContentLibrary] = useState<ContentPiece[]>(mockContentLibrary);
 
-  const filtered = mockContentLibrary.filter((c) => {
+  const filtered = contentLibrary.filter((c) => {
     if (nicheFilter !== "all" && c.niche !== nicheFilter) return false;
     if (platformFilter !== "all" && c.platform !== platformFilter) return false;
     if (criticFilter !== "all" && c.critic_status !== criticFilter) return false;
@@ -386,7 +416,7 @@ export default function ContentLibraryPage() {
         <FilterSelect label="Critic" value={criticFilter} options={CRITIC_STATUSES} onChange={setCriticFilter} />
         <FilterSelect label="Status" value={distFilter} options={DIST_STATUSES} onChange={setDistFilter} />
         <span className="ml-auto text-gray-500 text-xs self-center">
-          {filtered.length} of {mockContentLibrary.length} pieces
+          {filtered.length} of {contentLibrary.length} pieces
         </span>
       </div>
 
@@ -427,7 +457,12 @@ export default function ContentLibraryPage() {
       {selectedPiece && (
         <DetailPanel piece={selectedPiece} onClose={() => setSelectedPiece(null)} />
       )}
-      {showGenerate && <GenerateForm onClose={() => setShowGenerate(false)} />}
+      {showGenerate && (
+        <GenerateForm
+          onClose={() => setShowGenerate(false)}
+          onGenerate={(pieces) => setContentLibrary((prev) => [...pieces, ...prev])}
+        />
+      )}
     </div>
   );
 }

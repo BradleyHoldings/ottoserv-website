@@ -16,11 +16,40 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 export default function SOPsPage() {
-  const [sops] = useState<SOP[]>([]);
+  const [sops, setSops] = useState<SOP[]>([]);
   const categories = ["All", ...Array.from(new Set(sops.map((s) => s.category)))];
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [newSop, setNewSop] = useState({
+    title: "",
+    category: "Operations",
+    description: "",
+    steps: "",
+  });
+
+  function createSop(e: React.FormEvent) {
+    e.preventDefault();
+    const steps = newSop.steps
+      .split("\n")
+      .map((step) => step.trim())
+      .filter(Boolean);
+    const nextSop: SOP = {
+      id: `SOP-${Date.now()}`,
+      title: newSop.title,
+      category: newSop.category,
+      description: newSop.description,
+      steps,
+      status: "draft",
+      version: "1.0",
+      last_updated: new Date().toISOString().slice(0, 10),
+    };
+    setSops((prev) => [nextSop, ...prev]);
+    setExpanded(nextSop.id);
+    setShowModal(false);
+    setNewSop({ title: "", category: "Operations", description: "", steps: "" });
+  }
 
   const filtered = sops.filter((s) => {
     const catOk = categoryFilter === "All" || s.category === categoryFilter;
@@ -44,7 +73,7 @@ export default function SOPsPage() {
             {activeCount} active · {sops.length} total standard operating procedures
           </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
           + New SOP
         </button>
       </div>
@@ -148,6 +177,31 @@ export default function SOPsPage() {
           <p className="text-4xl mb-3">📋</p>
           <p className="text-white font-medium">No SOPs match your search</p>
           <p className="text-gray-500 text-sm mt-1">Try a different category or keyword</p>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-xl rounded-xl border border-gray-700 bg-[#111827] p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-white font-semibold text-lg">New SOP</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={createSop} className="space-y-4">
+              <input required value={newSop.title} onChange={(e) => setNewSop((prev) => ({ ...prev, title: e.target.value }))} placeholder="SOP title" className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm" />
+              <select value={newSop.category} onChange={(e) => setNewSop((prev) => ({ ...prev, category: e.target.value }))} className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm">
+                {Object.keys(CATEGORY_ICONS).map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+              <textarea required value={newSop.description} onChange={(e) => setNewSop((prev) => ({ ...prev, description: e.target.value }))} rows={3} placeholder="What this SOP covers" className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm resize-none" />
+              <textarea required value={newSop.steps} onChange={(e) => setNewSop((prev) => ({ ...prev, steps: e.target.value }))} rows={5} placeholder="One step per line" className="w-full bg-[#1f2937] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm resize-none" />
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Create SOP</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
