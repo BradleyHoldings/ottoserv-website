@@ -33,14 +33,14 @@ function OwnerDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard value={`$${mockFinancialSummary.revenue_this_month.toLocaleString()}`} label="Revenue This Month" color="green" trend="+24% vs last month" trendDirection="up" />
+        <KpiCard value={`$${mockFinancialSummary.revenue_this_month.toLocaleString()}`} label="Revenue This Month" color="green" trend={mockFinancialSummary.revenue_this_month > 0 ? "+24% vs last month" : "No data yet"} trendDirection={mockFinancialSummary.revenue_this_month > 0 ? "up" : "neutral"} />
         <KpiCard value={`$${mockFinancialSummary.gross_profit_this_month.toLocaleString()}`} label="Gross Profit" color="green" trend="38% margin" trendDirection="up" />
         <KpiCard value={`$${mockFinancialSummary.outstanding_receivables.toLocaleString()}`} label="Open Invoices" color="yellow" trend="2 overdue" trendDirection="down" />
         <KpiCard value={mockProjects.filter((p) => p.status === "in_progress").length} label="Active Jobs" color="blue" />
         <KpiCard value={atRisk} label="Jobs At Risk" color={atRisk > 0 ? "red" : "green"} trend={atRisk > 0 ? "Needs attention" : "All healthy"} trendDirection={atRisk > 0 ? "down" : "up"} />
         <KpiCard value={mockLeads.filter((l) => l.status === "new").length} label="New Leads" color="purple" />
         <KpiCard value={`$${(pipelineValue / 1000).toFixed(0)}k`} label="Pipeline Value" color="purple" />
-        <KpiCard value={`${Math.round((mockLeads.filter((l) => l.status === "won").length / mockLeads.length) * 100)}%`} label="Conversion Rate" color="green" />
+        <KpiCard value={mockLeads.length > 0 ? `${Math.round((mockLeads.filter((l) => l.status === "won").length / mockLeads.length) * 100)}%` : "—"} label="Conversion Rate" color="green" />
       </div>
       <div className="bg-[#111827] border border-gray-800 rounded-xl p-6">
         <h3 className="text-white font-semibold mb-4">Revenue Trend</h3>
@@ -68,7 +68,7 @@ function ProjectDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard value={`$${mockProjects.reduce((s, p) => s + p.estimated_revenue, 0).toLocaleString()}`} label="Total Contract Value" color="green" />
         <KpiCard value={`$${mockProjects.reduce((s, p) => s + p.actual_cost, 0).toLocaleString()}`} label="Total Costs to Date" color="yellow" />
-        <KpiCard value={`${Math.round(mockProjects.reduce((s, p) => s + p.percent_complete, 0) / mockProjects.length)}%`} label="Avg Completion" color="blue" />
+        <KpiCard value={mockProjects.length > 0 ? `${Math.round(mockProjects.reduce((s, p) => s + p.percent_complete, 0) / mockProjects.length)}%` : "—"} label="Avg Completion" color="blue" />
         <KpiCard value={mockProjects.filter((p) => p.risk_level === "high").length} label="Projects At Risk" color="red" />
       </div>
       <div className="bg-[#111827] border border-gray-800 rounded-xl overflow-hidden">
@@ -146,7 +146,7 @@ function SalesDashboard() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard value={mockLeads.filter((l) => !["won", "lost"].includes(l.status)).length} label="Active Leads" color="purple" />
-        <KpiCard value={`${Math.round((mockLeads.filter((l) => l.status === "won").length / mockLeads.length) * 100)}%`} label="Win Rate" color="green" />
+        <KpiCard value={mockLeads.length > 0 ? `${Math.round((mockLeads.filter((l) => l.status === "won").length / mockLeads.length) * 100)}%` : "—"} label="Win Rate" color="green" />
         <KpiCard value={mockLeads.filter((l) => ["new", "follow_up"].includes(l.status)).length} label="Follow-Up Tasks" color="yellow" />
         <KpiCard value={mockLeads.filter((l) => l.status === "lost").length} label="Lost Leads" color="red" />
       </div>
