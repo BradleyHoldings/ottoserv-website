@@ -1,4 +1,5 @@
 import { listClients } from "@/lib/visibility-kit/store";
+import { allPublishedSeoPages } from "@/lib/seoContent";
 
 export const dynamic = "force-dynamic";
 
@@ -44,13 +45,28 @@ const STATIC_ENTRIES: Entry[] = [
   { path: "/privacy", changefreq: "yearly", priority: "0.3" },
 ];
 
+const SEO_ENTRIES: Entry[] = allPublishedSeoPages.map((page) => ({
+  path: page.path,
+  changefreq: page.kind === "resource" ? "monthly" : "weekly",
+  priority:
+    page.path === "/ai-receptionist" ||
+    page.path === "/lead-qualification-agent" ||
+    page.path === "/pricing" ||
+    page.path === "/demo"
+      ? "0.95"
+      : "0.85",
+}));
+
 function renderEntry(e: Entry, lastmod: string): string {
   return `  <url>\n    <loc>${SITE}${e.path}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`;
 }
 
 export async function GET() {
   const lastmod = new Date().toISOString();
-  const entries: string[] = STATIC_ENTRIES.map((e) => renderEntry(e, lastmod));
+  const mergedEntries = [...STATIC_ENTRIES, ...SEO_ENTRIES].filter(
+    (entry, index, arr) => arr.findIndex((candidate) => candidate.path === entry.path) === index
+  );
+  const entries: string[] = mergedEntries.map((e) => renderEntry(e, lastmod));
 
   // Visibility-kit clients whose AI Learn page is published. Drafts stay out of sitemaps
   // so AI search engines only see content the kit's review workflow approved.

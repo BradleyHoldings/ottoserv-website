@@ -4,6 +4,8 @@ import { Source_Sans_3 as SourceSansPro, Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import JsonLd from "@/components/content/JsonLd";
+import { organizationSchema } from "@/lib/seoContent";
 
 const sourceSansPro = SourceSansPro({
   subsets: ["latin"],
@@ -20,6 +22,7 @@ const nunitoSans = Nunito_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://ottoserv.com"),
   title: "OttoServ - AI-Powered Operating System for Service Businesses",
   description: "Save 12+ hours/week with AI automation. 24/7 call answering, lead qualification, and scheduling for contractors and property managers. Starting at $300/month.",
   keywords: "contractor software, property management automation, AI call answering, service business software, field service management, ServiceTitan alternative, contractor AI, property management AI",
@@ -100,6 +103,7 @@ export default function RootLayout({
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />
+        <JsonLd data={organizationSchema()} />
         <script src="/widget/ottoserv-chat.js" data-client-id="ottoserv" defer></script>
       </body>
     </html>

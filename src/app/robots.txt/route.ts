@@ -1,6 +1,6 @@
 export async function GET() {
-  const robots = `# OttoServ robots.txt — see /ai-learn-about-ottoserv for a structured
-# AI-readable company reference page.
+  const robots = `# OttoServ robots.txt - see /llms.txt and /ai-learn-about-ottoserv for
+# AI-readable maps of OttoServ services, industries, comparisons, and resources.
 
 User-agent: *
 Allow: /
@@ -9,10 +9,6 @@ Disallow: /login/
 Disallow: /admin/
 Disallow: /admin-access/
 Disallow: /api/private/
-
-# Explicit allowlist for AI search engine and LLM training/indexing crawlers.
-# These bots respect robots.txt; listing them explicitly so future blanket-
-# disallow rules do not accidentally hide OttoServ from AI search results.
 
 User-agent: GPTBot
 Allow: /
@@ -75,11 +71,12 @@ User-agent: Diffbot
 Allow: /
 
 Sitemap: https://ottoserv.com/sitemap.xml
+LLMs: https://ottoserv.com/llms.txt
 `;
 
   return new Response(robots, {
     headers: {
-      'Content-Type': 'text/plain',
+      "Content-Type": "text/plain",
     },
   });
 }

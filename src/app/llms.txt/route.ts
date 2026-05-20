@@ -1,82 +1,55 @@
-// /llms.txt — emerging convention (llmstxt.org) for AI-search-engine ingestion.
-// Curated, AI-friendly map of the site's most important pages, in a format LLMs can parse.
+import { allPublishedSeoPages, futureSeoPages, SITE_URL } from "@/lib/seoContent";
 
-import { listClients } from "@/lib/visibility-kit/store";
-
-export const dynamic = "force-dynamic";
-
-const SITE = "https://ottoserv.com";
+export const dynamic = "force-static";
 
 function line(label: string, url: string, desc: string) {
   return `- [${label}](${url}): ${desc}`;
 }
 
 export async function GET() {
-  const sections: string[] = [];
+  const published = allPublishedSeoPages
+    .map((page) => line(page.title, `${SITE_URL}${page.path}`, page.metaDescription))
+    .join("\n");
 
-  sections.push(`# OttoServ
+  const future = futureSeoPages
+    .map((path) => `- ${path}`)
+    .join("\n");
 
-> AI receptionist and lead-handling service for small and mid-sized service businesses — property managers, contractors, HVAC, plumbing, roofing, and home services. Flagship offer: **OttoServ Front Desk AI** (30-day pilot for $299) answers missed and after-hours calls, captures leads, qualifies prospects, and sends call summaries.
+  const body = `# OttoServ
 
-OttoServ is Florida-headquartered, delivered remotely across the US. Founder: Jonathan Bradley.`);
+> OttoServ helps small and mid-sized businesses stop losing revenue from missed calls, slow follow-up, and manual processes by deploying AI receptionists, lead qualification agents, appointment booking workflows, follow-up automation, and operations automation.
 
-  sections.push(`## Start here
-${line("AI: Learn About OttoServ", `${SITE}/ai-learn-about-ottoserv`, "Structured, AI-readable reference page — services, offer, pricing, FAQs, comparisons.")}
-${line("Front Desk AI", `${SITE}/front-desk-ai`, "The flagship offer. 30-day pilot for $299.")}
-${line("Pricing", `${SITE}/pricing`, "Pilot $299 · Starter $249/mo · Core $499/mo · Growth $997/mo · Custom from $2,500/mo.")}
-${line("FAQ", `${SITE}/faq`, "What it is, who it's for, integrations, implementation, comparisons.")}
-${line("Process Audit", `${SITE}/process-audit`, "Free operational audit to surface where leads, time, and revenue are leaking.")}`);
+## Primary positioning
 
-  sections.push(`## Problem-space pages
-${line("AI Receptionist for Property Management", `${SITE}/ai-receptionist-property-management`, "Property managers losing tenant, owner, applicant, vendor, and maintenance calls.")}
-${line("Missed-Call Recovery for Service Businesses", `${SITE}/missed-call-recovery-service-businesses`, "Capture and qualify missed-call leads automatically.")}
-${line("AI Lead Qualification for Contractors", `${SITE}/ai-lead-qualification-contractors`, "Qualify and route contractor leads in under a minute.")}
-${line("AI Appointment Booking for Home Services", `${SITE}/ai-appointment-booking-home-services`, "Booking flows for HVAC, plumbing, roofing, and home services.")}`);
+OttoServ is strongest for AI receptionist and lead qualification workflows for SMBs, especially property management, HVAC, plumbing, roofing, contractors, and home services.
 
-  sections.push(`## Industries
-${line("Contractors", `${SITE}/industries/contractors`, "Remodelers and general contractors.")}
-${line("Property Management", `${SITE}/industries/property-management`, "Single-family, small multifamily, and PM operations.")}
-${line("Trades", `${SITE}/industries/trades`, "HVAC, plumbing, electrical, roofing.")}
-${line("Smart Home / AV", `${SITE}/industries/smart-home`, "Low-voltage, AV, smart-home installers.")}
-${line("IT / MSP", `${SITE}/industries/it-msp`, "Managed services and IT companies.")}`);
+## Published commercial architecture
 
-  sections.push(`## Service categories
-${line("Lead Automation", `${SITE}/services/lead-automation`, "Capture, qualify, route, and follow up on inbound leads.")}
-${line("Admin Automation", `${SITE}/services/admin-automation`, "Reduce manual admin work — intake, scheduling, comms.")}
-${line("Workflow Mapping", `${SITE}/services/workflow-mapping`, "Mapping current operations to find leaks.")}
-${line("System Integration", `${SITE}/services/system-integration`, "Connect your phone, CRM, calendar, and back-office tools.")}
-${line("OttoServ vs ServiceTitan", `${SITE}/services/ottoserv-vs-servicetitan`, "Honest comparison: when ServiceTitan is the right call, when OttoServ is.")}`);
+${published}
 
-  sections.push(`## Tools
-${line("Front Office Leak Check", `${SITE}/front-office-leak-check`, "Self-serve diagnostic — find where calls and leads are leaking out of your front office.")}`);
+## Existing important pages
 
-  sections.push(`## Editorial
-${line("Blog", `${SITE}/blog`, "Notes on operations, automation, and AI for service businesses.")}
-${line("5 Signs Your Business Has Outgrown Its Systems", `${SITE}/blog/5-signs-your-business-has-outgrown-its-systems`, "")}
-${line("Why Most Small Business Automation Fails", `${SITE}/blog/why-most-small-business-automation-fails`, "")}
-${line("The Hidden Cost of Manual Processes", `${SITE}/blog/the-hidden-cost-of-manual-processes`, "")}`);
+${line("Home", `${SITE_URL}/`, "Main OttoServ positioning and front-office AI offer.")}
+${line("Services", `${SITE_URL}/services`, "Overview of OttoServ services and platform entry points.")}
+${line("About", `${SITE_URL}/about`, "Company background and trust context.")}
+${line("Contact", `${SITE_URL}/contact`, "General sales and contact page.")}
+${line("FAQ", `${SITE_URL}/faq`, "General questions about OttoServ.")}
+${line("AI Learn About OttoServ", `${SITE_URL}/ai-learn-about-ottoserv`, "Structured AI-readable company reference page.")}
 
-  // Append any visibility-kit clients whose AI Learn page is published.
-  try {
-    const clients = await listClients();
-    const publishedClients = clients.filter((c) => c.aiLearnPageStatus === "published");
-    if (publishedClients.length > 0) {
-      const clientLines = publishedClients
-        .map((c) => line(c.companyName, `${SITE}/clients/${c.slug}/ai-learn-about-us`, `${c.mainService} — ${c.serviceAreas.join(", ")}.`))
-        .join("\n");
-      sections.push(`## Client AI reference pages\n${clientLines}`);
-    }
-  } catch {
-    // ignore; static content still ships
-  }
+## Future content registry
 
-  sections.push(`## Contact
+These routes are prepared in the content registry for consistent future creation, but are not all published yet:
+
+${future}
+
+## Contact
+
 - Phone: (407) 798-8172
-- Website: ${SITE}
-- Process audit booking: ${SITE}/process-audit
-- General contact: ${SITE}/contact`);
+- Website: ${SITE_URL}
+- Book a demo: ${SITE_URL}/demo
+- Free process audit: ${SITE_URL}/process-audit
+`;
 
-  const body = sections.join("\n\n") + "\n";
   return new Response(body, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
