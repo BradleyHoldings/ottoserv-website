@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Source_Sans_3 as SourceSansPro, Nunito_Sans } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import SiteChrome from "@/components/SiteChrome";
 import JsonLd from "@/components/content/JsonLd";
 import { organizationSchema } from "@/lib/seoContent";
 
@@ -100,9 +99,7 @@ export default function RootLayout({
         )}
       </head>
       <body className="min-h-screen flex flex-col" style={{backgroundColor: 'var(--otto-gray-900)', color: 'var(--otto-gray-50)'}}>
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <SiteChrome>{children}</SiteChrome>
         <JsonLd data={organizationSchema()} />
         <script src="/widget/ottoserv-chat.js" data-client-id="ottoserv" defer></script>
       </body>
