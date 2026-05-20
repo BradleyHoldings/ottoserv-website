@@ -66,10 +66,10 @@ export default function Footer() {
               <div>
                 <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Email</p>
                 <a
-                  href="mailto:jonathan@ottoservco.com"
+                  href="mailto:hello@ottoserv.com"
                   className="text-gray-400 hover:text-white transition-colors text-sm block"
                 >
-                  jonathan@ottoservco.com
+                  hello@ottoserv.com
                 </a>
               </div>
               <div className="pt-2">
