@@ -31,7 +31,7 @@ export default function SOPsPage() {
     return catOk && searchOk;
   });
 
-  const activeCount = mockSOPs.filter((s) => s.status === "active").length;
+  const activeCount = sops.filter((s) => s.status === "active").length;
 
   return (
     <div>
@@ -41,7 +41,7 @@ export default function SOPsPage() {
       <ComingSoonBanner />
 
           <p className="text-gray-500 text-sm mt-1">
-            {activeCount} active · {mockSOPs.length} total standard operating procedures
+            {activeCount} active · {sops.length} total standard operating procedures
           </p>
         </div>
         <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
