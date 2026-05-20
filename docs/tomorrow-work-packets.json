@@ -1,0 +1,76 @@
+{
+  "updated_at": "2026-05-20",
+  "operational_authority": "Jarvis is OttoServ operations lead and source of truth unless Jonathan overrides.",
+  "packets": [
+    {
+      "task_id": "tomorrow-cowork-lead-enrichment",
+      "owner": "cowork",
+      "priority": "high",
+      "status": "ready",
+      "created_at": "2026-05-20",
+      "due_window": "2026-05-21 morning",
+      "instructions": "Enrich B-tier and C-tier property-management and home-services leads. Add website, valid contact, source URL, pain signal, personalization angle, and evidence. Do not spend time on obvious rejects.",
+      "inputs": ["outreach_queue.json", "current ICP rules", "public company websites"],
+      "success_criteria": "Every enriched lead has source evidence, fit summary, recommended tier, and safe next channel.",
+      "evidence_required": ["source URL", "website/contact evidence", "pain signal or reason for no pain signal"],
+      "handoff_to": "jarvis,codex",
+      "completion_notes": ""
+    },
+    {
+      "task_id": "tomorrow-gemini-deep-research",
+      "owner": "gemini",
+      "priority": "medium",
+      "status": "queued_until_available",
+      "created_at": "2026-05-20",
+      "due_window": "when Gemini credits are available",
+      "instructions": "Research property-management and trades AI lead-handling use cases, objections, integrations, pricing expectations, and landing-page content gaps. Avoid unsupported hard stats.",
+      "inputs": ["OttoServ ICP", "published industry pages", "current SEO content registry"],
+      "success_criteria": "Brief gives actionable sections, FAQs, buyer objections, and outreach angles.",
+      "evidence_required": ["source list", "research brief", "unsupported-claim warnings"],
+      "handoff_to": "codex,cowork",
+      "completion_notes": ""
+    },
+    {
+      "task_id": "tomorrow-jarvis-a-tier-calls",
+      "owner": "jarvis",
+      "priority": "high",
+      "status": "ready",
+      "created_at": "2026-05-20",
+      "due_window": "2026-05-21 local business hours",
+      "instructions": "Call only approved A-tier leads with valid phone numbers during local business hours. Stop after negative response or do-not-call request. Log every attempt.",
+      "inputs": ["outreach_queue.json", "daily_metrics.json", "do-not-call list if present"],
+      "success_criteria": "Every call has timestamp, outcome, next action, and evidence.",
+      "evidence_required": ["call log", "call id or recording when available", "outcome"],
+      "handoff_to": "jonathan,codex",
+      "completion_notes": ""
+    },
+    {
+      "task_id": "tomorrow-codex-blocker-cleanup",
+      "owner": "codex",
+      "priority": "medium",
+      "status": "ready",
+      "created_at": "2026-05-20",
+      "due_window": "2026-05-21",
+      "instructions": "Fix import, scoring, dashboard, schema, docs, test, and automation blockers. Keep real lead ledgers out of git. Verify before claiming completion.",
+      "inputs": ["AGENTS.md", "docs/local-hermes-audit.md", "docs/agent-fallback-rules.md"],
+      "success_criteria": "Blockers are patched, tested, documented, and committed when appropriate.",
+      "evidence_required": ["commit hash", "test output", "build output", "route checks"],
+      "handoff_to": "jarvis,jonathan",
+      "completion_notes": ""
+    },
+    {
+      "task_id": "tomorrow-local-hermes-qa-only",
+      "owner": "local-hermes",
+      "priority": "low",
+      "status": "manual_use_only",
+      "created_at": "2026-05-20",
+      "due_window": "manual use only",
+      "instructions": "If used, produce only concise QA/evidence/context reports. Do not own operations or assign Jarvis tasks. Defer operational authority to Jarvis.",
+      "inputs": ["master context", "task ledger", "work output under review"],
+      "success_criteria": "Reports use the six-part QA format and cite evidence checked.",
+      "evidence_required": ["files/logs/ledgers checked"],
+      "handoff_to": "jarvis,jonathan",
+      "completion_notes": ""
+    }
+  ]
+}

@@ -22,6 +22,7 @@
 
 # operational ledgers with real lead/contact data
 /data/call-imports/*.json
+/reports/ops/*.md
 
 # misc
 .DS_Store

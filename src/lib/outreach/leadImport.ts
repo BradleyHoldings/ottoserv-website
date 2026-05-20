@@ -22,7 +22,7 @@ export type NormalizedLead = {
   tier: LeadTier;
   score_reasons: string[];
   status: "ready_to_call" | "ready_to_email" | "needs_enrichment" | "rejected";
-  suggested_owner: "jarvis" | "cowork" | "hermes";
+  suggested_owner: "jarvis" | "cowork" | "codex" | "jonathan";
   scheduled_call_local: string | null;
   created_at: string;
 };
@@ -187,7 +187,7 @@ export function scoreAndNormalizeLead(input: RawLeadInput, row: number, slotInde
   score = Math.max(0, Math.min(100, score));
   const tier = classifyLead(score, phoneCheck.valid, emailValid, hasBadFit);
   const status = tier === "A-tier" ? "ready_to_call" : tier === "B-tier" ? "ready_to_email" : tier === "C-tier" ? "needs_enrichment" : "rejected";
-  const suggestedOwner = tier === "A-tier" ? "jarvis" : tier === "B-tier" || tier === "C-tier" ? "cowork" : "hermes";
+  const suggestedOwner = tier === "A-tier" ? "jarvis" : tier === "B-tier" || tier === "C-tier" ? "cowork" : "codex";
 
   if (tier === "Reject") {
     return { error: error(row, company, rawPhone, "fit", "rejected_fit", `Rejected by scoring guardrails: ${scoreReasons.join(", ") || "low score/no safe next action"}.`) };
