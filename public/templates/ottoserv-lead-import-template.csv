@@ -1,0 +1,3 @@
+company,contact_name,phone,email,website,industry,city,state,source_url,notes,buying_signal,pain_signal,timezone
+Sunrise Property Management,Alex Rivera,407-222-1188,alex@sunrisepm.example,https://sunrisepm.example,Property Management,Orlando,FL,https://example.com/source,"Manages rentals and maintenance requests","Hiring leasing coordinator","Reviews mention slow response and missed calls",America/New_York
+Bayview HOA Services,Morgan Lee,813-222-0191,morgan@bayviewhoa.example,https://bayviewhoa.example,HOA Property Management,Tampa,FL,https://example.com/source,"HOA and apartment maintenance coordination","Needs after-hours coverage","Manual process for tenant maintenance calls",America/New_York
