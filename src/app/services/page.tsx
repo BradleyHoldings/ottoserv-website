@@ -62,7 +62,7 @@ const services = [
       "Mobile-friendly for on-the-go teams",
     ],
     cta: "See the Platform",
-    href: "/contact",
+    href: "/dashboard",
   },
   {
     title: "TechOps",
