@@ -42,11 +42,7 @@ export default function CommandCenterPage() {
 
     setUser(currentUser);
 
-    // Super admin should use admin dashboard, not command center
-    if (currentUser.role === 'super_admin') {
-      router.push('/dashboard/admin');
-      return;
-    }
+    // Super admins can use command center too
 
     Promise.all([
       getDashboard(),
