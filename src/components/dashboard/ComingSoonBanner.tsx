@@ -1,35 +1,41 @@
-// Shared informational banner used on dashboard pages.
-//
-// Three variants:
-//   tone="coming_soon"  → module has no backend endpoint yet
-//   tone="empty"        → backend is connected, your company just has no rows yet
-//   tone="auth"         → user has no platform JWT (can't reach the backend)
-//
-// We never render fake mock data — empty state is honest. The variant just
-// changes the copy so the user can tell "no data" from "broken".
+"use client";
 
-type Tone = "coming_soon" | "empty" | "auth";
+import Link from "next/link";
+
+type Tone = "coming_soon" | "empty" | "auth" | "integration_required" | "not_configured";
+
+interface BannerAction {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+}
 
 const TONE_STYLES: Record<Tone, { bar: string; titleColor: string }> = {
   coming_soon: { bar: "border-l-4 border-blue-600", titleColor: "text-white" },
   empty: { bar: "border-l-4 border-gray-700", titleColor: "text-white" },
   auth: { bar: "border-l-4 border-yellow-600", titleColor: "text-yellow-200" },
+  integration_required: { bar: "border-l-4 border-yellow-600", titleColor: "text-yellow-200" },
+  not_configured: { bar: "border-l-4 border-purple-600", titleColor: "text-purple-200" },
 };
 
 export default function ComingSoonBanner({
   tone = "coming_soon",
   title,
   description,
+  action,
+  className = "",
 }: {
   tone?: Tone;
   title?: string;
   description?: string;
+  action?: BannerAction;
+  className?: string;
 }) {
   const defaults: Record<Tone, { title: string; description: string }> = {
     coming_soon: {
       title: "Module coming soon",
       description:
-        "This module isn't wired to your live company data yet. We'll connect it as the backend API lands.",
+        "This module is not wired to your live company data yet. It will connect as the backend API lands.",
     },
     empty: {
       title: "Nothing here yet",
@@ -41,6 +47,16 @@ export default function ComingSoonBanner({
       description:
         "Sign out and sign back in with a platform-enabled account to see your company's data.",
     },
+    integration_required: {
+      title: "Integration required",
+      description:
+        "Connect the required system before this action can use live company data.",
+    },
+    not_configured: {
+      title: "Not configured yet",
+      description:
+        "Finish setup in settings before this workflow can run.",
+    },
   };
 
   const { bar, titleColor } = TONE_STYLES[tone];
@@ -49,10 +65,29 @@ export default function ComingSoonBanner({
 
   return (
     <div
-      className={`bg-[#111827] border border-gray-800 ${bar} rounded-xl p-6 mb-6`}
+      className={`bg-[#111827] border border-gray-800 ${bar} rounded-xl p-6 mb-6 ${className}`}
     >
       <p className={`${titleColor} font-medium mb-1`}>{finalTitle}</p>
       <p className="text-gray-400 text-sm">{finalDescription}</p>
+      {action && (
+        <div className="mt-4">
+          {action.href ? (
+            <Link
+              href={action.href}
+              className="inline-flex rounded-lg bg-gray-800 px-3 py-2 text-sm font-medium text-gray-200 hover:bg-gray-700"
+            >
+              {action.label}
+            </Link>
+          ) : (
+            <button
+              onClick={action.onClick}
+              className="rounded-lg bg-gray-800 px-3 py-2 text-sm font-medium text-gray-200 hover:bg-gray-700"
+            >
+              {action.label}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

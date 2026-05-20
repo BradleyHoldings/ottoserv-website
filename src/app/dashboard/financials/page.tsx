@@ -4,6 +4,23 @@ import { useState } from "react";
 import KpiCard from "@/components/dashboard/KpiCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+import EmptyState from "@/components/dashboard/EmptyState";
+import ActionStateModal from "@/components/dashboard/ActionStateModal";
+
+interface Invoice {
+  id: string;
+  client_name: string;
+  amount: number;
+  issued_date: string;
+  due_date: string;
+  status: string;
+}
+
+interface Expense {
+  id: string;
+  category: string;
+  amount: number;
+}
 
 const f = {
   revenue_this_month: 0,
@@ -18,8 +35,8 @@ const f = {
   ytd_expenses: 0,
   ytd_gross_profit: 0,
 };
-const mockInvoices: any[] = [];
-const mockExpenses: any[] = [];
+const mockInvoices: Invoice[] = [];
+const mockExpenses: Expense[] = [];
 
 const MARGIN_PCT = 0;
 const MARGIN_LAST = 0;
@@ -37,6 +54,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function FinancialsPage() {
   const [invoiceTab, setInvoiceTab] = useState("all");
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
 
   const filteredInvoices =
     invoiceTab === "all"
@@ -62,8 +80,10 @@ export default function FinancialsPage() {
       </div>
 
       <ComingSoonBanner
+        tone="integration_required"
         title="Financials not yet wired"
         description="Revenue, profit, and invoice data will appear once you connect QuickBooks, Stripe, or another billing source."
+        action={{ label: "Open integrations", href: "/dashboard/integrations" }}
       />
 
 
@@ -174,34 +194,46 @@ export default function FinancialsPage() {
         {/* Expense Breakdown */}
         <div className="bg-[#111827] border border-gray-800 rounded-xl p-6">
           <h3 className="text-white font-semibold mb-5">Expense Breakdown</h3>
-          <div className="space-y-3">
-            {Object.entries(expenseByCategory).map(([cat, amt]) => {
-              const pct = Math.round((amt / totalExpenses) * 100);
-              return (
-                <div key={cat}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-400">{cat}</span>
-                    <span className="text-white tabular-nums">${amt.toLocaleString()}</span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${CATEGORY_COLORS[cat] ?? "bg-gray-500"}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <p className="text-gray-600 text-xs mt-0.5">{pct}% of total</p>
+          {totalExpenses === 0 ? (
+            <EmptyState
+              variant="integration_required"
+              title="No expenses connected"
+              description="Connect accounting or card data to track expense categories here."
+              actions={[{ label: "Open integrations", href: "/dashboard/integrations" }]}
+              className="py-10"
+            />
+          ) : (
+            <>
+              <div className="space-y-3">
+                {Object.entries(expenseByCategory).map(([cat, amt]) => {
+                  const pct = totalExpenses > 0 ? Math.round((amt / totalExpenses) * 100) : 0;
+                  return (
+                    <div key={cat}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-400">{cat}</span>
+                        <span className="text-white tabular-nums">${amt.toLocaleString()}</span>
+                      </div>
+                      <div className="w-full bg-gray-800 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${CATEGORY_COLORS[cat] ?? "bg-gray-500"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className="text-gray-600 text-xs mt-0.5">{pct}% of total</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-800">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Total Tracked</span>
+                  <span className="text-white font-medium tabular-nums">
+                    ${totalExpenses.toLocaleString()}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-800">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Total Tracked</span>
-              <span className="text-white font-medium tabular-nums">
-                ${totalExpenses.toLocaleString()}
-              </span>
-            </div>
-          </div>
+              </div>
+              </>
+          )}
         </div>
       </div>
 
@@ -209,7 +241,10 @@ export default function FinancialsPage() {
       <div className="bg-[#111827] border border-gray-800 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-semibold">Invoices</h3>
-          <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
+          <button
+            onClick={() => setInvoiceModalOpen(true)}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+          >
             + New Invoice
           </button>
         </div>
@@ -243,7 +278,22 @@ export default function FinancialsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.map((inv) => (
+              {filteredInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6">
+                    <EmptyState
+                      variant="integration_required"
+                      title="No invoices yet"
+                      description="Connect billing data or create an invoice after accounting is configured."
+                      actions={[
+                        { label: "Connect billing", href: "/dashboard/integrations" },
+                        { label: "Create invoice", onClick: () => setInvoiceModalOpen(true), variant: "secondary" },
+                      ]}
+                      className="py-10"
+                    />
+                  </td>
+                </tr>
+              ) : filteredInvoices.map((inv) => (
                 <tr key={inv.id} className="border-b border-gray-800 last:border-0 hover:bg-[#1a2230] cursor-pointer">
                   <td className="px-4 py-3 text-blue-400 font-medium">{inv.id}</td>
                   <td className="px-4 py-3 text-gray-300">{inv.client_name}</td>
@@ -261,6 +311,14 @@ export default function FinancialsPage() {
           </table>
         </div>
       </div>
+      <ActionStateModal
+        open={invoiceModalOpen}
+        kind="integration_required"
+        integrationName="QuickBooks or Stripe"
+        description="Connect a billing source to create, sync, and send invoices from OttoServ."
+        primaryHref="/dashboard/integrations"
+        onClose={() => setInvoiceModalOpen(false)}
+      />
     </div>
   );
 }

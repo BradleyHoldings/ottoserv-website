@@ -9,6 +9,16 @@ import {
   type UsageLogEntry,
 } from "@/lib/mockData";
 import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+import EmptyState from "@/components/dashboard/EmptyState";
+import ActionStateModal from "@/components/dashboard/ActionStateModal";
+
+type MarketplaceAction = {
+  kind: "coming_soon" | "integration_required" | "not_configured" | "info";
+  featureName?: string;
+  integrationName?: string;
+  description?: string;
+  primaryHref?: string;
+};
 
 const mockResources: MarketplaceResource[] = [];
 const mockMonetizationAlerts: MonetizationAlert[] = [];
@@ -149,8 +159,16 @@ function BrowseTab() {
       <p className="text-gray-500 text-sm">{filtered.length} resource{filtered.length !== 1 ? "s" : ""}</p>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((r) => (
+      {filtered.length === 0 ? (
+        <EmptyState
+          variant="coming_soon"
+          title="No marketplace resources yet"
+          description="Approved tools, workflows, templates, and services will appear here when the marketplace backend is connected."
+          actions={[{ label: "Review integrations", href: "/dashboard/integrations" }]}
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filtered.map((r) => (
           <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3 hover:border-gray-700 transition-colors">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
@@ -185,35 +203,60 @@ function BrowseTab() {
                 {r.status === "restricted" ? "Restricted" : r.cost_model === "free" ? "Use" : "Request"}
               </a>
             </div>
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Tab: Packages ────────────────────────────────────────────────────────────
 
-function PackagesTab() {
+function PackagesTab({ onAction }: { onAction: (action: MarketplaceAction) => void }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-gray-400 text-sm">{mockClientPackages.length} packages</p>
-        <button className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors">
+        <button
+          onClick={() =>
+            onAction({
+              kind: "not_configured",
+              featureName: "Marketplace packages",
+              description: "Package creation needs marketplace billing, approvals, and resource catalog settings before it can save live packages.",
+              primaryHref: "/dashboard/settings?panel=marketplace",
+            })
+          }
+          className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors"
+        >
           + Create Package
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {mockClientPackages.map((pkg) => (
-          <PackageCard key={pkg.id} pkg={pkg} />
-        ))}
-      </div>
+      {mockClientPackages.length === 0 ? (
+        <EmptyState
+          variant="not_configured"
+          title="No client packages yet"
+          description="Create package bundles after pricing, billing, and approval rules are configured."
+          actions={[
+            {
+              label: "Create package",
+              onClick: () => onAction({ kind: "not_configured", featureName: "Marketplace packages", primaryHref: "/dashboard/settings?panel=marketplace" }),
+            },
+          ]}
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {mockClientPackages.map((pkg) => (
+            <PackageCard key={pkg.id} pkg={pkg} onAction={onAction} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function PackageCard({ pkg }: { pkg: ClientPackage }) {
+function PackageCard({ pkg, onAction }: { pkg: ClientPackage; onAction: (action: MarketplaceAction) => void }) {
   const statusColor = pkg.status === "active" ? "text-emerald-400" : pkg.status === "draft" ? "text-yellow-400" : "text-gray-500";
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex flex-col gap-4 hover:border-gray-700 transition-colors">
@@ -244,7 +287,12 @@ function PackageCard({ pkg }: { pkg: ClientPackage }) {
 
       <div className="flex items-center justify-between pt-3 border-t border-gray-800">
         <span className="text-gray-500 text-xs">{pkg.times_sold} clients sold</span>
-        <button className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Edit Package →</button>
+        <button
+          onClick={() => onAction({ kind: "not_configured", featureName: "Package editing", primaryHref: "/dashboard/settings?panel=marketplace" })}
+          className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+        >
+          Edit Package
+        </button>
       </div>
     </div>
   );
@@ -252,7 +300,7 @@ function PackageCard({ pkg }: { pkg: ClientPackage }) {
 
 // ─── Tab: Requests ────────────────────────────────────────────────────────────
 
-function RequestsTab() {
+function RequestsTab({ onAction }: { onAction: (action: MarketplaceAction) => void }) {
   const pending = mockResourceRequests.filter((r) => r.status === "pending");
   const history = mockResourceRequests.filter((r) => r.status !== "pending");
 
@@ -276,8 +324,18 @@ function RequestsTab() {
                   <p className="text-gray-300 text-sm mt-1">{req.reason}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <button className="text-xs px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-medium transition-colors">Approve</button>
-                  <button className="text-xs px-3 py-1.5 rounded-lg bg-red-900/50 hover:bg-red-900 text-red-300 font-medium transition-colors">Deny</button>
+                  <button
+                    onClick={() => onAction({ kind: "coming_soon", featureName: "Marketplace request approvals" })}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-medium transition-colors"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => onAction({ kind: "coming_soon", featureName: "Marketplace request approvals" })}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-red-900/50 hover:bg-red-900 text-red-300 font-medium transition-colors"
+                  >
+                    Deny
+                  </button>
                 </div>
               </div>
             ))}
@@ -323,6 +381,8 @@ function RequestsTab() {
 function UsageTab() {
   const totalCost = mockUsageLog.reduce((s, e) => s + e.cost, 0);
   const successCount = mockUsageLog.filter((e) => e.success).length;
+  const successRate = mockUsageLog.length > 0 ? Math.round((successCount / mockUsageLog.length) * 100) : 0;
+  const averageCost = mockUsageLog.length > 0 ? totalCost / mockUsageLog.length : 0;
 
   return (
     <div className="space-y-5">
@@ -330,9 +390,9 @@ function UsageTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Total Runs", value: mockUsageLog.length.toString() },
-          { label: "Success Rate", value: `${Math.round((successCount / mockUsageLog.length) * 100)}%` },
+          { label: "Success Rate", value: `${successRate}%` },
           { label: "Total Cost", value: `$${totalCost.toFixed(2)}` },
-          { label: "Avg Cost/Run", value: `$${(totalCost / mockUsageLog.length).toFixed(3)}` },
+          { label: "Avg Cost/Run", value: `$${averageCost.toFixed(3)}` },
         ].map((s) => (
           <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <p className="text-gray-500 text-xs">{s.label}</p>
@@ -342,7 +402,14 @@ function UsageTab() {
       </div>
 
       {/* Log */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {mockUsageLog.length === 0 ? (
+        <EmptyState
+          variant="empty"
+          title="No marketplace usage yet"
+          description="Agent resource usage and costs will appear here after resources are connected and run."
+        />
+      ) : (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800 text-left">
@@ -376,23 +443,39 @@ function UsageTab() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
 
 // ─── Tab: Monetization ────────────────────────────────────────────────────────
 
-function MonetizationTab() {
+function MonetizationTab({ onAction }: { onAction: (action: MarketplaceAction) => void }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-gray-400 text-sm">{mockMonetizationAlerts.length} signals detected</p>
-        <button className="bg-purple-700 hover:bg-purple-600 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors">
+        <button
+          onClick={() => onAction({
+            kind: "coming_soon",
+            featureName: "Marketplace opportunity scanning",
+            description: "Opportunity scanning will run once usage, billing, and package data are connected.",
+          })}
+          className="bg-purple-700 hover:bg-purple-600 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors"
+        >
           Scan for Opportunities
         </button>
       </div>
 
-      <div className="space-y-4">
+      {mockMonetizationAlerts.length === 0 ? (
+        <EmptyState
+          variant="coming_soon"
+          title="No monetization signals yet"
+          description="Signals will appear after marketplace usage and billing data are connected."
+          actions={[{ label: "Scan for opportunities", onClick: () => onAction({ kind: "coming_soon", featureName: "Marketplace opportunity scanning" }) }]}
+        />
+      ) : (
+        <div className="space-y-4">
         {mockMonetizationAlerts.map((alert) => (
           <div key={alert.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
             <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -421,16 +504,23 @@ function MonetizationTab() {
             </div>
 
             <div className="flex gap-2">
-              <button className="text-xs px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-medium transition-colors">
+              <button
+                onClick={() => onAction({ kind: "not_configured", featureName: "Marketplace monetization actions", primaryHref: "/dashboard/settings?panel=marketplace" })}
+                className="text-xs px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-medium transition-colors"
+              >
                 Take Action
               </button>
-              <button className="text-xs px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">
+              <button
+                onClick={() => onAction({ kind: "info", featureName: "Dismiss signal", description: "Dismissal will be saved once marketplace alerts are connected to the backend." })}
+                className="text-xs px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+              >
                 Dismiss
               </button>
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -541,6 +631,7 @@ type Tab = typeof TABS[number];
 
 export default function MarketplacePage() {
   const [activeTab, setActiveTab] = useState<Tab>("Browse");
+  const [actionModal, setActionModal] = useState<MarketplaceAction | null>(null);
 
   return (
     <div className="min-h-screen bg-[#0a0d14] text-white">
@@ -549,7 +640,11 @@ export default function MarketplacePage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-white">Agent Resource Marketplace</h1>
-      <ComingSoonBanner />
+      <ComingSoonBanner
+        tone="coming_soon"
+        title="Marketplace backend coming soon"
+        description="The marketplace shell is ready, but resources, approvals, billing, and usage data still need backend wiring."
+      />
 
             <p className="text-gray-400 text-sm mt-1">Browse, request, and manage tools, workflows, templates, and human services for your agents.</p>
           </div>
@@ -578,11 +673,20 @@ export default function MarketplacePage() {
 
         {/* Tab content */}
         {activeTab === "Browse" && <BrowseTab />}
-        {activeTab === "Packages" && <PackagesTab />}
-        {activeTab === "Requests" && <RequestsTab />}
+        {activeTab === "Packages" && <PackagesTab onAction={setActionModal} />}
+        {activeTab === "Requests" && <RequestsTab onAction={setActionModal} />}
         {activeTab === "Usage" && <UsageTab />}
-        {activeTab === "Monetization" && <MonetizationTab />}
+        {activeTab === "Monetization" && <MonetizationTab onAction={setActionModal} />}
         {activeTab === "Spending" && <SpendingTab />}
+        <ActionStateModal
+          open={actionModal !== null}
+          kind={actionModal?.kind ?? "info"}
+          featureName={actionModal?.featureName}
+          integrationName={actionModal?.integrationName}
+          description={actionModal?.description}
+          primaryHref={actionModal?.primaryHref}
+          onClose={() => setActionModal(null)}
+        />
       </div>
     </div>
   );
