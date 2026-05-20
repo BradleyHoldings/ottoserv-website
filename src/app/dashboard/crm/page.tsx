@@ -68,18 +68,18 @@ export default function CRMPage() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      getCrmContacts(),
-      getCrmDeals(),
-      getCrmCompanies(),
-      getCrmActivities(),
-      getCrmTasks(),
+      getCrmContacts().catch(() => []),
+      getCrmDeals().catch(() => []),
+      getCrmCompanies().catch(() => []),
+      getCrmActivities().catch(() => []),
+      getCrmTasks().catch(() => []),
     ]).then(([cs, ds, comps, acts, ts]) => {
       if (cancelled) return;
-      setContacts(cs);
-      setDeals(ds);
-      setCompanies(comps);
-      setActivities(acts);
-      setTasks(ts);
+      setContacts(cs ?? []);
+      setDeals(ds ?? []);
+      setCompanies(comps ?? []);
+      setActivities(acts ?? []);
+      setTasks(ts ?? []);
     });
     return () => {
       cancelled = true;
