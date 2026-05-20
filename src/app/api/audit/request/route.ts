@@ -1,4 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { importLeadRows, type NormalizedLead } from '@/lib/outreach/leadImport';
+import type { CallOutcome } from '@/lib/outreach/callOutcomes';
+import {
+  CALL_OUTCOMES_PATH,
+  DAILY_METRICS_PATH,
+  FORM_SUBMISSIONS_PATH,
+  JARVIS_CALL_PACKETS_PATH,
+  LEADS_PATH,
+  OUTREACH_QUEUE_PATH,
+  buildDailyMetrics,
+  buildJarvisCallPackets,
+  buildOutreachQueue,
+  readJsonFile,
+  writeJsonFile,
+} from '@/lib/outreach/leadStore';
 
 // Intake payload — sectioned audit answers from /process-audit.
 // Storage: JSON-stringified into the `notes` column on audit_requests until
@@ -114,6 +129,63 @@ async function notifyAuditWebhook(payload: unknown) {
   } catch (err) {
     console.error('Audit webhook notification failed:', err);
   }
+}
+
+async function storeAuditInLocalOpsQueue(args: {
+  name: string;
+  email: string;
+  company_name: string;
+  website: string;
+  phone: string;
+  business_type: string;
+  source: string;
+  pain_points: string[];
+  intake_summary: string;
+  biggest_operational_bottleneck: string;
+}) {
+  const existingLeads = await readJsonFile<NormalizedLead[]>(LEADS_PATH, []);
+  const outcomes = await readJsonFile<CallOutcome[]>(CALL_OUTCOMES_PATH, []);
+  const submissions = await readJsonFile<Record<string, unknown>[]>(FORM_SUBMISSIONS_PATH, []);
+  const result = importLeadRows([
+    {
+      company: args.company_name,
+      contact_name: args.name,
+      phone: args.phone,
+      email: args.email,
+      website: args.website,
+      industry: args.business_type,
+      source_url: args.source,
+      notes: args.intake_summary,
+      buying_signal: 'process audit request',
+      pain_signal: [args.biggest_operational_bottleneck, ...args.pain_points].filter(Boolean).join('; '),
+    },
+  ], existingLeads, false);
+  const nextLeads = [...existingLeads, ...result.imported];
+  const metrics = buildDailyMetrics(nextLeads, result, outcomes);
+
+  await writeJsonFile(FORM_SUBMISSIONS_PATH, [
+    ...submissions,
+    {
+      submission_id: `audit_${Date.now()}`,
+      submitted_at: new Date().toISOString(),
+      intent: 'process_audit',
+      source_page: args.source,
+      name: args.name,
+      company: args.company_name,
+      email: args.email,
+      phone: args.phone,
+      website: args.website,
+      industry: args.business_type,
+      message: args.intake_summary || args.biggest_operational_bottleneck,
+      consent_to_contact: true,
+    },
+  ]);
+  await writeJsonFile(LEADS_PATH, nextLeads);
+  await writeJsonFile(OUTREACH_QUEUE_PATH, buildOutreachQueue(nextLeads));
+  await writeJsonFile(JARVIS_CALL_PACKETS_PATH, buildJarvisCallPackets(nextLeads, outcomes));
+  await writeJsonFile(DAILY_METRICS_PATH, metrics);
+
+  return result;
 }
 
 // Fire-and-forget bridge to the enterprise-platform onboarding pipeline.
@@ -282,6 +354,18 @@ export async function POST(request: NextRequest) {
   };
 
   const stored = await storeAudit(row);
+  const localOps = await storeAuditInLocalOpsQueue({
+    name,
+    email,
+    company_name,
+    website,
+    phone,
+    business_type,
+    source,
+    pain_points,
+    intake_summary,
+    biggest_operational_bottleneck,
+  });
 
   if (!stored.ok && stored.error !== 'supabase_not_configured') {
     console.error('Audit request store failed:', stored.error);
@@ -335,5 +419,6 @@ export async function POST(request: NextRequest) {
     message: "We received your request. Jonathan will review it and reach out within 1 business day.",
     estimated_response_time: priority === 'high' ? '2 hours' : '24 hours',
     audit_id: stored.data?.id ?? null,
+    local_ops_status: localOps.imported.length ? 'queued' : 'captured_needs_cleanup',
   });
 }

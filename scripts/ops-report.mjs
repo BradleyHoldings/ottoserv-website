@@ -14,8 +14,11 @@ function readJson(name, fallback) {
 
 const leads = readJson("leads.json", []);
 const metrics = readJson("daily_metrics.json", {});
+const packets = readJson("jarvis_call_packets.json", []);
+const outcomes = readJson("call_outcomes.json", []);
 const today = new Date().toISOString().slice(0, 10);
 const importedToday = leads.filter((lead) => String(lead.created_at || "").startsWith(today));
+const outcomesToday = outcomes.filter((outcome) => String(outcome.timestamp || "").startsWith(today));
 const aTier = leads.filter((lead) => lead.tier === "A-tier");
 const bTier = leads.filter((lead) => lead.tier === "B-tier");
 const cTier = leads.filter((lead) => lead.tier === "C-tier");
@@ -33,6 +36,7 @@ function morningReport() {
     "Jarvis is the operational lead. This report supports Jarvis; it does not replace Jarvis.",
     "",
     `- A-tier leads ready to call: ${aTier.length}`,
+    `- Jarvis call packets ready: ${packets.length || metrics.jarvis_call_packets_ready || 0}`,
     `- B-tier leads ready to email: ${bTier.length}`,
     `- Leads needing enrichment: ${cTier.length}`,
     `- Agent blockers: ${formatList(metrics.agent_blockers || [])}`,
@@ -55,11 +59,13 @@ function eveningReport() {
     "",
     `- Leads imported today: ${importedToday.length || metrics.leads_imported_today || 0}`,
     `- Calls scheduled: ${metrics.calls_scheduled || 0}`,
-    `- Calls completed: ${metrics.calls_completed || 0}`,
+    `- Calls completed: ${outcomesToday.length || metrics.calls_completed || 0}`,
     `- Emails sent: ${metrics.emails_sent || 0}`,
     `- Replies received: ${metrics.replies_received || 0}`,
-    `- Appointments booked: ${metrics.appointments_booked || 0}`,
+    `- Appointments booked: ${outcomesToday.filter((outcome) => outcome.status === "booked_meeting").length || metrics.appointments_booked || 0}`,
     `- Failed imports/errors: ${metrics.failed_imports_or_errors || 0}`,
+    `- Jarvis call packets ready: ${packets.length || metrics.jarvis_call_packets_ready || 0}`,
+    `- Call outcome summary: ${formatOutcomeSummary(metrics.call_outcomes || {})}`,
     "",
     "## Tomorrow Queue",
     "- Jarvis: approved A-tier calls only.",
@@ -72,4 +78,9 @@ function eveningReport() {
 
 function formatList(items) {
   return Array.isArray(items) && items.length ? items.join("; ") : "none recorded";
+}
+
+function formatOutcomeSummary(summary) {
+  const entries = Object.entries(summary);
+  return entries.length ? entries.map(([key, value]) => `${key}=${value}`).join(", ") : "none logged";
 }

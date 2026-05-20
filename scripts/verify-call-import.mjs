@@ -1,40 +1,22 @@
-import { existsSync, rmSync } from "node:fs";
-import { spawn } from "node:child_process";
-import path from "node:path";
+import { assert, cleanupTestLedgers, startNextServer, testLedgerDir, waitForServer } from "./server-test-utils.mjs";
 
 const root = process.cwd();
 const port = 3100;
 const base = `http://localhost:${port}`;
 const key = "6622eb1f90ba8cd78b66b316efaa3423c3ae50128e0a4012975188fffc0bc3b8";
-const dataDir = path.join(root, "data", "call-imports");
-const ledgerFiles = ["leads.json", "outreach_queue.json", "daily_metrics.json"].map((name) => path.join(dataDir, name));
+const dataDir = testLedgerDir(root, "verify-call-import");
 
-for (const file of ledgerFiles) {
-  if (existsSync(file)) rmSync(file);
-}
+cleanupTestLedgers(root, dataDir);
 
-const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port)], {
-  cwd: root,
-  stdio: ["ignore", "pipe", "pipe"],
-});
-
-let output = "";
-server.stdout.on("data", (chunk) => {
-  output += chunk.toString();
-});
-server.stderr.on("data", (chunk) => {
-  output += chunk.toString();
-});
+const { server, getOutput } = startNextServer(root, port, { OTTO_CALL_IMPORT_DATA_DIR: dataDir });
 
 try {
-  await waitForServer();
+  await waitForServer(`${base}/calls/import`, getOutput);
   await runChecks();
   console.log("verify-call-import: ok");
 } finally {
   server.kill();
-  for (const file of ledgerFiles) {
-    if (existsSync(file)) rmSync(file);
-  }
+  cleanupTestLedgers(root, dataDir);
 }
 
 async function runChecks() {
@@ -85,6 +67,7 @@ async function runChecks() {
   const status = await fetch(`${base}/calls/status`).then((res) => res.json());
   assert(status.dashboard.a_tier_leads_ready_to_call >= 1, "status report should show A-tier leads");
   assert(status.dashboard.calls_scheduled >= 1, "status report should show scheduled calls");
+  assert(status.dashboard.jarvis_call_packets_ready >= 1, "status report should show Jarvis call packets");
 }
 
 function validLead(company, phone) {
@@ -108,22 +91,4 @@ async function postJson(route, body) {
     body: JSON.stringify(body),
   });
   return res.json();
-}
-
-async function waitForServer() {
-  const started = Date.now();
-  while (Date.now() - started < 20000) {
-    try {
-      const res = await fetch(`${base}/calls/import`);
-      if (res.status === 200) return;
-    } catch {
-      // Keep waiting.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error(`Next server did not start. Output:\n${output}`);
-}
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
 }

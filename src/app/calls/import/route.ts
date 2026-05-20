@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
 import {
   ACCEPTED_LEAD_FIELDS,
   importLeadRows,
@@ -8,14 +6,22 @@ import {
   parseCsv,
   parseJsonPayload,
 } from "@/lib/outreach/leadImport";
+import {
+  CALL_OUTCOMES_PATH,
+  DAILY_METRICS_PATH,
+  JARVIS_CALL_PACKETS_PATH,
+  LEADS_PATH,
+  OUTREACH_QUEUE_PATH,
+  buildDailyMetrics,
+  buildJarvisCallPackets,
+  buildOutreachQueue,
+  readJsonFile,
+  writeJsonFile,
+} from "@/lib/outreach/leadStore";
+import type { CallOutcome } from "@/lib/outreach/callOutcomes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const DATA_DIR = path.join(process.cwd(), "data", "call-imports");
-const LEADS_PATH = path.join(DATA_DIR, "leads.json");
-const OUTREACH_QUEUE_PATH = path.join(DATA_DIR, "outreach_queue.json");
-const DAILY_METRICS_PATH = path.join(DATA_DIR, "daily_metrics.json");
 
 export async function GET() {
   return NextResponse.json({
@@ -83,12 +89,13 @@ export async function POST(request: NextRequest) {
   const existing = await readJsonFile<NormalizedLead[]>(LEADS_PATH, []);
   const result = importLeadRows(rows, existing, dryRun);
   const nextLeads = dryRun ? existing : [...existing, ...result.imported];
-  const metrics = buildDailyMetrics(nextLeads, result);
+  const outcomes = await readJsonFile<CallOutcome[]>(CALL_OUTCOMES_PATH, []);
+  const metrics = buildDailyMetrics(nextLeads, result, outcomes);
 
   if (!dryRun) {
-    await fs.mkdir(DATA_DIR, { recursive: true });
     await writeJsonFile(LEADS_PATH, nextLeads);
     await writeJsonFile(OUTREACH_QUEUE_PATH, buildOutreachQueue(nextLeads));
+    await writeJsonFile(JARVIS_CALL_PACKETS_PATH, buildJarvisCallPackets(nextLeads, outcomes));
     await writeJsonFile(DAILY_METRICS_PATH, metrics);
   }
 
@@ -119,57 +126,4 @@ function authorize(request: NextRequest): { ok: true } | { ok: false; message: s
 function isDryRun(request: NextRequest): boolean {
   const params = request.nextUrl.searchParams;
   return ["dry_run", "dryRun", "validate"].some((key) => ["1", "true", "yes"].includes((params.get(key) || "").toLowerCase()));
-}
-
-async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
-  try {
-    return JSON.parse(await fs.readFile(filePath, "utf8")) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-async function writeJsonFile(filePath: string, data: unknown) {
-  await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-}
-
-function buildOutreachQueue(leads: NormalizedLead[]) {
-  return leads.map((lead) => ({
-    lead_id: lead.lead_id,
-    company: lead.company,
-    tier: lead.tier,
-    score: lead.score,
-    owner: lead.suggested_owner,
-    status: lead.status,
-    next_channel: lead.tier === "A-tier" ? "call" : lead.tier === "B-tier" ? "email" : "enrich",
-    scheduled_call_local: lead.scheduled_call_local,
-    phone: lead.normalized_phone,
-    email: lead.email,
-    website_url: lead.website_url,
-    evidence_required: "import source, fit reason, outreach attempt log, and any reply or appointment proof",
-  }));
-}
-
-function buildDailyMetrics(leads: NormalizedLead[], lastImport: { imported: NormalizedLead[]; rejected_count: number; duplicate_count: number }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const importedToday = leads.filter((lead) => lead.created_at.startsWith(today));
-  return {
-    report_date: today,
-    leads_imported_today: importedToday.length,
-    a_tier_ready_to_call: leads.filter((lead) => lead.tier === "A-tier").length,
-    b_tier_ready_to_email: leads.filter((lead) => lead.tier === "B-tier").length,
-    leads_needing_enrichment: leads.filter((lead) => lead.tier === "C-tier").length,
-    calls_scheduled: leads.filter((lead) => Boolean(lead.scheduled_call_local)).length,
-    calls_completed: 0,
-    replies_received: 0,
-    appointments_booked: 0,
-    failed_imports_or_errors: lastImport.rejected_count,
-    duplicates_skipped: lastImport.duplicate_count,
-    agent_blockers: [],
-    next_best_actions: [
-      "Hermes reviews imported A-tier leads before Jarvis spends call credits.",
-      "Jarvis calls only A-tier leads with valid scheduled_call_local values.",
-      "Cowork enriches C-tier leads and adds source evidence before outreach.",
-    ],
-  };
 }

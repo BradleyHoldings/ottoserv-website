@@ -1,5 +1,6 @@
 import Link from "next/link";
 import SeoLandingPage from "@/components/content/SeoLandingPage";
+import LeadCaptureForm from "@/components/LeadCaptureForm";
 import { getSeoPage, metadataForPage } from "@/lib/seoContent";
 
 const page = getSeoPage("/demo");
@@ -10,6 +11,12 @@ export default function DemoPage() {
   return (
     <>
       <SeoLandingPage page={page!} />
+      <LeadCaptureForm
+        sourcePage="/demo"
+        intent="book_demo"
+        title="Book the demo around your real lead flow"
+        buttonLabel="Request Demo"
+      />
       <section className="bg-[#0a0a0a] px-4 pb-16">
         <div className="max-w-4xl mx-auto bg-[#111827] border border-gray-800 rounded-xl p-8 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">

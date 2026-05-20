@@ -9,7 +9,9 @@
     "lint": "eslint",
     "ops:morning": "node scripts/ops-report.mjs morning",
     "ops:evening": "node scripts/ops-report.mjs evening",
-    "verify:ops": "node scripts/verify-call-import.mjs"
+    "verify:ops": "node scripts/verify-call-import.mjs",
+    "smoke:routes": "node scripts/smoke-routes.mjs",
+    "verify:revenue-flow": "node scripts/verify-revenue-flow.mjs"
   },
   "dependencies": {
     "@elevenlabs/client": "^1.7.0",
