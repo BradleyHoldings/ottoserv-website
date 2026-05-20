@@ -5,20 +5,34 @@ import { useState } from "react";
 
 interface TopbarProps {
   title?: string;
+  onMenuClick?: () => void;
 }
 
-export default function Topbar({ title }: TopbarProps) {
+export default function Topbar({ title, onMenuClick }: TopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {
+    localStorage.removeItem("ottoserv_current_user");
     localStorage.removeItem("ottoserv_token");
     localStorage.removeItem("ottoserv_client");
+    localStorage.removeItem("ottoserv_platform_token");
+    localStorage.removeItem("ottoserv_platform_user");
     router.push("/login");
   };
 
   return (
     <header className="h-14 bg-[#0a0a0a] border-b border-gray-800 flex items-center px-6 gap-4 sticky top-16 z-30">
+      <button
+        onClick={onMenuClick}
+        className="lg:hidden rounded-lg border border-gray-700 bg-[#111827] p-2 text-gray-400 hover:text-white"
+        aria-label="Open dashboard navigation"
+      >
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
       {title && (
         <h1 className="text-white font-semibold hidden lg:block">{title}</h1>
       )}

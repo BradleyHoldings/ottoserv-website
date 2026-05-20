@@ -12,17 +12,17 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const [ready] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return Boolean(localStorage.getItem("ottoserv_token") && localStorage.getItem("ottoserv_client"));
+  });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("ottoserv_token");
-    const clientStr = localStorage.getItem("ottoserv_client");
-    if (!token || !clientStr) {
+    if (!ready) {
       router.push("/login");
-      return;
     }
-    setReady(true);
-  }, [router]);
+  }, [ready, router]);
 
   if (!ready) {
     return (
@@ -35,9 +35,9 @@ export default function DashboardLayout({
   return (
     <DemoModeProvider>
       <div className="flex" style={{backgroundColor: 'var(--otto-gray-900)'}}>
-        <Sidebar />
+        <Sidebar mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
         <div className="flex flex-col flex-1 min-w-0 min-h-[calc(100vh-4rem)]">
-          <Topbar />
+          <Topbar onMenuClick={() => setSidebarOpen(true)} />
           <main className="flex-1 p-6 overflow-x-hidden">{children}</main>
         </div>
       </div>
