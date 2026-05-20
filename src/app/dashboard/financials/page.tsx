@@ -12,6 +12,11 @@ const f = {
   gross_profit_last_month: 0,
   ytd_revenue: 0,
   outstanding_receivables: 0,
+  overdue_amount: 0,
+  expenses_this_month: 0,
+  expenses_last_month: 0,
+  ytd_expenses: 0,
+  ytd_gross_profit: 0,
 };
 const mockInvoices: any[] = [];
 const mockExpenses: any[] = [];
@@ -82,7 +87,9 @@ export default function FinancialsPage() {
           value={`$${f.gross_profit_this_month.toLocaleString()}`}
           label="Gross Profit"
           color="blue"
-          trend={`+${Math.round(((f.gross_profit_this_month - f.gross_profit_last_month) / f.gross_profit_last_month) * 100)}% vs last month`}
+          trend={f.gross_profit_last_month > 0
+            ? `+${Math.round(((f.gross_profit_this_month - f.gross_profit_last_month) / f.gross_profit_last_month) * 100)}% vs last month`
+            : "No prior month data"}
           trendDirection="up"
         />
         <KpiCard
