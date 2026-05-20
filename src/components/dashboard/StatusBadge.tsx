@@ -17,8 +17,10 @@ const STATUS_COLORS: Record<string, string> = {
   active: "badge-success",
   connected: "badge-success",
   complete: "badge-success",
+  completed: "badge-success",
   won: "badge-success",
   paid: "badge-success",
+  invoiced: "badge-success",
   on_site: "badge-success",
   ready: "badge-success",
   confirmed: "badge-success",
@@ -44,6 +46,8 @@ const STATUS_COLORS: Record<string, string> = {
   medium: "badge-warning",
   needs_attention: "badge-warning",
   needs_approval: "badge-warning",
+  waiting_on_client: "badge-warning",
+  waiting_on_parts: "badge-warning",
   estimate_sent: "badge-warning",
   follow_up: "badge-warning",
   unmatched: "badge-warning",
@@ -58,6 +62,7 @@ const STATUS_COLORS: Record<string, string> = {
   draft: "badge-neutral",
   not_connected: "badge-neutral",
   closed: "badge-neutral",
+  canceled: "badge-neutral",
   low: "badge-neutral",
   planning: "badge-neutral",
   qualified: "badge-neutral",
@@ -72,6 +77,8 @@ const STATUS_LABELS: Record<string, string> = {
   on_site: "On Site",
   needs_attention: "Needs Attention",
   needs_approval: "Needs Approval",
+  waiting_on_client: "Waiting on Client",
+  waiting_on_parts: "Waiting on Parts",
 };
 
 interface StatusBadgeProps {

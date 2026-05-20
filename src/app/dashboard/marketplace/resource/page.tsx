@@ -4,9 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import { type MarketplaceResource } from "@/lib/mockData";
 import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+import EmptyState from "@/components/dashboard/EmptyState";
+import ActionStateModal from "@/components/dashboard/ActionStateModal";
 
 const mockResources: MarketplaceResource[] = [];
-const mockUsageLog: any[] = [];
+interface ResourceUsageLog {
+  id: string;
+  resource_id: string;
+  agent: string;
+  task: string;
+  cost: number;
+  success: boolean;
+}
+
+const mockUsageLog: ResourceUsageLog[] = [];
 
 // Resource detail is empty until the marketplace backend lands.
 const DEMO_RESOURCE: MarketplaceResource | undefined = mockResources[0];
@@ -130,6 +141,30 @@ function monetizationStatusBadge(s: MarketplaceResource["monetization_status"]) 
 export default function ResourceDetailPage() {
   const r = DEMO_RESOURCE;
   const [requested, setRequested] = useState(false);
+  const [packageModalOpen, setPackageModalOpen] = useState(false);
+
+  if (!r) {
+    return (
+      <div className="min-h-screen bg-[#0a0d14] px-4 py-8 text-white sm:px-6">
+        <div className="mx-auto max-w-5xl space-y-6">
+          <Link href="/dashboard/marketplace" className="text-sm text-gray-400 hover:text-white">
+            Back to Marketplace
+          </Link>
+          <ComingSoonBanner
+            tone="coming_soon"
+            title="Marketplace resource details coming soon"
+            description="Resource detail pages will show setup, pricing, approvals, usage, and packaging controls after marketplace data is connected."
+          />
+          <EmptyState
+            variant="coming_soon"
+            title="No resource selected"
+            description="There is no marketplace resource to display yet. Browse will populate once the marketplace backend is connected."
+            actions={[{ label: "Back to marketplace", href: "/dashboard/marketplace" }]}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const usageEntries = mockUsageLog.filter((e) => e.resource_id === r.id);
   const successRate = usageEntries.length > 0
@@ -152,7 +187,11 @@ export default function ResourceDetailPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-white">{r.name}</h1>
-      <ComingSoonBanner />
+      <ComingSoonBanner
+        tone="coming_soon"
+        title="Resource detail data not wired"
+        description="This page is ready for live marketplace data, approvals, usage, and billing once the backend is connected."
+      />
 
               {typeBadge(r.type)}
             </div>
@@ -175,7 +214,10 @@ export default function ResourceDetailPage() {
             >
               {requested ? "✓ Request Submitted" : "Request Access"}
             </button>
-            <button className="px-5 py-2.5 rounded-lg font-semibold text-sm bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors">
+            <button
+              onClick={() => setPackageModalOpen(true)}
+              className="px-5 py-2.5 rounded-lg font-semibold text-sm bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors"
+            >
               Create Package from This
             </button>
           </div>
@@ -336,7 +378,10 @@ export default function ResourceDetailPage() {
               >
                 {requested ? "✓ Requested" : "Request Access"}
               </button>
-              <button className="w-full py-2 rounded-lg text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors">
+              <button
+                onClick={() => setPackageModalOpen(true)}
+                className="w-full py-2 rounded-lg text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors"
+              >
                 Create Package from This
               </button>
               <Link
@@ -348,6 +393,14 @@ export default function ResourceDetailPage() {
             </div>
           </div>
         </div>
+        <ActionStateModal
+          open={packageModalOpen}
+          kind="not_configured"
+          featureName="Marketplace packages"
+          description="Package creation needs marketplace billing, approvals, and resource catalog settings before it can save live packages."
+          primaryHref="/dashboard/settings?panel=marketplace"
+          onClose={() => setPackageModalOpen(false)}
+        />
       </div>
     </div>
   );
