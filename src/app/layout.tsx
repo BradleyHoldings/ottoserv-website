@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Source_Sans_3 as SourceSansPro, Nunito_Sans } from "next/font/google";
+import { Source_Sans_3 as SourceSansPro, Nunito_Sans, Geist } from "next/font/google";
 import "./globals.css";
 import SiteChrome from "@/components/SiteChrome";
 import JsonLd from "@/components/content/JsonLd";
 import { organizationSchema } from "@/lib/seoContent";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const sourceSansPro = SourceSansPro({
   subsets: ["latin"],
@@ -66,7 +69,7 @@ export default function RootLayout({
   const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
   return (
-    <html lang="en" className={`${sourceSansPro.variable} ${nunitoSans.variable}`}>
+    <html lang="en" className={cn(sourceSansPro.variable, nunitoSans.variable, "font-sans", geist.variable)}>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0066cc" />
