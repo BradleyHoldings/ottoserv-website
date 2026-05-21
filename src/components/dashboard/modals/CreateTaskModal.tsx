@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent } from "react";
+import { FormEvent, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,10 +30,12 @@ export function CreateTaskModal({
   onSubmit,
 }: CreateTaskModalProps) {
   const today = new Date().toISOString().split("T")[0];
+  const [priority, setPriority] = useState("medium");
+  const [assignedUser, setAssignedUser] = useState("owner");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" suppressHydrationWarning>
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
           <DialogDescription>
@@ -81,7 +83,7 @@ export function CreateTaskModal({
               <label className="text-sm font-medium text-gray-300">
                 Priority
               </label>
-              <Select name="priority" defaultValue="medium">
+              <Select value={priority} onValueChange={setPriority}>
                 <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
@@ -92,6 +94,7 @@ export function CreateTaskModal({
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
+              <input type="hidden" name="priority" value={priority} />
             </div>
           </div>
 
@@ -99,7 +102,7 @@ export function CreateTaskModal({
             <label className="text-sm font-medium text-gray-300">
               Assign To
             </label>
-            <Select name="assignedUser" defaultValue="owner">
+            <Select value={assignedUser} onValueChange={setAssignedUser}>
               <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
                 <SelectValue />
               </SelectTrigger>
@@ -108,6 +111,7 @@ export function CreateTaskModal({
                 <SelectItem value="team">Team Member</SelectItem>
               </SelectContent>
             </Select>
+            <input type="hidden" name="assignedUser" value={assignedUser} />
           </div>
 
           <div className="flex gap-2 pt-4">

@@ -370,7 +370,7 @@ export default function CommandCenterPageRedesigned() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6" suppressHydrationWarning>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
