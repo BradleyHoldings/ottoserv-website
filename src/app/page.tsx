@@ -178,32 +178,14 @@ export default function Home() {
             {/* Right: video thumbnail card */}
             <Link href="/playbook" className="group block">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-800 bg-[#111827] aspect-video">
-                {/* YouTube thumbnail */}
-                <img
-                  src="https://img.youtube.com/vi/l1RDm0yNXU8/maxresdefault.jpg"
-                  alt="Watch the OttoServ OS Playbook video"
-                  className="w-full h-full object-cover group-hover:opacity-80 transition-opacity duration-300"
+                {/* YouTube iframe */}
+                <iframe
+                  src="https://www.youtube.com/embed/l1RDm0yNXU8"
+                  title="The OttoServ OS Playbook"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="absolute inset-0 w-full h-full"
                 />
-                {/* Dark overlay */}
-                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors duration-300" />
-                {/* Play button */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-20 h-20 rounded-full bg-orange-500 group-hover:bg-orange-400 flex items-center justify-center shadow-xl transition-colors duration-300">
-                    <svg
-                      className="w-8 h-8 text-white ml-1"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                </div>
-                {/* Bottom label */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
-                  <p className="text-white font-semibold text-sm">The OttoServ OS Playbook</p>
-                  <p className="text-gray-300 text-xs mt-0.5">AI Receptionist → Full Business OS</p>
-                </div>
               </div>
             </Link>
           </div>
