@@ -150,6 +150,66 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Featured OS Playbook — two-column video preview */}
+      <section className="py-16 px-4 bg-[#0d0d0d]">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Left: copy */}
+            <div>
+              <p className="text-orange-400 font-semibold text-sm uppercase tracking-widest mb-4">
+                The OttoServ OS Playbook
+              </p>
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-5 leading-tight">
+                See How OttoServ Becomes Your Business OS
+              </h2>
+              <p className="text-gray-400 text-lg leading-relaxed mb-8">
+                We start with the biggest revenue leak first — missed calls and slow
+                follow-up — then expand into lead capture, scheduling, reporting,
+                workflows, and full operational automation.
+              </p>
+              <Link
+                href="/playbook"
+                className="inline-block bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-4 rounded-md text-base transition-colors"
+              >
+                Watch the Playbook
+              </Link>
+            </div>
+
+            {/* Right: video thumbnail card */}
+            <Link href="/playbook" className="group block">
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-800 bg-[#111827] aspect-video">
+                {/* YouTube thumbnail */}
+                <img
+                  src="https://img.youtube.com/vi/GpsAqBugcRQ/maxresdefault.jpg"
+                  alt="Watch the OttoServ OS Playbook video"
+                  className="w-full h-full object-cover group-hover:opacity-80 transition-opacity duration-300"
+                />
+                {/* Dark overlay */}
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors duration-300" />
+                {/* Play button */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-20 h-20 rounded-full bg-orange-500 group-hover:bg-orange-400 flex items-center justify-center shadow-xl transition-colors duration-300">
+                    <svg
+                      className="w-8 h-8 text-white ml-1"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+                {/* Bottom label */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+                  <p className="text-white font-semibold text-sm">The OttoServ OS Playbook</p>
+                  <p className="text-gray-300 text-xs mt-0.5">AI Receptionist → Full Business OS</p>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Two-card primary journey: Pilot + Leak Check */}
       <section className="py-16 px-4">
         <div className="max-w-6xl mx-auto">
@@ -362,6 +422,22 @@ export default function Home() {
             </Link>{" "}
             goes deeper and feeds the Expanded OttoServ Operations System.
           </p>
+        </div>
+      </section>
+
+      {/* Compact Playbook CTA */}
+      <section className="py-10 px-4 bg-[#0d0d0d]">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 border border-gray-800 rounded-xl px-8 py-6">
+          <div>
+            <p className="text-white font-semibold text-base mb-1">See the OttoServ OS Playbook</p>
+            <p className="text-gray-400 text-sm">Watch how we grow from AI receptionist to full business OS.</p>
+          </div>
+          <Link
+            href="/playbook"
+            className="shrink-0 inline-block border border-orange-500 hover:bg-orange-500 text-orange-400 hover:text-white font-semibold px-6 py-3 rounded-md text-sm transition-colors"
+          >
+            Watch the Playbook
+          </Link>
         </div>
       </section>
 
