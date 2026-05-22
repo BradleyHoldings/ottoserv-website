@@ -84,7 +84,7 @@ export default function PlaybookPage() {
         <div className="max-w-4xl mx-auto">
           <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
             <iframe
-              src="https://www.youtube.com/embed/GpsAqBugcRQ"
+              src="https://www.youtube.com/embed/l1RDm0yNXU8"
               title="The OttoServ OS Playbook"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen

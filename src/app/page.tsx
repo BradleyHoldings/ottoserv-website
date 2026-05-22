@@ -180,7 +180,7 @@ export default function Home() {
               <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-800 bg-[#111827] aspect-video">
                 {/* YouTube thumbnail */}
                 <img
-                  src="https://img.youtube.com/vi/GpsAqBugcRQ/maxresdefault.jpg"
+                  src="https://img.youtube.com/vi/l1RDm0yNXU8/maxresdefault.jpg"
                   alt="Watch the OttoServ OS Playbook video"
                   className="w-full h-full object-cover group-hover:opacity-80 transition-opacity duration-300"
                 />
