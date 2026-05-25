@@ -22,7 +22,7 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
   };
 
   return (
-    <header className="h-14 bg-[#0a0a0a] border-b border-gray-800 flex items-center px-6 gap-4 sticky top-16 z-30">
+    <header className="h-14 bg-[#0a0a0a] border-b border-gray-800 flex items-center px-6 gap-4 sticky top-0 z-30">
       <button
         onClick={onMenuClick}
         className="lg:hidden rounded-lg border border-gray-700 bg-[#111827] p-2 text-gray-400 hover:text-white"
