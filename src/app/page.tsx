@@ -102,7 +102,7 @@ export default function Home() {
   return (
     <div style={{ backgroundColor: "var(--otto-gray-900)" }}>
       {/* Hero */}
-      <section className="py-20 md:py-32 px-4">
+      <section className="pt-16 pb-10 md:pt-24 md:pb-12 px-4">
         <div className="max-w-6xl mx-auto text-center">
           <p className="text-blue-400 font-semibold text-sm uppercase tracking-widest mb-4">
             OttoServ Front Desk AI · 30-Day Pilot
@@ -117,27 +117,39 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/contact?plan=pilot"
-              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
-            >
-              Start the 30-Day Pilot — $299
-            </Link>
-            <Link
               href="/front-office-leak-check"
-              className="inline-block border border-gray-600 hover:border-gray-400 text-gray-300 hover:text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
             >
               Get a Free Front Office Leak Check
             </Link>
+            <Link
+              href="/contact?plan=pilot"
+              className="inline-block border border-gray-600 hover:border-gray-400 text-gray-300 hover:text-white font-semibold px-8 py-4 rounded-md text-lg transition-colors"
+            >
+              Start the 30-Day Pilot — $299
+            </Link>
           </div>
-          <p className="text-gray-500 text-sm mt-6">
-            Setup + 100 AI minutes included. Property managers, contractors, HVAC,
-            plumbing, roofing, and home services.
+          <p className="text-gray-500 text-sm mt-5 max-w-2xl mx-auto">
+            Takes 5 minutes. We review your call handling, lead response,
+            after-hours coverage, and follow-up process.
+          </p>
+        </div>
+      </section>
+
+      {/* Audience Strip */}
+      <section className="px-4 pb-10">
+        <div className="max-w-6xl mx-auto rounded-xl border border-gray-800 bg-[#111827] px-5 py-4 text-center shadow-lg shadow-black/10">
+          <p className="text-xs md:text-sm font-medium uppercase tracking-wide text-gray-400">
+            <span className="text-orange-400">Built for:</span>{" "}
+            <span className="text-gray-300">
+              Property Managers • HVAC • Plumbing • Roofing • Contractors • Home Services
+            </span>
           </p>
         </div>
       </section>
 
       {/* Positioning */}
-      <section className="py-12 px-4 bg-[#0d0d0d]">
+      <section className="py-10 px-4 bg-[#0d0d0d]">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-gray-300 text-lg leading-relaxed">
             Most service businesses do not have a marketing problem first. They have a{" "}
@@ -150,87 +162,62 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured OS Playbook — two-column video preview */}
-      <section className="py-16 px-4 bg-[#0d0d0d]">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Left: copy */}
-            <div>
-              <p className="text-orange-400 font-semibold text-sm uppercase tracking-widest mb-4">
-                The OttoServ OS Playbook
-              </p>
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-5 leading-tight">
-                See How OttoServ Becomes Your Business OS
-              </h2>
-              <p className="text-gray-400 text-lg leading-relaxed mb-8">
-                We start with the biggest revenue leak first — missed calls and slow
-                follow-up — then expand into lead capture, scheduling, reporting,
-                workflows, and full operational automation.
-              </p>
-              <Link
-                href="/playbook"
-                className="inline-block bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-4 rounded-md text-base transition-colors"
-              >
-                Watch the Playbook
-              </Link>
-            </div>
-
-            {/* Right: video thumbnail card */}
-            <Link href="/playbook" className="group block">
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-800 bg-[#111827] aspect-video">
-                {/* YouTube iframe */}
-                <iframe
-                  src="https://www.youtube.com/embed/l1RDm0yNXU8"
-                  title="The OttoServ OS Playbook"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className="absolute inset-0 w-full h-full"
-                />
-              </div>
+      {/* OttoServ OS Playbook */}
+      <section id="playbook" className="py-12 px-4 bg-[#0d0d0d]">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-8 lg:gap-12 items-center rounded-xl border border-gray-800 bg-[#111827] p-6 md:p-10 shadow-2xl shadow-black/20">
+          <div>
+            <p className="text-orange-400 font-semibold text-xs uppercase tracking-widest mb-4">
+              THE OTTOSERV OS PLAYBOOK
+            </p>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-5 leading-tight">
+              See How OttoServ Becomes Your Business OS
+            </h2>
+            <p className="text-gray-400 text-base md:text-lg leading-relaxed mb-8">
+              We start with the biggest revenue leak first — missed calls and slow
+              follow-up — then expand into lead capture, scheduling, reporting,
+              workflows, and full operational automation.
+            </p>
+            <Link
+              href="/playbook"
+              className="inline-block bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-md text-sm transition-colors"
+            >
+              Watch the Playbook
             </Link>
+          </div>
+          <div className="rounded-xl border border-gray-700 bg-[#0d0d0d] p-3 shadow-xl shadow-black/25">
+            <div className="relative aspect-video overflow-hidden rounded-lg bg-[#111827]">
+              <iframe
+                src="https://www.youtube.com/embed/l1RDm0yNXU8"
+                title="The OttoServ OS Playbook"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="absolute inset-0 h-full w-full"
+              />
+            </div>
           </div>
         </div>
       </section>
 
       {/* Two-card primary journey: Pilot + Leak Check */}
-      <section className="py-16 px-4">
+      <section className="py-12 px-4">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-white text-center mb-4">
             Two ways to get started.
           </h2>
           <p className="text-gray-400 text-center max-w-3xl mx-auto mb-12">
-            If you already know you're losing leads, start the 30-day pilot. If you want a
-            fast diagnostic first, take the free Front Office Leak Check.
+            Start with the free diagnostic if you want a fast read on the leak. If you
+            already know missed calls and slow follow-up are costing you work, move
+            straight into the 30-day pilot.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-[#1e3a5f] border-2 border-blue-500 rounded-xl p-8 flex flex-col">
               <span className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-3">
-                Primary · Paid Pilot
-              </span>
-              <h3 className="text-white font-semibold text-xl mb-3">
-                Start the 30-Day Pilot — $299
-              </h3>
-              <p className="text-gray-300 text-sm leading-relaxed mb-6 flex-1">
-                Setup, 100 AI call minutes, missed-call and after-hours answering, lead
-                capture, basic qualification, call summaries to your team, and a basic
-                weekly performance summary. See exactly how many leads we catch before
-                committing to a monthly plan.
-              </p>
-              <Link
-                href="/front-desk-ai"
-                className="block text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-md text-sm transition-colors"
-              >
-                See the Pilot Offer
-              </Link>
-            </div>
-            <div className="bg-[#111827] border border-gray-800 rounded-xl p-8 flex flex-col">
-              <span className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-3">
-                Not Ready to Buy? · Free Diagnostic
+                Primary · Free Diagnostic
               </span>
               <h3 className="text-white font-semibold text-xl mb-3">
                 Free Front Office Leak Check
               </h3>
-              <p className="text-gray-400 text-sm leading-relaxed mb-6 flex-1">
+              <p className="text-gray-300 text-sm leading-relaxed mb-6 flex-1">
                 Answer a few questions about how leads come in, how fast they're answered,
                 whether after-hours is covered, and how follow-up works. We'll show you
                 where revenue is leaking — and recommend whether the $299 pilot is the right
@@ -238,9 +225,29 @@ export default function Home() {
               </p>
               <Link
                 href="/front-office-leak-check"
-                className="block text-center bg-[#1f2937] hover:bg-[#374151] text-white font-semibold px-6 py-3 rounded-md text-sm transition-colors border border-gray-700"
+                className="block text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-md text-sm transition-colors"
               >
                 Request a Free Leak Check
+              </Link>
+            </div>
+            <div className="bg-[#111827] border border-gray-800 rounded-xl p-8 flex flex-col">
+              <span className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-3">
+                Next Step · Paid Pilot
+              </span>
+              <h3 className="text-white font-semibold text-xl mb-3">
+                Start the 30-Day Pilot — $299
+              </h3>
+              <p className="text-gray-400 text-sm leading-relaxed mb-6 flex-1">
+                Setup, 100 AI call minutes, missed-call and after-hours answering, lead
+                capture, basic qualification, call summaries to your team, and a basic
+                weekly performance summary. See exactly how many leads we catch before
+                committing to a monthly plan.
+              </p>
+              <Link
+                href="/front-desk-ai"
+                className="block text-center bg-[#1f2937] hover:bg-[#374151] text-white font-semibold px-6 py-3 rounded-md text-sm transition-colors border border-gray-700"
+              >
+                See the Pilot Offer
               </Link>
             </div>
           </div>

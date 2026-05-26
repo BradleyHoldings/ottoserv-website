@@ -41,18 +41,21 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-4 lg:gap-5">
             <Link href="/" className="text-gray-300 hover:text-white transition-colors text-sm">
               Home
+            </Link>
+            <Link href="/front-desk-ai" className="text-gray-300 hover:text-white transition-colors text-sm">
+              Front Desk AI
             </Link>
             <Link href="/process-audit" className="text-gray-300 hover:text-white transition-colors text-sm">
               Process Audit
             </Link>
             <Link href="/demo" className="text-gray-300 hover:text-white transition-colors text-sm">
-              Guided Demo
+              Playbook
             </Link>
-            <Link href="/services" className="text-gray-300 hover:text-white transition-colors text-sm">
-              Services
+            <Link href="/how-it-works" className="text-gray-300 hover:text-white transition-colors text-sm">
+              How It Works
             </Link>
 
             {/* Industries Dropdown */}
@@ -86,9 +89,6 @@ export default function Navbar() {
               )}
             </div>
 
-            <Link href="/how-it-works" className="text-gray-300 hover:text-white transition-colors text-sm">
-              How It Works
-            </Link>
             <Link href="/about" className="text-gray-300 hover:text-white transition-colors text-sm">
               About
             </Link>
@@ -143,14 +143,17 @@ export default function Navbar() {
             <Link href="/" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               Home
             </Link>
+            <Link href="/front-desk-ai" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
+              Front Desk AI
+            </Link>
             <Link href="/process-audit" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               Process Audit
             </Link>
             <Link href="/demo" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
-              Guided Demo
+              Playbook
             </Link>
-            <Link href="/services" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
-              Services
+            <Link href="/how-it-works" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
+              How It Works
             </Link>
             <Link href="/industries" className="text-gray-300 hover:text-white transition-colors text-sm py-1 font-medium" onClick={() => setMenuOpen(false)}>
               Industries
@@ -167,9 +170,6 @@ export default function Navbar() {
                 </Link>
               ))}
             </div>
-            <Link href="/how-it-works" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
-              How It Works
-            </Link>
             <Link href="/about" className="text-gray-300 hover:text-white transition-colors text-sm py-1" onClick={() => setMenuOpen(false)}>
               About
             </Link>

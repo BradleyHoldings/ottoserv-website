@@ -2,11 +2,10 @@
 
 export default function HeroVideo() {
   return (
-    <div className="relative mx-auto max-w-md">
+    <div className="relative mx-auto aspect-video w-full overflow-hidden rounded-lg bg-black shadow-2xl">
       <video 
-        className="w-full h-auto rounded-lg shadow-2xl" 
+        className="h-full w-full object-cover"
         controls 
-        poster="/images/vsl-poster.jpg"
         preload="metadata"
       >
         <source src="/videos/ottoserv-vsl-60s.mp4" type="video/mp4" />
