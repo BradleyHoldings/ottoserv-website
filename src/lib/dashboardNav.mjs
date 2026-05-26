@@ -83,6 +83,7 @@ export const dashboardNavSections = [
     items: [
       { label: "Intelligence", icon: "X", href: "/dashboard/intelligence", roles: OWNER_MANAGER },
       { label: "Process Intel", icon: "Z", href: "/dashboard/processes", roles: OWNER_MANAGER },
+      { label: "Process Scans", icon: "S", href: "/dashboard/process-scans", roles: INTERNAL_ONLY, isInternal: true },
       { label: "Automations", icon: "U", href: "/dashboard/automations", roles: OWNER_MANAGER, badgeKey: "automations" },
       { label: "AI Agents", icon: "B", href: "/dashboard/agents", roles: OWNER_ADMIN, featureFlag: "aiAgents" },
       { label: "SOPs", icon: "O", href: "/dashboard/sops", roles: OWNER_MANAGER },

@@ -313,3 +313,93 @@ ALTER TABLE audit_requests
 
 CREATE INDEX IF NOT EXISTS idx_newsletter_subscribers_beehiiv_status
   ON newsletter_subscribers(beehiiv_status);
+
+-- ============================================================================
+-- Migration 2026-05-26: Free Front Office Leak Check / Process Scan Engine
+-- Safe to re-run. Creates the dedicated process_scans table used by
+-- /front-office-leak-check and /dashboard/process-scans.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS process_scans (
+    id TEXT PRIMARY KEY,
+    company_name VARCHAR(255) NOT NULL,
+    contact_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(50),
+    website VARCHAR(255),
+    industry VARCHAR(120),
+    business_type VARCHAR(120),
+    main_leak VARCHAR(120) NOT NULL,
+    process_name VARCHAR(255) NOT NULL,
+    process_type VARCHAR(120),
+    software_used TEXT,
+    current_process_description TEXT NOT NULL,
+    failure_impact TEXT,
+    monthly_lead_volume VARCHAR(120),
+    best_time_to_contact VARCHAR(255),
+    recording_url TEXT,
+    recording_status VARCHAR(60) DEFAULT 'not_provided',
+    analysis_status VARCHAR(60) DEFAULT 'pending',
+    transcript TEXT,
+    process_summary TEXT,
+    sop_markdown TEXT,
+    flowchart_json JSONB,
+    bottlenecks_json JSONB,
+    automation_opportunities_json JSONB,
+    ai_employee_recommendation TEXT,
+    recommended_next_step TEXT,
+    source_page VARCHAR(120) DEFAULT 'front_office_leak_check',
+    public_report_slug TEXT UNIQUE NOT NULL,
+    public_report_url TEXT,
+    report_status VARCHAR(60) DEFAULT 'draft',
+    report_ready_at TIMESTAMP WITH TIME ZONE,
+    executive_summary TEXT,
+    current_state_flowchart_json JSONB,
+    current_state_flowchart_mermaid TEXT,
+    future_state_flowchart_json JSONB,
+    future_state_flowchart_mermaid TEXT,
+    leaks_detected_json JSONB,
+    current_sop_markdown TEXT,
+    recommended_sop_markdown TEXT,
+    estimated_value_summary TEXT,
+    pilot_recommendation TEXT,
+    email_subject TEXT,
+    email_preview_text TEXT,
+    email_body_markdown TEXT,
+    email_sent_at TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(60) DEFAULT 'submitted',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_process_scans_created_at ON process_scans(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_process_scans_email ON process_scans(email);
+CREATE INDEX IF NOT EXISTS idx_process_scans_status ON process_scans(status);
+CREATE INDEX IF NOT EXISTS idx_process_scans_report_status ON process_scans(report_status);
+CREATE INDEX IF NOT EXISTS idx_process_scans_public_report_slug ON process_scans(public_report_slug);
+
+ALTER TABLE process_scans ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'process_scans'
+      AND policyname = 'Service role can manage process scans'
+  ) THEN
+    CREATE POLICY "Service role can manage process scans"
+      ON process_scans FOR ALL USING (auth.role() = 'service_role');
+  END IF;
+END$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_process_scans_updated_at'
+  ) THEN
+    CREATE TRIGGER update_process_scans_updated_at
+      BEFORE UPDATE ON process_scans
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END$$;
