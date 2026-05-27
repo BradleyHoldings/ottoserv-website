@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { createWorkflowDiagnostics } from "./processScanDiagnostics.mjs";
 
 export type ProcessScanStatus =
   | "submitted"
@@ -14,6 +15,10 @@ export type RecordingStatus =
   | "recorded_upload_pending"
   | "uploaded"
   | "upload_failed";
+
+export type AudioStatus = "unknown" | "enabled" | "disabled" | "blocked" | "unavailable";
+
+export type ReportConfidenceLevel = "High" | "Medium" | "Low";
 
 export type ReportStatus = "draft" | "ready" | "sent";
 
@@ -34,12 +39,31 @@ export interface ProcessScanInput {
   monthly_lead_volume?: string;
   best_time_to_contact?: string;
   recording_status?: RecordingStatus;
+  audio_status?: AudioStatus;
+  gap_tags?: string[];
+  other_gap_text?: string;
+  clarification_answers?: Record<string, string>;
   source_page?: string;
 }
 
 export interface ProcessScan extends ProcessScanInput {
   id: string;
   recording_url: string | null;
+  audio_status: AudioStatus;
+  audio_included: boolean;
+  gap_tags_json: unknown;
+  other_gap_text: string;
+  clarification_answers_json: unknown;
+  report_confidence: ReportConfidenceLevel;
+  report_confidence_reason: string;
+  observed_from_recording_json: unknown;
+  reported_by_user_json: unknown;
+  could_not_confirm_json: unknown;
+  top_workflow_leaks_json: unknown;
+  information_gaps_json: unknown;
+  current_state_workflow_map_json: unknown;
+  future_state_workflow_map_json: unknown;
+  ai_recommendation_json: unknown;
   analysis_status: string;
   transcript: string | null;
   process_summary: string | null;
@@ -120,6 +144,7 @@ export function buildProcessScan(input: ProcessScanInput, origin?: string): Proc
   const currentSteps = deriveCurrentSteps(input);
   const futureSteps = deriveFutureSteps(input);
   const recommendation = deriveRecommendation(input.main_leak);
+  const diagnostics = createWorkflowDiagnostics(input);
 
   return {
     id,
@@ -140,12 +165,27 @@ export function buildProcessScan(input: ProcessScanInput, origin?: string): Proc
     best_time_to_contact: clean(input.best_time_to_contact),
     recording_url: null,
     recording_status: input.recording_status || "not_provided",
+    audio_status: input.audio_status || "unknown",
+    audio_included: input.audio_status === "enabled",
+    gap_tags_json: input.gap_tags || [],
+    other_gap_text: clean(input.other_gap_text),
+    clarification_answers_json: input.clarification_answers || {},
+    report_confidence: diagnostics.reportConfidence.level,
+    report_confidence_reason: diagnostics.reportConfidence.reason,
+    observed_from_recording_json: diagnostics.observed,
+    reported_by_user_json: diagnostics.reported,
+    could_not_confirm_json: diagnostics.couldNotConfirm,
+    top_workflow_leaks_json: diagnostics.topWorkflowLeaks,
+    information_gaps_json: diagnostics.informationGaps,
+    current_state_workflow_map_json: diagnostics.currentStateMap,
+    future_state_workflow_map_json: diagnostics.futureStateMap,
+    ai_recommendation_json: diagnostics.aiRecommendation,
     analysis_status: "pending",
     transcript: null,
     process_summary: `Submitted workflow: ${clean(input.process_name)}. Main leak to inspect: ${mainLeakLabel}.`,
     sop_markdown: currentSteps.map((step, idx) => `${idx + 1}. ${step}`).join("\n"),
     flowchart_json: currentSteps,
-    bottlenecks_json: leaks,
+    bottlenecks_json: diagnostics.topWorkflowLeaks.length ? diagnostics.topWorkflowLeaks : leaks,
     automation_opportunities_json: deriveOpportunities(input),
     ai_employee_recommendation: recommendation,
     recommended_next_step: "Review the leak check report, then scope a focused 30-day pilot.",
@@ -159,11 +199,11 @@ export function buildProcessScan(input: ProcessScanInput, origin?: string): Proc
     current_state_flowchart_mermaid: toMermaid(currentSteps),
     future_state_flowchart_json: futureSteps,
     future_state_flowchart_mermaid: toMermaid(futureSteps),
-    leaks_detected_json: leaks,
+    leaks_detected_json: diagnostics.topWorkflowLeaks.length ? diagnostics.topWorkflowLeaks : leaks,
     current_sop_markdown: currentSteps.map((step, idx) => `${idx + 1}. ${step}`).join("\n"),
     recommended_sop_markdown: futureSteps.map((step, idx) => `${idx + 1}. ${step}`).join("\n"),
     estimated_value_summary: buildEstimatedValue(input),
-    pilot_recommendation: `Start with ${recommendation} during a focused 30-day pilot. Measure response speed, recovered opportunities, completed follow-ups, and handoff quality before expanding.`,
+    pilot_recommendation: `Start with ${diagnostics.aiRecommendation.name || recommendation} during a focused 30-day pilot. Measure response speed, completed follow-ups, recovered opportunities, and remaining bottlenecks before expanding.`,
     email_subject: `Your OttoServ Front Office Leak Check for ${clean(input.company_name)}`,
     email_preview_text: "Your process map, detected leaks, and recommended 30-day pilot path are ready.",
     email_body_markdown: reportUrl

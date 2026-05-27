@@ -58,6 +58,15 @@ export async function POST(request: NextRequest) {
     monthly_lead_volume: clean(body.monthly_lead_volume),
     best_time_to_contact: clean(body.best_time_to_contact),
     recording_status: body.recording_status || "not_provided",
+    audio_status: body.audio_status || "unknown",
+    gap_tags: Array.isArray(body.gap_tags) ? body.gap_tags.filter((item): item is string => typeof item === "string") : [],
+    other_gap_text: clean(body.other_gap_text),
+    clarification_answers:
+      body.clarification_answers && typeof body.clarification_answers === "object" && !Array.isArray(body.clarification_answers)
+        ? Object.fromEntries(
+            Object.entries(body.clarification_answers).map(([key, value]) => [key, clean(value)]),
+          )
+        : {},
     source_page: clean(body.source_page) || "front_office_leak_check",
   };
 

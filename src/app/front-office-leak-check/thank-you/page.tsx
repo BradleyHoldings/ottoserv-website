@@ -30,8 +30,8 @@ export default async function LeakCheckThankYouPage({
               View Initial Report
             </Link>
           )}
-          <Link href="/front-desk-ai" className="rounded-md border border-gray-700 px-6 py-3 text-sm font-semibold text-gray-200 hover:border-gray-500 hover:text-white">
-            See 30-Day Pilot
+          <Link href={`/front-office-leak-check/start-pilot${params.scan ? `?scan=${encodeURIComponent(params.scan)}` : ""}`} className="rounded-md border border-gray-700 px-6 py-3 text-sm font-semibold text-gray-200 hover:border-gray-500 hover:text-white">
+            Start the 30-Day Pilot
           </Link>
         </div>
         {params.scan && (
