@@ -5,6 +5,8 @@ export const dynamic = "force-dynamic";
 export default async function HermesEvidencePage() {
   const [lifecycle, coworkBridge] = await Promise.all([readApprovalExecutionLifecycle(), readCoworkBridgeExport()]);
   const evidenceItems = lifecycle.flatMap((item) => item.submitted_evidence.map((evidence) => ({ lifecycle: item, evidence })));
+  const latestCoworkEvidence = coworkBridge.evidence[0] || null;
+  const latestExecution = latestCoworkEvidence?.linkedin_execution_summary;
 
   return (
     <div className="space-y-6">
@@ -91,6 +93,48 @@ export default async function HermesEvidencePage() {
             No Cowork bridge export found. Cowork is not silently operating from this dashboard view.
           </p>
         )}
+
+        {latestCoworkEvidence ? (
+          <div className="mt-5 rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-5">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-100">Revenue Operator Evidence</p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <Info label="Active policy" value={latestCoworkEvidence.active_policy || latestCoworkEvidence.linkedin_execution_policy || "Unavailable"} />
+              <Info label="Execution mode" value={latestCoworkEvidence.execution_mode || latestCoworkEvidence.cowork_environment?.browser_worker_mode || "Unavailable"} />
+              <Info label="Latest evidence status" value={displayStatus(latestCoworkEvidence.status)} />
+              <Info label="Last execution timestamp" value={latestCoworkEvidence.completed_at || "Unavailable"} />
+              <Info label="Channels attempted" value={(latestCoworkEvidence.channels_attempted || []).join(", ") || "Unavailable"} />
+              <Info label="Channels completed" value={(latestCoworkEvidence.channels_completed || []).join(", ") || "None"} />
+              <Info
+                label="Channels blocked"
+                value={(latestCoworkEvidence.channels_blocked || []).map((item) => `${item.channel}: ${item.status}`).join("; ") || "None"}
+              />
+              <Info label="Posts reviewed" value={String(latestCoworkEvidence.posts_reviewed ?? latestExecution?.postsReviewed ?? 0)} />
+              <Info label="Profiles reviewed" value={String(latestCoworkEvidence.profiles_reviewed ?? latestExecution?.profilesReviewed ?? 0)} />
+              <Info label="Likes/reactions/upvotes" value={String(latestCoworkEvidence.likes_reactions_upvotes ?? latestExecution?.likes ?? 0)} />
+              <Info label="Comments/replies posted" value={String(latestCoworkEvidence.comments_replies_posted ?? latestCoworkEvidence.comments_posted_count ?? 0)} />
+              <Info label="DMs sent" value={String(latestCoworkEvidence.dms_private_messages_sent ?? latestCoworkEvidence.messages_sent_count ?? 0)} />
+              <Info label="Emails sent" value={String(latestCoworkEvidence.emails_sent ?? latestExecution?.emailsSent ?? 0)} />
+              <Info label="Calls queued" value={String(latestCoworkEvidence.calls_queued ?? latestExecution?.callsQueued ?? 0)} />
+              <Info label="Calls placed" value={String(latestCoworkEvidence.calls_placed ?? latestExecution?.callsPlaced ?? 0)} />
+              <Info label="Posts published" value={String(latestCoworkEvidence.posts_published ?? latestExecution?.postsPublished ?? 0)} />
+              <Info label="Leads advanced" value={String(latestCoworkEvidence.leads_advanced ?? latestExecution?.leadsAdvanced ?? 0)} />
+              <Info label="Links included" value={String(latestExecution?.linksIncluded ?? 0)} />
+              <Info label="Limits used" value={latestCoworkEvidence.limits_used ? JSON.stringify(latestCoworkEvidence.limits_used) : "Unavailable"} />
+              <Info label="Evidence file" value={latestCoworkEvidence.source_result_file || "Unavailable"} />
+            </div>
+            {latestCoworkEvidence.rail_status ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {Object.entries(latestCoworkEvidence.rail_status).map(([rail, status]) => (
+                  <Info
+                    key={rail}
+                    label={`${rail} rail`}
+                    value={`${status.status}${status.blocker ? `: ${status.blocker}` : ""}`}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {coworkBridge.tasks.length ? (
           <div className="mt-5 grid gap-3 lg:grid-cols-2">
@@ -207,6 +251,48 @@ interface CoworkTask {
   instructions: string;
 }
 
+interface CoworkEvidence {
+  task_id: string;
+  source?: string;
+  completed_at?: string;
+  status?: string;
+  active_policy?: string;
+  execution_mode?: string;
+  linkedin_execution_policy?: string;
+  channels_attempted?: string[];
+  channels_completed?: string[];
+  channels_blocked?: Array<{ channel: string; status: string; blocker?: string }>;
+  profiles_reviewed?: number;
+  posts_reviewed?: number;
+  likes_reactions_upvotes?: number;
+  comments_replies_posted?: number;
+  comments_posted_count?: number;
+  dms_private_messages_sent?: number;
+  messages_sent_count?: number;
+  emails_sent?: number;
+  calls_queued?: number;
+  calls_placed?: number;
+  posts_published?: number;
+  leads_advanced?: number;
+  limits_used?: Record<string, unknown>;
+  source_result_file?: string;
+  cowork_environment?: { browser_worker_mode?: string };
+  linkedin_execution_summary?: {
+    profilesReviewed?: number;
+    postsReviewed?: number;
+    likes?: number;
+    publicComments?: number;
+    dmsSent?: number;
+    emailsSent?: number;
+    callsQueued?: number;
+    callsPlaced?: number;
+    postsPublished?: number;
+    leadsAdvanced?: number;
+    linksIncluded?: number;
+  };
+  rail_status?: Record<string, { status: string; blocker?: string }>;
+}
+
 interface CoworkHealth {
   bridge_mode?: string;
   pending_task_count?: number;
@@ -248,10 +334,10 @@ interface CoworkHealth {
   };
 }
 
-async function readCoworkBridgeExport(): Promise<{ connected: boolean; health: CoworkHealth | null; tasks: CoworkTask[] }> {
+async function readCoworkBridgeExport(): Promise<{ connected: boolean; health: CoworkHealth | null; tasks: CoworkTask[]; evidence: CoworkEvidence[] }> {
   const url = process.env.HERMES_SAFE_EXPORT_API_URL || process.env.HERMES_APPROVAL_API_URL?.replace(/\/approval-decisions$/, "/safe-export");
   const apiKey = process.env.HERMES_APPROVAL_API_KEY;
-  if (!url || !apiKey) return { connected: false, health: null, tasks: [] };
+  if (!url || !apiKey) return { connected: false, health: null, tasks: [], evidence: [] };
   try {
     const response = await fetch(url, {
       headers: {
@@ -260,17 +346,19 @@ async function readCoworkBridgeExport(): Promise<{ connected: boolean; health: C
       },
       cache: "no-store",
     });
-    if (!response.ok) return { connected: false, health: null, tasks: [] };
+    if (!response.ok) return { connected: false, health: null, tasks: [], evidence: [] };
     const payload = (await response.json()) as { files?: Array<{ file_name: string; status: string; content?: string }> };
     const health = parseExportJson<CoworkHealth>(payload, "cowork_bridge_health.json");
     const taskPayload = parseExportJson<{ tasks?: CoworkTask[] }>(payload, "cowork_tasks_today.json");
+    const evidencePayload = parseExportJson<{ evidence?: CoworkEvidence[] }>(payload, "cowork_evidence_summary.json");
     return {
       connected: Boolean(health || taskPayload),
       health,
       tasks: (taskPayload?.tasks || []).filter((task) => task.task_id && task.objective),
+      evidence: (evidencePayload?.evidence || []).sort((a, b) => String(b.completed_at || "").localeCompare(String(a.completed_at || ""))),
     };
   } catch {
-    return { connected: false, health: null, tasks: [] };
+    return { connected: false, health: null, tasks: [], evidence: [] };
   }
 }
 
