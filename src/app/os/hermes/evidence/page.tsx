@@ -55,6 +55,8 @@ export default async function HermesEvidencePage() {
             <Info label="Runner mode" value={coworkBridge.health.runner_mode || coworkBridge.health.bridge_mode || "Unavailable"} />
             <Info label="Runner last seen" value={coworkBridge.health.runner_last_seen || "Never"} />
             <Info label="Execution state" value={displayStatus(coworkBridge.health.current_cowork_execution_state)} />
+            <Info label="Cowork result state" value={displayStatus(coworkBridge.health.cowork_result_state)} />
+            <Info label="Cowork outbox evidence" value={String(coworkBridge.health.cowork_outbox_evidence_count ?? 0)} />
             <Info label="Last packet detected" value={coworkBridge.health.last_packet_detected || "Unavailable"} />
             <Info label="Last submission attempt" value={coworkBridge.health.last_submission_attempt || "Unavailable"} />
             <Info label="Last result captured" value={coworkBridge.health.last_result_captured || "No result captured yet"} />
@@ -204,6 +206,8 @@ interface CoworkHealth {
   last_evidence_ingestion?: string;
   last_dashboard_export?: string;
   current_cowork_execution_state?: string;
+  cowork_result_state?: string;
+  cowork_outbox_evidence_count?: number;
   blocked_reason?: string;
   last_modified?: {
     copy_packet?: string;
@@ -245,4 +249,3 @@ function parseExportJson<T>(payload: { files?: Array<{ file_name: string; status
     return null;
   }
 }
-
