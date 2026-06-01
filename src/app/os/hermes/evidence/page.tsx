@@ -59,8 +59,19 @@ export default async function HermesEvidencePage() {
             <Info label="Cowork outbox evidence" value={String(coworkBridge.health.cowork_outbox_evidence_count ?? 0)} />
             <Info label="App worker installed" value={coworkBridge.health.app_worker_installed ? "Yes" : "No"} />
             <Info label="App worker source" value={coworkBridge.health.app_worker_latest_source || "Unavailable"} />
+            <Info label="App worker interactive session" value={coworkBridge.health.app_worker_interactive_session ? "Yes" : "No"} />
             <Info label="Claude/Cowork app found" value={coworkBridge.health.app_worker_app_found ? "Yes" : "No"} />
+            <Info label="Claude/Cowork visible window" value={coworkBridge.health.app_worker_visible_window_found ? "Yes" : "No"} />
             <Info label="Claude/Cowork app focused" value={coworkBridge.health.app_worker_app_focused ? "Yes" : "No"} />
+            <Info label="App worker Windows user" value={coworkBridge.health.app_worker_windows_user || "Unavailable"} />
+            <Info label="App worker session ID" value={String(coworkBridge.health.app_worker_process_session_id ?? "Unavailable")} />
+            <Info label="Explorer session IDs" value={(coworkBridge.health.app_worker_explorer_session_ids || []).join(", ") || "Unavailable"} />
+            <Info label="App window titles found" value={(coworkBridge.health.app_worker_window_titles_found || []).join(", ") || "None"} />
+            <Info label="Browser worker source" value={coworkBridge.health.browser_worker_latest_source || "Unavailable"} />
+            <Info label="Browser worker status" value={displayStatus(coworkBridge.health.browser_worker_status)} />
+            <Info label="Browser worker mode" value={coworkBridge.health.browser_worker_mode || "Unavailable"} />
+            <Info label="Browser worker name" value={coworkBridge.health.browser_worker_name || "Unavailable"} />
+            <Info label="Browser waiting for confirmation" value={coworkBridge.health.browser_worker_waiting_for_user_confirmation ? "Yes" : "No"} />
             <Info label="Last packet detected" value={coworkBridge.health.last_packet_detected || "Unavailable"} />
             <Info label="Last submission attempt" value={coworkBridge.health.last_submission_attempt || "Unavailable"} />
             <Info label="Last result captured" value={coworkBridge.health.last_result_captured || "No result captured yet"} />
@@ -71,6 +82,8 @@ export default async function HermesEvidencePage() {
               value={coworkBridge.health.cowork_blocked_waiting_for_manual_copy ? "Yes" : "No - local runner is staging packets"}
             />
             <Info label="Hermes consumed evidence" value={coworkBridge.health.hermes_consumed_result_evidence ? "Yes" : "No evidence consumed yet"} />
+            <Info label="App worker blocked reason" value={coworkBridge.health.app_worker_blocked_reason || "None"} />
+            <Info label="Browser worker blocked reason" value={coworkBridge.health.browser_worker_blocked_reason || "None"} />
             <Info label="Blocked reason" value={coworkBridge.health.blocked_reason || "None"} />
           </div>
         ) : (
@@ -216,6 +229,19 @@ interface CoworkHealth {
   app_worker_latest_source?: string;
   app_worker_app_found?: boolean;
   app_worker_app_focused?: boolean;
+  app_worker_interactive_session?: boolean;
+  app_worker_visible_window_found?: boolean;
+  app_worker_blocked_reason?: string;
+  app_worker_windows_user?: string;
+  app_worker_process_session_id?: number;
+  app_worker_explorer_session_ids?: number[];
+  app_worker_window_titles_found?: string[];
+  browser_worker_latest_source?: string;
+  browser_worker_status?: string;
+  browser_worker_mode?: string;
+  browser_worker_name?: string;
+  browser_worker_waiting_for_user_confirmation?: boolean;
+  browser_worker_blocked_reason?: string;
   blocked_reason?: string;
   last_modified?: {
     copy_packet?: string;
