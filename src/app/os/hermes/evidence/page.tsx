@@ -12,14 +12,18 @@ export default async function HermesEvidencePage() {
         <p className="text-sm font-semibold uppercase tracking-[0.35em] text-emerald-300">Evidence Review</p>
         <h1 className="mt-3 text-4xl font-black tracking-tight text-white">Completion requires proof</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-400">
-          Shows safe approval-linked evidence summaries exported by Hermes. Raw transcripts, credentials, provider keys, prompts, and private tool output stay out of OttoServ OS.
+          Shows safe approval-linked evidence summaries exported by Hermes. Raw transcripts, credentials, provider keys,
+          prompts, and private tool output stay out of OttoServ OS.
         </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Metric label="Lifecycle records" value={String(lifecycle.length)} />
         <Metric label="Evidence submitted" value={String(evidenceItems.length)} />
-        <Metric label="Waiting or missing" value={String(lifecycle.filter((item) => item.evidence_status === "required" || item.evidence_status === "missing").length)} />
+        <Metric
+          label="Waiting or missing"
+          value={String(lifecycle.filter((item) => item.evidence_status === "required" || item.evidence_status === "missing").length)}
+        />
       </div>
 
       <section className="rounded-3xl border border-cyan-400/20 bg-cyan-500/10 p-6">
@@ -30,31 +34,54 @@ export default async function HermesEvidencePage() {
               {coworkBridge.connected ? "Cowork bridge connected through safe export." : "Cowork bridge not connected."}
             </p>
           </div>
-          <span className={`rounded-full border px-4 py-2 text-xs font-bold uppercase ${coworkBridge.connected ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100" : "border-amber-400/40 bg-amber-400/15 text-amber-100"}`}>
+          <span
+            className={`rounded-full border px-4 py-2 text-xs font-bold uppercase ${
+              coworkBridge.connected
+                ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                : "border-amber-400/40 bg-amber-400/15 text-amber-100"
+            }`}
+          >
             {coworkBridge.connected ? coworkBridge.health?.bridge_mode || "connected" : "not connected"}
           </span>
         </div>
+
         {coworkBridge.connected && coworkBridge.health ? (
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <Info label="Queued Cowork tasks" value={String(coworkBridge.tasks.length)} />
             <Info label="Pending task count" value={String(coworkBridge.health.pending_task_count ?? 0)} />
             <Info label="Completed result count" value={String(coworkBridge.health.completed_result_count ?? 0)} />
-            <Info label="Last packet generated" value={coworkBridge.health.last_modified?.copy_packet || "Unavailable"} />
-            <Info label="Manual copy/paste required" value={coworkBridge.health.cowork_blocked_waiting_for_manual_copy ? "Yes - copy COPY_TO_COWORK_TODAY.md into Cowork" : "No"} />
+            <Info label="Failed/blocked result count" value={String(coworkBridge.health.failed_result_count ?? 0)} />
+            <Info label="Runner installed" value={coworkBridge.health.runner_installed ? "Yes" : "No"} />
+            <Info label="Runner mode" value={coworkBridge.health.runner_mode || coworkBridge.health.bridge_mode || "Unavailable"} />
+            <Info label="Runner last seen" value={coworkBridge.health.runner_last_seen || "Never"} />
+            <Info label="Execution state" value={displayStatus(coworkBridge.health.current_cowork_execution_state)} />
+            <Info label="Last packet detected" value={coworkBridge.health.last_packet_detected || "Unavailable"} />
+            <Info label="Last submission attempt" value={coworkBridge.health.last_submission_attempt || "Unavailable"} />
+            <Info label="Last result captured" value={coworkBridge.health.last_result_captured || "No result captured yet"} />
+            <Info label="Last evidence ingestion" value={coworkBridge.health.last_evidence_ingestion || "No ingestion yet"} />
+            <Info label="Last dashboard export" value={coworkBridge.health.last_dashboard_export || "No export yet"} />
+            <Info
+              label="Manual copy/paste required"
+              value={coworkBridge.health.cowork_blocked_waiting_for_manual_copy ? "Yes" : "No - local runner is staging packets"}
+            />
             <Info label="Hermes consumed evidence" value={coworkBridge.health.hermes_consumed_result_evidence ? "Yes" : "No evidence consumed yet"} />
+            <Info label="Blocked reason" value={coworkBridge.health.blocked_reason || "None"} />
           </div>
         ) : (
           <p className="mt-4 rounded-2xl border border-dashed border-cyan-200/20 bg-black/25 p-4 text-sm text-cyan-50/70">
             No Cowork bridge export found. Cowork is not silently operating from this dashboard view.
           </p>
         )}
+
         {coworkBridge.tasks.length ? (
           <div className="mt-5 grid gap-3 lg:grid-cols-2">
             {coworkBridge.tasks.slice(0, 4).map((task) => (
               <div key={task.task_id} className="rounded-2xl border border-white/10 bg-black/25 p-4">
                 <p className="font-mono text-xs text-cyan-100/70">{task.task_id}</p>
                 <p className="mt-2 text-sm font-bold text-white">{task.objective}</p>
-                <p className="mt-2 text-xs uppercase tracking-[0.2em] text-gray-500">{task.priority} / {task.status} / {task.task_type}</p>
+                <p className="mt-2 text-xs uppercase tracking-[0.2em] text-gray-500">
+                  {task.priority} / {task.status} / {task.task_type}
+                </p>
                 <p className="mt-2 text-sm leading-6 text-gray-300">{task.instructions}</p>
               </div>
             ))}
@@ -83,7 +110,9 @@ export default async function HermesEvidencePage() {
               </span>
             </div>
             <h2 className="mt-4 text-xl font-black text-white">{item.execution_status.replace(/_/g, " ")}</h2>
-            <p className="mt-2 text-sm text-blue-200">{item.execution_rail.replace(/_/g, " ")} / {item.assigned_agent}</p>
+            <p className="mt-2 text-sm text-blue-200">
+              {item.execution_rail.replace(/_/g, " ")} / {item.assigned_agent}
+            </p>
             <div className="mt-4 grid gap-3">
               <Info label="Intake ID" value={item.intake_id} />
               <Info label="Task ID" value={item.assigned_task_id} />
@@ -99,12 +128,16 @@ export default async function HermesEvidencePage() {
                     <p className="mt-2 text-sm font-bold text-white">{evidence.evidence_type.replace(/_/g, " ")}</p>
                     <p className="mt-2 text-sm leading-6 text-gray-300">{evidence.evidence_summary}</p>
                     <p className="mt-2 break-all font-mono text-xs text-gray-500">{evidence.evidence_reference}</p>
-                    <p className="mt-3 text-xs uppercase tracking-[0.2em] text-gray-500">{evidence.review_status.replace(/_/g, " ")} / {evidence.redaction_status}</p>
+                    <p className="mt-3 text-xs uppercase tracking-[0.2em] text-gray-500">
+                      {evidence.review_status.replace(/_/g, " ")} / {evidence.redaction_status}
+                    </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="mt-4 rounded-2xl border border-dashed border-white/15 bg-black/25 p-4 text-sm text-gray-400">{emptyStateForEvidence(item.evidence_status)}</p>
+              <p className="mt-4 rounded-2xl border border-dashed border-white/15 bg-black/25 p-4 text-sm text-gray-400">
+                {emptyStateForEvidence(item.evidence_status)}
+              </p>
             )}
           </article>
         ))}
@@ -141,6 +174,11 @@ function emptyStateForEvidence(status: string) {
   return "No safe evidence record has been exported for this lifecycle yet.";
 }
 
+function displayStatus(status?: string) {
+  if (!status) return "Unavailable";
+  return status.replace(/_/g, " ");
+}
+
 interface CoworkTask {
   task_id: string;
   priority: string;
@@ -154,8 +192,19 @@ interface CoworkHealth {
   bridge_mode?: string;
   pending_task_count?: number;
   completed_result_count?: number;
+  failed_result_count?: number;
   cowork_blocked_waiting_for_manual_copy?: boolean;
   hermes_consumed_result_evidence?: boolean;
+  runner_installed?: boolean;
+  runner_mode?: string;
+  runner_last_seen?: string;
+  last_packet_detected?: string;
+  last_submission_attempt?: string;
+  last_result_captured?: string;
+  last_evidence_ingestion?: string;
+  last_dashboard_export?: string;
+  current_cowork_execution_state?: string;
+  blocked_reason?: string;
   last_modified?: {
     copy_packet?: string;
   };
@@ -165,7 +214,6 @@ async function readCoworkBridgeExport(): Promise<{ connected: boolean; health: C
   const url = process.env.HERMES_SAFE_EXPORT_API_URL || process.env.HERMES_APPROVAL_API_URL?.replace(/\/approval-decisions$/, "/safe-export");
   const apiKey = process.env.HERMES_APPROVAL_API_KEY;
   if (!url || !apiKey) return { connected: false, health: null, tasks: [] };
-
   try {
     const response = await fetch(url, {
       headers: {
@@ -197,3 +245,4 @@ function parseExportJson<T>(payload: { files?: Array<{ file_name: string; status
     return null;
   }
 }
+
