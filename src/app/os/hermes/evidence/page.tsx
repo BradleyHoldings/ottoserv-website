@@ -3,7 +3,7 @@ import { readApprovalExecutionLifecycle } from "@/lib/hermesApprovalOutbox";
 export const dynamic = "force-dynamic";
 
 export default async function HermesEvidencePage() {
-  const lifecycle = await readApprovalExecutionLifecycle();
+  const [lifecycle, coworkBridge] = await Promise.all([readApprovalExecutionLifecycle(), readCoworkBridgeExport()]);
   const evidenceItems = lifecycle.flatMap((item) => item.submitted_evidence.map((evidence) => ({ lifecycle: item, evidence })));
 
   return (
@@ -21,6 +21,46 @@ export default async function HermesEvidencePage() {
         <Metric label="Evidence submitted" value={String(evidenceItems.length)} />
         <Metric label="Waiting or missing" value={String(lifecycle.filter((item) => item.evidence_status === "required" || item.evidence_status === "missing").length)} />
       </div>
+
+      <section className="rounded-3xl border border-cyan-400/20 bg-cyan-500/10 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-cyan-100">Cowork Bridge</p>
+            <p className="mt-2 text-sm leading-6 text-cyan-50/80">
+              {coworkBridge.connected ? "Cowork bridge connected through safe export." : "Cowork bridge not connected."}
+            </p>
+          </div>
+          <span className={`rounded-full border px-4 py-2 text-xs font-bold uppercase ${coworkBridge.connected ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100" : "border-amber-400/40 bg-amber-400/15 text-amber-100"}`}>
+            {coworkBridge.connected ? coworkBridge.health?.bridge_mode || "connected" : "not connected"}
+          </span>
+        </div>
+        {coworkBridge.connected && coworkBridge.health ? (
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <Info label="Queued Cowork tasks" value={String(coworkBridge.tasks.length)} />
+            <Info label="Pending task count" value={String(coworkBridge.health.pending_task_count ?? 0)} />
+            <Info label="Completed result count" value={String(coworkBridge.health.completed_result_count ?? 0)} />
+            <Info label="Last packet generated" value={coworkBridge.health.last_modified?.copy_packet || "Unavailable"} />
+            <Info label="Manual copy/paste required" value={coworkBridge.health.cowork_blocked_waiting_for_manual_copy ? "Yes - copy COPY_TO_COWORK_TODAY.md into Cowork" : "No"} />
+            <Info label="Hermes consumed evidence" value={coworkBridge.health.hermes_consumed_result_evidence ? "Yes" : "No evidence consumed yet"} />
+          </div>
+        ) : (
+          <p className="mt-4 rounded-2xl border border-dashed border-cyan-200/20 bg-black/25 p-4 text-sm text-cyan-50/70">
+            No Cowork bridge export found. Cowork is not silently operating from this dashboard view.
+          </p>
+        )}
+        {coworkBridge.tasks.length ? (
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {coworkBridge.tasks.slice(0, 4).map((task) => (
+              <div key={task.task_id} className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                <p className="font-mono text-xs text-cyan-100/70">{task.task_id}</p>
+                <p className="mt-2 text-sm font-bold text-white">{task.objective}</p>
+                <p className="mt-2 text-xs uppercase tracking-[0.2em] text-gray-500">{task.priority} / {task.status} / {task.task_type}</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">{task.instructions}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
       {lifecycle.length === 0 ? (
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
@@ -99,4 +139,61 @@ function emptyStateForEvidence(status: string) {
   if (status === "accepted") return "Evidence was accepted, but no submitted evidence records were included in this export.";
   if (status === "rejected") return "Evidence was rejected or needs revision.";
   return "No safe evidence record has been exported for this lifecycle yet.";
+}
+
+interface CoworkTask {
+  task_id: string;
+  priority: string;
+  task_type: string;
+  status: string;
+  objective: string;
+  instructions: string;
+}
+
+interface CoworkHealth {
+  bridge_mode?: string;
+  pending_task_count?: number;
+  completed_result_count?: number;
+  cowork_blocked_waiting_for_manual_copy?: boolean;
+  hermes_consumed_result_evidence?: boolean;
+  last_modified?: {
+    copy_packet?: string;
+  };
+}
+
+async function readCoworkBridgeExport(): Promise<{ connected: boolean; health: CoworkHealth | null; tasks: CoworkTask[] }> {
+  const url = process.env.HERMES_SAFE_EXPORT_API_URL || process.env.HERMES_APPROVAL_API_URL?.replace(/\/approval-decisions$/, "/safe-export");
+  const apiKey = process.env.HERMES_APPROVAL_API_KEY;
+  if (!url || !apiKey) return { connected: false, health: null, tasks: [] };
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) return { connected: false, health: null, tasks: [] };
+    const payload = (await response.json()) as { files?: Array<{ file_name: string; status: string; content?: string }> };
+    const health = parseExportJson<CoworkHealth>(payload, "cowork_bridge_health.json");
+    const taskPayload = parseExportJson<{ tasks?: CoworkTask[] }>(payload, "cowork_tasks_today.json");
+    return {
+      connected: Boolean(health || taskPayload),
+      health,
+      tasks: (taskPayload?.tasks || []).filter((task) => task.task_id && task.objective),
+    };
+  } catch {
+    return { connected: false, health: null, tasks: [] };
+  }
+}
+
+function parseExportJson<T>(payload: { files?: Array<{ file_name: string; status: string; content?: string }> }, fileName: string): T | null {
+  const file = payload.files?.find((item) => item.file_name === fileName && item.status === "available");
+  if (!file?.content) return null;
+  try {
+    return JSON.parse(file.content) as T;
+  } catch {
+    return null;
+  }
 }
