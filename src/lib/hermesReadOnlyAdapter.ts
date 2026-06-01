@@ -93,7 +93,7 @@ export async function getHermesLiveDashboardData(): Promise<HermesLiveDashboardD
       ? {
           activeAgents: inferredAgents.filter((agent) => agent.status === "active").length,
           blockedAgents: inferredAgents.filter((agent) => agent.status === "blocked" || agent.status === "waiting_for_approval").length,
-          approvalsWaiting: getItemCount(getSource(sources, "jonathanApprovalQueue")),
+          approvalsWaiting: getLoopSummaryCount(getSource(sources, "loopRunSummary"), "Jonathan approvals") || getItemCount(getSource(sources, "jonathanApprovalQueue")),
           criticalMissions: inferredMissions.filter((mission) => mission.priority === "critical").length,
         }
       : getHermesCommandSummary();
@@ -475,6 +475,10 @@ function getItemCount(source: HermesSourceFile): number {
     return source.jsonSummary.counts.reduce((total, item) => total + item.value, 0);
   }
   return source.sections.reduce((total, section) => total + section.items.length, 0);
+}
+
+function getLoopSummaryCount(source: HermesSourceFile, label: string): number {
+  return source.jsonSummary?.counts.find((count) => count.label === label)?.value || 0;
 }
 
 function newestModifiedLabel(sources: HermesSourceFile[]): string {
