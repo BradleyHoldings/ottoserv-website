@@ -75,7 +75,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     { id: "newLeads", label: "New Leads", value: newLeads.length, helper: newLeads.length ? "Need follow-up" : "All contacted", href: "/dashboard/leads?status=new", color: "purple" },
     { id: "callsToday", label: "Calls Today", value: callsToday.length, helper: callsToday.length ? `${callsToday.filter((call) => call.status === "completed").length} connected` : "No calls yet", href: "/dashboard/inbox?type=calls&date=today", color: "blue" },
     { id: "openWorkOrders", label: "Open Work Orders", value: openWorkOrders.length, helper: openWorkOrders.length ? "Open jobs" : "No open work orders", href: "/dashboard/work-orders?status=open", color: "blue" },
-    { id: "aiPending", label: "AI Actions Pending", value: aiPending.length, helper: aiPending.length ? "Review required" : "All clear", href: "/dashboard/agents?status=pending", color: aiPending.length ? "yellow" : "green" },
+    { id: "aiPending", label: "AI Actions Pending", value: aiPending.length, helper: aiPending.length ? "Review required" : "All clear", href: "/os/hermes/approvals", color: aiPending.length ? "yellow" : "green" },
   ];
 
   const moduleCards = [
@@ -85,7 +85,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     { id: "invoices", title: "Open Invoices", value: openInvoices.length, description: "Need payment or review", href: "/dashboard/financials?status=open" },
     { id: "automations", title: "Active Automations", value: activeAutomations.length, description: failedAutomations.length ? `${failedAutomations.length} need review` : "Running cleanly", href: "/dashboard/automations" },
     { id: "inbox", title: "Unread Inbox", value: unreadInbox.length, description: "Messages and calls", href: "/dashboard/inbox" },
-    { id: "agents", title: "Agent Alerts", value: aiPending.length + failedAutomations.length, description: "AI approvals and failures", href: "/dashboard/agents?status=pending" },
+    { id: "agents", title: "Agent Alerts", value: aiPending.length + failedAutomations.length, description: "AI approvals and failures", href: "/os/hermes" },
   ];
 
   const snapshot = {

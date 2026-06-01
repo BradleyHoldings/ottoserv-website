@@ -36,6 +36,13 @@ export const dashboardNavSections = [
         href: "/dashboard/jarvis",
         roles: ["client_owner", "client_manager", "sales_rep", "ottoserv_admin"],
       },
+      {
+        label: "Agent Command Center",
+        icon: "H",
+        href: "/os/hermes",
+        roles: INTERNAL_ONLY,
+        isInternal: true,
+      },
     ],
   },
   {
