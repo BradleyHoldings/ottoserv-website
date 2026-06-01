@@ -14,7 +14,8 @@ export default async function HermesCommandPage() {
   const data = await getHermesLiveDashboardData();
   const summary = data.summary;
   const leadMission = data.missions[0];
-  const modeLabel = data.dataMode === "real_data_connected" ? "Real data connected" : "Using mock fallback";
+  const hasStaleSources = data.sources.some((source) => source.status === "real_data_connected" && source.stale);
+  const modeLabel = data.dataMode === "real_data_connected" ? (hasStaleSources ? "LIVE EXPORT STALE" : "LIVE EXPORT") : "MOCK FALLBACK";
 
   return (
     <div className="space-y-8">
@@ -29,7 +30,7 @@ export default async function HermesCommandPage() {
               Phase 2 reads allowlisted Hermes operating files server-side, sanitizes them for dashboard use, and keeps the Phase 1 fixtures as fallback. Raw Hermes UI, credentials, prompts, and unrestricted execution endpoints are not exposed.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <StatusPill status={data.dataMode} label={modeLabel} />
+              <StatusPill status={data.dataMode} label={modeLabel} stale={hasStaleSources} />
               <span className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-xs font-semibold text-gray-300">
                 Parsed {formatTimestamp(data.generatedAt)}
               </span>
@@ -63,7 +64,7 @@ export default async function HermesCommandPage() {
                     <p className="text-sm font-bold text-white">{source.label}</p>
                     <p className="mt-1 font-mono text-xs text-gray-500">{source.fileName}</p>
                   </div>
-                  <StatusPill status={source.status} label={source.status.replace(/_/g, " ")} stale={source.stale} />
+                  <StatusPill status={source.status} label={sourceStatusLabel(source)} stale={source.stale} />
                 </div>
                 <p className="mt-3 text-xs text-gray-400">Modified: {formatTimestamp(source.lastModified)}</p>
                 <p className="mt-1 text-xs text-gray-400">Parsed: {formatTimestamp(source.lastSuccessfulParseAt)}</p>
@@ -133,7 +134,7 @@ function SourcePanel({ source }: { source: HermesSourceFile }) {
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">{source.fileName}</p>
           <h2 className="mt-2 text-2xl font-black text-white">{source.label}</h2>
         </div>
-        <StatusPill status={source.status} label={source.status.replace(/_/g, " ")} stale={source.stale} />
+        <StatusPill status={source.status} label={sourceStatusLabel(source)} stale={source.stale} />
       </div>
       <p className="mt-3 text-xs text-gray-400">Modified: {formatTimestamp(source.lastModified)} · Parsed: {formatTimestamp(source.lastSuccessfulParseAt)}</p>
       {source.stale ? <p className="mt-2 text-sm font-semibold text-amber-200">Stale data warning: this source is older than 24 hours.</p> : null}
@@ -184,5 +185,13 @@ function StatusPill({ status, label, stale = false }: { status: string; label: s
         ? "border-amber-400/40 bg-amber-400/15 text-amber-100"
         : "border-red-400/40 bg-red-500/15 text-red-100";
 
-  return <span className={`rounded-full border px-4 py-2 text-xs font-bold uppercase ${className}`}>{stale ? "stale data warning" : label}</span>;
+  return <span className={`rounded-full border px-4 py-2 text-xs font-bold uppercase ${className}`}>{label}</span>;
+}
+
+function sourceStatusLabel(source: HermesSourceFile) {
+  if (source.status === "real_data_connected" && source.stale) return "LIVE EXPORT STALE";
+  if (source.status === "real_data_connected") return "LIVE EXPORT";
+  if (source.status === "file_missing") return "EXPORT MISSING";
+  if (source.status === "parse_error") return "PARSE ERROR";
+  return "MOCK FALLBACK";
 }

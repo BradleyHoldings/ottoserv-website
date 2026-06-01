@@ -270,8 +270,10 @@ export async function writeApprovalDecision(formData: FormData): Promise<Approva
       ...(supersedePrior && existingDecision ? { supersedes_decision_id: existingDecision.decision_id } : {}),
     };
 
-    await atomicWriteDecision(record);
-    await appendAuditLog(record);
+    const transport = await writeDecisionRecord(record);
+    if (transport === "local") {
+      await appendAuditLog(record);
+    }
 
     return {
       status: "decision_written",
@@ -345,6 +347,9 @@ function parseApprovalTableRow(row: string): HermesApprovalItem | null {
 }
 
 async function readApprovalDecisions(): Promise<HermesApprovalDecisionRecord[]> {
+  const remoteDecisions = await readRemoteApprovalDecisions();
+  if (remoteDecisions) return remoteDecisions;
+
   try {
     const names = await readdir(HERMES_APPROVAL_OUTBOX_DIR);
     const decisions = await Promise.all(
@@ -366,7 +371,36 @@ async function readApprovalDecisions(): Promise<HermesApprovalDecisionRecord[]> 
   }
 }
 
+async function readRemoteApprovalDecisions(): Promise<HermesApprovalDecisionRecord[] | null> {
+  const url = process.env.HERMES_APPROVAL_API_URL;
+  const apiKey = process.env.HERMES_APPROVAL_API_KEY;
+  if (!url || !apiKey) return null;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const parsed = (await response.json()) as { decisions?: unknown[] };
+    return (parsed.decisions || []).filter(isDecisionRecord);
+  } catch {
+    return null;
+  }
+}
+
 async function readApprovalIntakeResults(): Promise<HermesApprovalIntakeResult[]> {
+  const remote = await readRemoteSafeExportJson("approval_intake_status.json") as {
+    latest_results?: HermesApprovalIntakeResult[];
+    processed_this_run?: HermesApprovalIntakeResult[];
+  } | null;
+  if (remote) {
+    return [...(remote.latest_results || []), ...(remote.processed_this_run || [])].filter(isIntakeResult);
+  }
+
   try {
     const parsed = JSON.parse(await readFile(INTAKE_STATUS_FILE, "utf8")) as {
       latest_results?: HermesApprovalIntakeResult[];
@@ -379,6 +413,13 @@ async function readApprovalIntakeResults(): Promise<HermesApprovalIntakeResult[]
 }
 
 export async function readApprovalExecutionLifecycle(): Promise<HermesApprovalExecutionLifecycle[]> {
+  const remote = await readRemoteSafeExportJson("approval_execution_status.json") as {
+    latest_lifecycle?: HermesApprovalExecutionLifecycle[];
+  } | null;
+  if (remote) {
+    return (remote.latest_lifecycle || []).filter(isExecutionLifecycle);
+  }
+
   try {
     const parsed = JSON.parse(await readFile(EXECUTION_STATUS_FILE, "utf8")) as {
       latest_lifecycle?: HermesApprovalExecutionLifecycle[];
@@ -390,6 +431,14 @@ export async function readApprovalExecutionLifecycle(): Promise<HermesApprovalEx
 }
 
 export async function readApprovalRoutingRecords(): Promise<HermesApprovalRoutingRecord[]> {
+  const remote = await readRemoteSafeExportJson("approval_task_routing_status.json") as {
+    latest_routes?: HermesApprovalRoutingRecord[];
+    routed_this_run?: HermesApprovalRoutingRecord[];
+  } | null;
+  if (remote) {
+    return [...(remote.latest_routes || []), ...(remote.routed_this_run || [])].filter(isRoutingRecord);
+  }
+
   try {
     const parsed = JSON.parse(await readFile(ROUTING_STATUS_FILE, "utf8")) as {
       latest_routes?: HermesApprovalRoutingRecord[];
@@ -399,6 +448,78 @@ export async function readApprovalRoutingRecords(): Promise<HermesApprovalRoutin
   } catch {
     return [];
   }
+}
+
+interface RemoteSafeExportResponse {
+  files?: Array<{
+    file_name: string;
+    status: "available" | "missing";
+    content?: string;
+  }>;
+}
+
+let remoteSafeExportPromise: Promise<RemoteSafeExportResponse | null> | null = null;
+
+async function readRemoteSafeExportJson(fileName: string): Promise<unknown | null> {
+  const apiKey = process.env.HERMES_APPROVAL_API_KEY;
+  const url = process.env.HERMES_SAFE_EXPORT_API_URL || process.env.HERMES_APPROVAL_API_URL?.replace(/\/approval-decisions$/, "/safe-export");
+  if (!apiKey || !url) return null;
+
+  if (!remoteSafeExportPromise) {
+    remoteSafeExportPromise = fetch(url, {
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as RemoteSafeExportResponse;
+      })
+      .catch(() => null);
+  }
+
+  const exportPayload = await remoteSafeExportPromise;
+  const file = exportPayload?.files?.find((item) => item.file_name === fileName && item.status === "available");
+  if (!file?.content) return null;
+
+  try {
+    return JSON.parse(file.content);
+  } catch {
+    return null;
+  }
+}
+
+async function writeDecisionRecord(record: HermesApprovalDecisionRecord): Promise<"local" | "remote"> {
+  const remoteResult = await writeRemoteDecision(record);
+  if (remoteResult === "written") return "remote";
+
+  await atomicWriteDecision(record);
+  return "local";
+}
+
+async function writeRemoteDecision(record: HermesApprovalDecisionRecord): Promise<"written" | "unavailable"> {
+  const url = process.env.HERMES_APPROVAL_API_URL;
+  const apiKey = process.env.HERMES_APPROVAL_API_KEY;
+  if (!url || !apiKey) return "unavailable";
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "X-API-Key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(record),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(`Approval bridge write failed (${response.status}): ${body.detail || "safe queue rejected the decision"}. Safe queue: ${HERMES_APPROVAL_OUTBOX_DIR}`);
+  }
+
+  return "written";
 }
 
 async function atomicWriteDecision(record: HermesApprovalDecisionRecord) {

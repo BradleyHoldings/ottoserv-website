@@ -24,8 +24,12 @@ export default async function HermesEvidencePage() {
 
       {lifecycle.length === 0 ? (
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-          <p className="text-lg font-black text-white">No execution lifecycle export yet</p>
-          <p className="mt-2 text-sm leading-6 text-gray-400">Hermes will populate this page after it consumes an approval decision and writes the safe execution status export.</p>
+          <p className="text-lg font-black text-white">No execution lifecycle export found</p>
+          <div className="mt-3 space-y-2 text-sm leading-6 text-gray-400">
+            <p>Hermes has not consumed any approval decisions yet, or the safe lifecycle export is not reachable from OttoServ OS.</p>
+            <p>No evidence has been submitted yet.</p>
+            <p>Once Hermes consumes an approval decision, this page will show whether execution was queued, blocked, completed, or waiting for evidence.</p>
+          </div>
         </div>
       ) : null}
 

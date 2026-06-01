@@ -47,7 +47,7 @@ export interface HermesSourceFile {
   message: string;
   sections: HermesMarkdownSection[];
   jsonSummary?: HermesLoopRunSummary;
-  readLocation: "primary_workspace" | "safe_export" | "unavailable";
+  readLocation: "primary_workspace" | "safe_export" | "safe_export_api" | "unavailable";
 }
 
 export interface HermesLoopRunSummary {
@@ -134,6 +134,10 @@ async function readAllowlistedSource(source: (typeof DAILY_SOURCE_FILES)[number]
     lastErrorCode = parsed.errorCode;
   }
 
+  const remote = await readRemoteSafeExportSource(source);
+  if (remote.source) return remote.source;
+  if (remote.errorCode) lastErrorCode = remote.errorCode;
+
   return {
     ...baseSource(source, lastErrorCode === "ENOENT" ? "file_missing" : "parse_error", null, false, "unavailable"),
     message: lastErrorCode === "ENOENT" ? "File is missing from the Hermes workspace and safe export mirror." : "File could not be read or parsed safely.",
@@ -178,6 +182,85 @@ async function readSourceCandidate(
       errorCode: code,
     };
   }
+}
+
+interface RemoteSafeExportFile {
+  file_name: string;
+  status: "available" | "missing";
+  last_modified?: string;
+  content?: string;
+}
+
+interface RemoteSafeExportResponse {
+  status: string;
+  read_at: string;
+  files: RemoteSafeExportFile[];
+}
+
+let remoteSafeExportPromise: Promise<RemoteSafeExportResponse | null> | null = null;
+
+async function readRemoteSafeExportSource(
+  source: (typeof DAILY_SOURCE_FILES)[number],
+): Promise<{ source: HermesSourceFile | null; errorCode: string }> {
+  const remoteExport = await getRemoteSafeExport();
+  if (!remoteExport) return { source: null, errorCode: "ENOENT" };
+
+  const file = remoteExport.files.find((item) => item.file_name === source.fileName);
+  if (!file || file.status !== "available" || typeof file.content !== "string") {
+    return { source: null, errorCode: "ENOENT" };
+  }
+
+  try {
+    const lastModified = file.last_modified || remoteExport.read_at;
+    const stale = Date.now() - new Date(lastModified).getTime() > STALE_AFTER_MS;
+    const message = `${stale ? "LIVE EXPORT STALE: safe export is older than 24 hours." : "LIVE EXPORT: connected through api.ottoserv.com safe export."}`;
+
+    if (source.type === "json") {
+      return {
+        source: {
+          ...baseSource(source, "real_data_connected", lastModified, stale, "safe_export_api"),
+          message,
+          jsonSummary: parseLoopRunSummary(file.content),
+        },
+        errorCode: "",
+      };
+    }
+
+    return {
+      source: {
+        ...baseSource(source, "real_data_connected", lastModified, stale, "safe_export_api"),
+        message,
+        sections: parseMarkdownSections(file.content),
+      },
+      errorCode: "",
+    };
+  } catch {
+    return { source: null, errorCode: "PARSE_ERROR" };
+  }
+}
+
+async function getRemoteSafeExport(): Promise<RemoteSafeExportResponse | null> {
+  const url = process.env.HERMES_SAFE_EXPORT_API_URL || process.env.HERMES_APPROVAL_API_URL?.replace(/\/approval-decisions$/, "/safe-export");
+  const apiKey = process.env.HERMES_APPROVAL_API_KEY;
+
+  if (!url || !apiKey) return null;
+  if (!remoteSafeExportPromise) {
+    remoteSafeExportPromise = fetch(url, {
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const parsed = (await response.json()) as RemoteSafeExportResponse;
+        return Array.isArray(parsed.files) ? parsed : null;
+      })
+      .catch(() => null);
+  }
+
+  return remoteSafeExportPromise;
 }
 
 function baseSource(
