@@ -9,6 +9,7 @@
     "lint": "eslint",
     "ops:morning": "node scripts/ops-report.mjs morning",
     "ops:evening": "node scripts/ops-report.mjs evening",
+    "revenue:daily-loop": "node scripts/revenue-daily-loop.mjs",
     "verify:ops": "node scripts/verify-call-import.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "verify:revenue-flow": "node scripts/verify-revenue-flow.mjs"

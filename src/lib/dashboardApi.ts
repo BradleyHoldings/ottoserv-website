@@ -1,3 +1,14 @@
+import {
+  createSocialEngine,
+  normalizePlatformSocialRecord,
+  type SocialDashboardState,
+  type SocialHealthStatus,
+} from "@/lib/socialContentEngine.mjs";
+import {
+  getDashboardState as buildRevenueDashboardState,
+  type RevenueDashboardState,
+} from "@/lib/revenueEngine.mjs";
+
 // OttoServ OS Dashboard data layer.
 //
 // All real data lives on the OttoServ enterprise platform (FastAPI) at
@@ -94,32 +105,56 @@ export async function getLeads(_token?: string): Promise<DashboardLead[]> {
 
 // ─── Social ─────────────────────────────────────────────────────────────────
 
-export async function getPlatformSocialPosts(): Promise<any[]> {
+async function getPlatformSocialEngine() {
   const data = await fetchPlatformApi("/social/posts");
-  if (!data?.posts) return [];
-  return data.posts.map((p: any) => ({
-    id: p.id,
-    content: p.content || "",
-    platform: p.platform || "facebook",
-    status:
-      p.status === "pending_approval"
-        ? "pending"
-        : p.status || "draft",
-    scheduled_at: p.scheduled_at || null,
-    published_at: p.published_at || null,
-    created_by_agent: p.created_by_agent_id || null,
-    approval_status:
-      p.status === "approved"
-        ? "approved"
-        : p.status === "pending_approval"
-        ? "pending_review"
-        : "not_submitted",
-    rejection_reason: p.rejection_reason || null,
-    media_urls: p.media_urls || [],
-    emotional_trigger: null,
-    cta: p.hashtags?.join(" ") || null,
-    engagement: null,
-  }));
+  const records = Array.isArray(data?.posts)
+    ? data.posts.map((post: Record<string, unknown>) => normalizePlatformSocialRecord(post))
+    : [];
+  return createSocialEngine({ initialItems: records });
+}
+
+export async function getSocialDashboardState(): Promise<SocialDashboardState> {
+  const engine = await getPlatformSocialEngine();
+  return engine.getDashboardState();
+}
+
+export async function getSocialHealthStatus(): Promise<SocialHealthStatus> {
+  const engine = await getPlatformSocialEngine();
+  return engine.getHealthStatus();
+}
+
+export async function getPlatformSocialPosts(): Promise<any[]> {
+  const state = await getSocialDashboardState();
+  return state.posts;
+}
+
+export async function getRevenueDashboardState(): Promise<RevenueDashboardState> {
+  const [leads, calls, social] = await Promise.all([
+    getPlatformLeads(),
+    getRecentCalls(25),
+    getSocialDashboardState(),
+  ]);
+  const failures = [
+    ...calls
+      .filter((call) => ["failed", "blocked"].includes(String(call.status || "").toLowerCase()))
+      .map((call) => ({
+        item_id: call.id,
+        channel: "phone_call_retell_morgan",
+        expected_behavior: "Approved call queue item should produce a Retell/Morgan call outcome.",
+        actual_behavior: call.blocker || call.outcome || call.status,
+        evidence_logs: [call.call_id, call.blocker].filter(Boolean),
+      })),
+  ];
+
+  return buildRevenueDashboardState({
+    leads,
+    calls,
+    socialItems: social.posts,
+    failures,
+    bookedCalls: calls.filter((call) => /booked|meeting/i.test(`${call.outcome || ""} ${call.status || ""}`)).length,
+    revenueRisks: failures.length ? ["Call rail has blocked or failed outcomes."] : [],
+    brokenRails: failures.map((failure) => failure.item_id),
+  });
 }
 
 // ─── Calls ──────────────────────────────────────────────────────────────────

@@ -1613,17 +1613,27 @@ export interface SocialConnection {
 
 export interface SocialPost {
   id: string;
+  topic?: string;
   content: string;
+  caption?: string | null;
   platform: SocialPlatformId;
   status: "draft" | "pending" | "approved" | "scheduled" | "published" | "rejected" | "failed";
   scheduled_at: string | null;
   published_at: string | null;
   created_by_agent: string | null;
   approval_status: "not_submitted" | "pending_review" | "approved" | "rejected";
+  distribution_status?: "Not Ready" | "Ready for Manual Posting" | "Ready for Cowork" | "Ready for Distribution" | "Submitted to Blotato" | "Published" | "Needs Fix" | "Failed" | "Needs Approval" | "No Post Prepared";
   rejection_reason: string | null;
   media_urls: string[];
+  asset_url?: string | null;
   emotional_trigger: string | null;
   cta: string | null;
+  assigned_operator?: string | null;
+  published_url?: string | null;
+  posted_date?: string | null;
+  posting_notes?: string | null;
+  needs_fix_reason?: string | null;
+  notes?: string | null;
   engagement: { likes: number; comments: number; shares: number; reach: number } | null;
 }
 

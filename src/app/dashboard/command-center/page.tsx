@@ -19,6 +19,7 @@ import {
   getMessages,
   getProjects,
   getRecentCalls,
+  getRevenueDashboardState,
   getTasks,
   hasPlatformAccess,
   type RecentCall,
@@ -144,6 +145,7 @@ export default function CommandCenterPage() {
   const [leadSupply, setLeadSupply] = useState<Record<string, unknown> | null>(null);
   const [dashboardAlerts, setDashboardAlerts] = useState<Record<string, unknown>[]>([]);
   const [dashboardActivity, setDashboardActivity] = useState<Record<string, unknown>[]>([]);
+  const [revenueEngine, setRevenueEngine] = useState<Record<string, unknown> | null>(null);
 
   const platformAccess = hasPlatformAccess();
 
@@ -159,7 +161,7 @@ export default function CommandCenterPage() {
       setLoading(true);
       setError("");
       try {
-        const [dashboard, taskRows, leadRows, callRows, eventRows, projectRows, automationRows, inboxRows, financials, approvalRows, supply] = await Promise.all([
+        const [dashboard, taskRows, leadRows, callRows, eventRows, projectRows, automationRows, inboxRows, financials, approvalRows, supply, revenueState] = await Promise.all([
           getDashboard(),
           getTasks(),
           getLeads(),
@@ -171,6 +173,7 @@ export default function CommandCenterPage() {
           getFinancials(),
           getApprovals(),
           getLeadSupply(),
+          getRevenueDashboardState(),
         ]);
 
         if (!alive) return;
@@ -186,6 +189,7 @@ export default function CommandCenterPage() {
         setLeadSupply(supply as Record<string, unknown> | null);
         setDashboardAlerts(Array.isArray(dashboard?.alerts) ? dashboard.alerts : []);
         setDashboardActivity(Array.isArray(dashboard?.recent_activity) ? dashboard.recent_activity : []);
+        setRevenueEngine(revenueState as Record<string, unknown>);
       } catch {
         if (alive) setError("Command Center data could not be refreshed. Showing safe empty states.");
       } finally {
@@ -214,12 +218,13 @@ export default function CommandCenterPage() {
           invoices,
           approvals,
           leadSupply,
+          revenueEngine,
           dashboardAlerts,
           recentActivity: [...localActivity, ...dashboardActivity],
         },
         user ?? {},
       ),
-    [tasks, leads, calls, calendarEvents, projects, workOrders, automations, inboxItems, invoices, approvals, leadSupply, dashboardAlerts, dashboardActivity, localActivity, user],
+    [tasks, leads, calls, calendarEvents, projects, workOrders, automations, inboxItems, invoices, approvals, leadSupply, revenueEngine, dashboardAlerts, dashboardActivity, localActivity, user],
   );
 
   const visibleAlerts = data.alerts.filter((alert: { id: string }) => !dismissedAlerts.has(alert.id));
@@ -447,6 +452,7 @@ export default function CommandCenterPage() {
               <BriefItem title="Needs attention today" text={data.jarvisBrief.needsAttention} />
               <BriefItem title="Jarvis recommendation" text={data.jarvisBrief.recommendation} />
               <BriefItem title="What Jarvis is handling" text={data.jarvisBrief.handling} />
+              <BriefItem title="Revenue engine" text={data.jarvisBrief.revenueEngine} />
             </div>
           )}
           <div className="mt-5 flex flex-wrap gap-2">
@@ -458,6 +464,8 @@ export default function CommandCenterPage() {
 
         <LeadHealthCard leadHealth={data.leadHealth} admin={isOttoServAdmin(user)} />
       </div>
+
+      {data.revenueEngine && <RevenueEnginePanel state={data.revenueEngine as Record<string, unknown>} />}
 
       <QuickActionsPanel
         onLead={() => setModal("lead")}
@@ -640,6 +648,82 @@ function LeadHealthCard({ leadHealth, admin }: { leadHealth: Record<string, unkn
         </>
       )}
     </Link>
+  );
+}
+
+function RevenueEnginePanel({ state }: { state: Record<string, unknown> }) {
+  const plan = (state.todayPlan || {}) as Record<string, unknown>;
+  const queueCounts = (state.queueCounts || {}) as Record<string, unknown>;
+  const movement = (state.revenueMovement || {}) as Record<string, unknown>;
+  const repairs = Array.isArray(state.repairQueue) ? state.repairQueue : [];
+  const brokenRails = Array.isArray(state.brokenRails) ? state.brokenRails : [];
+  const cycles = Array.isArray(plan.cycles) ? plan.cycles : [];
+  const countEntries = [
+    ["Content", queueCounts.content],
+    ["Outreach", queueCounts.outreach],
+    ["Calls", queueCounts.calls],
+    ["SEO/GEO/AIEO", queueCounts.seoGeoAieo],
+    ["Cowork", queueCounts.coworkExecution],
+    ["Codex Repair", queueCounts.codexRepair],
+  ];
+
+  return (
+    <section id="revenue-engine" className="rounded-xl border border-gray-800 bg-[#111827] p-5">
+      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Revenue Generation OS</p>
+          <h2 className="mt-1 text-lg font-semibold text-white">Daily Revenue Loop</h2>
+          <p className="mt-1 text-sm text-gray-400">{String(plan.schedule || "Monday-Saturday morning and afternoon")}</p>
+        </div>
+        <div className={`rounded-lg border px-3 py-2 text-sm ${repairs.length ? "border-red-900/60 bg-red-950/30 text-red-200" : "border-emerald-900/60 bg-emerald-950/20 text-emerald-200"}`}>
+          {repairs.length ? "Repair before scale" : "Ready to run"}
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Command Focus</p>
+          <p className="text-sm text-gray-300"><span className="text-gray-500">ICP:</span> {String(plan.icp_focus || "Property managers and home service operators")}</p>
+          <p className="text-sm text-gray-300"><span className="text-gray-500">Offer:</span> {String(plan.offer_focus || "Front office leak check")}</p>
+          <p className="text-sm text-gray-300"><span className="text-gray-500">Next:</span> {String(state.nextAction || "Run morning queue and verify evidence")}</p>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Unified Queues</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {countEntries.map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-gray-800 bg-[#0b1220] px-3 py-2">
+                <p className="text-xs text-gray-500">{label}</p>
+                <p className="text-lg font-semibold text-white">{Number(value || 0)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Proof and Repair</p>
+          <div className="mt-2 space-y-2 text-sm">
+            <p className="text-gray-300">Evidence inbox: {Array.isArray(state.evidenceInbox) ? state.evidenceInbox.length : 0}</p>
+            <p className="text-gray-300">Open repairs: {repairs.length}</p>
+            <p className="text-gray-300">Broken rails: {brokenRails.length}</p>
+            <p className="text-gray-300">Calls ready: {Number(movement.calls_ready || 0)}</p>
+            <p className="text-gray-300">Leads ready: {Number(movement.leads_ready || 0)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 border-t border-gray-800 pt-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Daily Cycles</p>
+        <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+          {cycles.map((cycle) => (
+            <div key={String(cycle.id)} className="rounded-lg border border-gray-800 bg-[#0b1220] p-3">
+              <p className="font-medium text-white">{String(cycle.id)} / {String(cycle.starts_local)}</p>
+              <p className="mt-1 text-sm text-gray-400">{String(cycle.objective)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 

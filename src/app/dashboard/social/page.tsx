@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { SOCIAL_PLATFORMS, SocialPost } from "@/lib/mockData";
-import { getPlatformSocialPosts, hasPlatformAccess } from "@/lib/dashboardApi";
+import { getSocialDashboardState, hasPlatformAccess } from "@/lib/dashboardApi";
+import { type CoworkQueueRow } from "@/lib/socialContentEngine.mjs";
 import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -204,30 +205,92 @@ function PostCard({
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
-type Tab = "calendar" | "approval" | "published" | "drafts";
+type Tab = "calendar" | "approval" | "cowork" | "published" | "drafts";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "calendar", label: "Content Calendar", icon: "📅" },
   { id: "approval", label: "Approval Queue", icon: "⏳" },
+  { id: "cowork", label: "Cowork Queue", icon: "C" },
   { id: "published", label: "Published", icon: "✅" },
   { id: "drafts", label: "Drafts", icon: "📝" },
 ];
+
+function CoworkQueueTable({ rows }: { rows: CoworkQueueRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <div className="text-center py-16 text-gray-500">
+        <p className="font-medium text-white">Cowork queue is clear</p>
+        <p className="text-sm mt-1">Approved posts ready for manual posting will appear here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-800 bg-[#111827]">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-800 text-sm">
+          <thead className="bg-[#0d1117] text-left text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+              {["Topic", "Platform", "Post Text", "Caption", "Asset URL", "CTA", "Scheduled Date", "Status", "Notes"].map((heading) => (
+                <th key={heading} className="whitespace-nowrap px-4 py-3 font-medium">
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-800">
+            {rows.map((row) => (
+              <tr key={row.id} className="align-top">
+                <td className="max-w-[220px] px-4 py-3 font-medium text-white">{row.topic || "Untitled"}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-300">{row.platform || "-"}</td>
+                <td className="min-w-[260px] max-w-[360px] px-4 py-3 text-gray-300">
+                  <p className="line-clamp-4 whitespace-pre-wrap">{row.postText || "-"}</p>
+                </td>
+                <td className="min-w-[220px] max-w-[320px] px-4 py-3 text-gray-400">
+                  <p className="line-clamp-3 whitespace-pre-wrap">{row.caption || "-"}</p>
+                </td>
+                <td className="max-w-[220px] px-4 py-3">
+                  {row.assetUrl ? (
+                    <a href={row.assetUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 break-all">
+                      {row.assetUrl}
+                    </a>
+                  ) : (
+                    <span className="text-gray-600">-</span>
+                  )}
+                </td>
+                <td className="max-w-[180px] px-4 py-3 text-gray-300">{row.cta || "-"}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-400">{row.scheduledDate ? fmtDatetime(row.scheduledDate) : "-"}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-300">{row.status || "-"}</td>
+                <td className="max-w-[240px] px-4 py-3 text-gray-400">{row.notes || row.postingNotes || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="border-t border-gray-800 px-4 py-3 text-xs text-gray-500">
+        Cowork posts from this queue only, then updates the same source record with Published URL and Posted Date.
+      </div>
+    </div>
+  );
+}
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function SocialPage() {
   const [activeTab, setActiveTab] = useState<Tab>("calendar");
   const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [coworkQueue, setCoworkQueue] = useState<CoworkQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const platformAccess = hasPlatformAccess();
 
   useEffect(() => {
     let cancelled = false;
-    getPlatformSocialPosts()
-      .then((realPosts) => {
+    getSocialDashboardState()
+      .then((state) => {
         if (cancelled) return;
-        setPosts((realPosts || []) as SocialPost[]);
+        setPosts((state.posts || []) as SocialPost[]);
+        setCoworkQueue(state.coworkQueue || []);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -250,7 +313,11 @@ export default function SocialPage() {
 
   function handleApprove(id: string) {
     setPosts((prev) =>
-      prev.map((p) => p.id === id ? { ...p, status: "approved" as const, approval_status: "approved" as const } : p)
+      prev.map((p) =>
+        p.id === id
+          ? { ...p, status: "approved" as const, approval_status: "approved" as const, distribution_status: "Ready for Manual Posting" as const }
+          : p
+      )
     );
     setSelectedIds((s) => { const n = new Set(s); n.delete(id); return n; });
   }
@@ -270,7 +337,7 @@ export default function SocialPage() {
     setPosts((prev) =>
       prev.map((p) =>
         selectedIds.has(p.id)
-          ? { ...p, status: "approved" as const, approval_status: "approved" as const }
+          ? { ...p, status: "approved" as const, approval_status: "approved" as const, distribution_status: "Ready for Manual Posting" as const }
           : p
       )
     );
@@ -280,7 +347,11 @@ export default function SocialPage() {
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -300,7 +371,7 @@ export default function SocialPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Social Media</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {pendingPosts.length} pending approval · {calPosts.length} scheduled · {draftPosts.length} drafts
+            {pendingPosts.length} pending approval · {coworkQueue.length} ready for Cowork · {calPosts.length} scheduled · {draftPosts.length} drafts
           </p>
         </div>
         <Link
@@ -339,6 +410,11 @@ export default function SocialPage() {
             {tab.id === "approval" && pendingPosts.length > 0 && (
               <span className="ml-1.5 bg-yellow-500 text-black text-xs px-1.5 py-0.5 rounded-full font-bold">
                 {pendingPosts.length}
+              </span>
+            )}
+            {tab.id === "cowork" && coworkQueue.length > 0 && (
+              <span className="ml-1.5 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+                {coworkQueue.length}
               </span>
             )}
           </button>
@@ -483,6 +559,19 @@ export default function SocialPage() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Cowork Queue Tab ───────────────────────────────────────────────── */}
+      {activeTab === "cowork" && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-gray-800 bg-[#111827] p-4">
+            <p className="text-sm font-medium text-white">Cowork Posting Queue</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Filter: Approval Status is Approved, Distribution Status is Ready for Manual Posting, and Scheduled Date is today or earlier.
+            </p>
+          </div>
+          <CoworkQueueTable rows={coworkQueue} />
         </div>
       )}
 

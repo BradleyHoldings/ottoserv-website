@@ -23,6 +23,7 @@
 
 # operational ledgers with real lead/contact data
 /data/call-imports/*.json
+/data/revenue-engine/*.json
 /reports/ops/*.md
 
 # misc
