@@ -26,6 +26,7 @@ import path from "node:path";
 import { createDailyLoopRun } from "./revenueEngine.mjs";
 import { assembleRevenueLoopInput } from "./revenueLoopSources.mjs";
 import { promoteSeedsToWorkOrders } from "./implementationWorkOrders.mjs";
+import { upsertRevenueState } from "./revenueEngineSupabaseStore.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -75,9 +76,18 @@ export async function runRevenueDailyLoop(options = {}) {
   const datedPath = path.join(outputDir, `${run.id}.json`);
   writeFileSync(datedPath, `${JSON.stringify(document, null, 2)}\n`, "utf8");
 
-  // `latest.json` is the single source-of-truth the dashboard/Hermes read.
+  // `latest.json` is the single source-of-truth the dashboard/Hermes read locally.
   const latestPath = path.join(outputDir, "latest.json");
   writeFileSync(latestPath, `${JSON.stringify(document, null, 2)}\n`, "utf8");
+
+  // Durable persistence so a Vercel-served dashboard (read-only fs) can read the
+  // same state. Best-effort and gated: no-ops when Supabase isn't configured, and
+  // never throws — a persistence hiccup must not break the local run. Pass
+  // `persistSupabase: false` to force-skip (used by hermetic tests).
+  let supabase = { ok: false, skipped: true, reason: "disabled" };
+  if (options.persistSupabase !== false) {
+    supabase = await upsertRevenueState(document);
+  }
 
   const summary = {
     status: run.status,
@@ -101,7 +111,9 @@ export async function runRevenueDailyLoop(options = {}) {
     dated_output_path: datedPath,
     latest_output_path: latestPath,
     work_orders_store_path: implementation.storePath,
+    supabase_persisted: supabase.ok === true,
+    supabase,
   };
 
-  return { summary, document, outputDir, datedPath, latestPath, storePath: implementation.storePath };
+  return { summary, document, outputDir, datedPath, latestPath, storePath: implementation.storePath, supabase };
 }

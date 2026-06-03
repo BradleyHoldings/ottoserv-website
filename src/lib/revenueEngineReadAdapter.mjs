@@ -22,6 +22,21 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+import { readRevenueState, REVENUE_STATE_TABLE } from "./revenueEngineSupabaseStore.mjs";
+
+// Durable fallback used when no local file exists (e.g. Vercel's read-only fs).
+// Returns { data, lastModified, available, source } or a not-available marker.
+async function readRevenueStateFallback() {
+  const result = await readRevenueState();
+  if (!result || !result.document) return { data: null, lastModified: null, available: false };
+  return {
+    data: result.document,
+    lastModified: result.document.generated_at || result.updated_at || null,
+    available: true,
+    source: `supabase:${REVENUE_STATE_TABLE}`,
+  };
+}
+
 export function resolveRevenueEngineDir(options = {}) {
   if (options.dataDir) return options.dataDir;
   if (process.env.REVENUE_LOOP_OUTPUT_DIR) return process.env.REVENUE_LOOP_OUTPUT_DIR;
@@ -51,7 +66,18 @@ function clean(value) {
 export async function readAutonomousRevenueState(options = {}) {
   const dir = resolveRevenueEngineDir(options);
   const file = path.join(dir, "latest.json");
-  const { data, lastModified, available } = await readJsonWithMeta(file);
+  let { data, lastModified, available } = await readJsonWithMeta(file);
+  let sourceFile = file;
+
+  // No local file (e.g. Vercel) → durable Supabase fallback.
+  if (!available || !data) {
+    const fallback = await readRevenueStateFallback();
+    if (fallback.available) {
+      ({ data, lastModified } = fallback);
+      available = true;
+      sourceFile = fallback.source;
+    }
+  }
 
   if (!available || !data) {
     return {
@@ -87,7 +113,7 @@ export async function readAutonomousRevenueState(options = {}) {
 
   return {
     available: true,
-    source: { file, lastModified },
+    source: { file: sourceFile, lastModified },
     generatedAt: clean(data.generated_at),
     planDate: clean(plan.run_date),
     schedule: clean(data.schedule || plan.schedule),
@@ -167,13 +193,25 @@ export async function readImplementationWorkOrders(options = {}) {
   const file = path.join(dir, "implementation-work-orders.json");
   let { data, lastModified, available } = await readJsonWithMeta(file);
 
-  // Fallback: durable store missing → use the snapshot embedded in latest.json.
+  // Fallback 1: durable store missing → use the snapshot embedded in latest.json.
   if (!available) {
     const latest = await readJsonWithMeta(path.join(dir, "latest.json"));
     const embedded = asArray(latest.data?.implementationWorkOrders?.orders);
     if (embedded.length) {
       data = embedded;
       lastModified = latest.lastModified;
+      available = true;
+    }
+  }
+
+  // Fallback 2: no local files (e.g. Vercel) → durable Supabase document, which
+  // embeds the same orders. Contact PII is still redacted below.
+  if (!available) {
+    const fallback = await readRevenueStateFallback();
+    const orders = asArray(fallback.data?.implementationWorkOrders?.orders);
+    if (fallback.available && orders.length) {
+      data = orders;
+      lastModified = fallback.lastModified;
       available = true;
     }
   }
