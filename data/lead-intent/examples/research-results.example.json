@@ -1,0 +1,65 @@
+[
+  {
+    "_note": "SYNTHETIC EXAMPLE ONLY — illustrates the enriched lead input shape. Not real leads; do not contact. Replace source_url/snippet with real public evidence from Cowork research before any outreach.",
+    "business_name": "Reliable Flow Plumbing",
+    "website": "https://reliableflowplumbing.example.com",
+    "phone": "+1 (407) 555-0142",
+    "email": "office@reliableflowplumbing.example.com",
+    "location": "Orlando, FL",
+    "industry": "plumbing",
+    "decision_maker": "Owner (per public post)",
+    "source_url": "https://www.reddit.com/r/smallbusiness/comments/example1/",
+    "date_of_signal": "RECENT_30D",
+    "signal_window": "last_30_days",
+    "intent_type": "explicit_buying_intent",
+    "intent_evidence_summary": "Owner asked what other plumbers use to stop missing after-hours calls; said they lose jobs when the phone goes to voicemail.",
+    "evidence_snippet": "\"We keep missing calls after 5pm and losing jobs. What are you all using to answer the phones?\"",
+    "pain_point": "Missed after-hours calls; lost jobs to voicemail.",
+    "recommended_offer": "AI Receptionist"
+  },
+  {
+    "business_name": "PeakAir HVAC",
+    "website": "https://peakairhvac.example.com",
+    "email": "info@peakairhvac.example.com",
+    "location": "Tampa, FL",
+    "industry": "hvac",
+    "source_url": "https://www.google.com/maps/place/example-peakair-reviews",
+    "signal_window": "last_30_days",
+    "intent_type": "missed_call_or_response_issue",
+    "intent_evidence_summary": "Multiple recent reviews mention nobody answering and no callback.",
+    "evidence_snippet": "\"Called three times, no one picked up, never called back.\"",
+    "pain_point": "Phone coverage / callback failures hurting booked jobs."
+  },
+  {
+    "business_name": "Harbor Point Property Management",
+    "website": "https://harborpointpm.example.com",
+    "phone": "813-555-0199",
+    "email": "leasing@harborpointpm.example.com",
+    "location": "St. Petersburg, FL",
+    "industry": "property_management",
+    "source_url": "https://www.indeed.com/example-dispatcher-job",
+    "signal_window": "last_90_days",
+    "intent_type": "operational_pain",
+    "intent_evidence_summary": "Posting to hire a leasing coordinator to handle overflow calls and maintenance scheduling.",
+    "evidence_snippet": "\"Seeking coordinator to manage high call volume and maintenance scheduling.\"",
+    "pain_point": "Overflow calls and maintenance dispatch overwhelming the office."
+  },
+  {
+    "business_name": "Summit Roofing Co",
+    "website": "https://summitroofing.example.com",
+    "phone": "904-555-0123",
+    "location": "Jacksonville, FL",
+    "industry": "roofing",
+    "intent_type": "growth_signal",
+    "intent_evidence_summary": "Established local roofer, strong ICP fit, no recent public intent signal found.",
+    "pain_point": "Likely follow-up/scheduling gaps typical of growing roofers (unconfirmed)."
+  },
+  {
+    "business_name": "Best Leads Marketing Agency",
+    "website": "https://bestleadsagency.example.com",
+    "industry": "marketing agency (vendor)",
+    "intent_type": "other",
+    "intent_evidence_summary": "Marketing agency selling services — not an ICP, no contact path captured.",
+    "pain_point": ""
+  }
+]
