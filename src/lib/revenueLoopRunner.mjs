@@ -27,6 +27,7 @@ import { createDailyLoopRun } from "./revenueEngine.mjs";
 import { assembleRevenueLoopInput } from "./revenueLoopSources.mjs";
 import { promoteSeedsToWorkOrders } from "./implementationWorkOrders.mjs";
 import { upsertRevenueState } from "./revenueEngineSupabaseStore.mjs";
+import { buildApprovalExecutionQueue, readApprovedDecisionsFromDir } from "./approvalExecutionBridge.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -35,6 +36,10 @@ export function inferCycle(value = new Date().toISOString()) {
 
 export function defaultOutputDir(cwd = process.cwd()) {
   return path.join(cwd, "data", "revenue-engine");
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 export async function runRevenueDailyLoop(options = {}) {
@@ -58,6 +63,17 @@ export async function runRevenueDailyLoop(options = {}) {
   // Idempotent — re-running each cycle never duplicates existing work orders.
   const implementation = await promoteSeedsToWorkOrders(serviceDelivery, { now, storePath });
 
+  // Approval → execution bridge: turn recorded approval decisions into actor task
+  // packets + lifecycle so an approved action becomes an executable/delegable to-do
+  // with required evidence. Inputs are best-effort: explicit `options.approvals`
+  // (tests / callers) plus approved decisions read from the outbox dir (droplet).
+  // Nothing is executed here — this only produces the queue. Empty by default.
+  const approvedDecisions =
+    options.approvals !== undefined
+      ? asArray(options.approvals)
+      : await readApprovedDecisionsFromDir(options.approvalsDir);
+  const approvalExecutionQueue = buildApprovalExecutionQueue(approvedDecisions, { now });
+
   const document = {
     ...run,
     serviceDelivery,
@@ -68,6 +84,7 @@ export async function runRevenueDailyLoop(options = {}) {
       store_path: implementation.storePath,
       orders: implementation.workOrders,
     },
+    approvalExecutionQueue,
     sources,
     generated_at: now,
   };
@@ -105,6 +122,10 @@ export async function runRevenueDailyLoop(options = {}) {
       total: implementation.summary.total,
       needs_approval: implementation.summary.needs_approval,
       by_stage: implementation.summary.by_stage,
+    },
+    approval_execution_queue: {
+      count: approvalExecutionQueue.count,
+      skipped_not_approved: approvalExecutionQueue.skipped_not_approved,
     },
     revenue_risks: run.plan.revenue_risks,
     health: run.health,
