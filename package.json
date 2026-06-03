@@ -12,6 +12,7 @@
     "revenue:daily-loop": "node scripts/revenue-daily-loop.mjs",
     "lead:intake": "node scripts/lead-intent-pipeline.mjs",
     "evidence:submit": "node scripts/actor-submit-evidence.mjs",
+    "hermes:operate": "node scripts/hermes-operate.mjs",
     "verify:ops": "node scripts/verify-call-import.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "verify:revenue-flow": "node scripts/verify-revenue-flow.mjs",
