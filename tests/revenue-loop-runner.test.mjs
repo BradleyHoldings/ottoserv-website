@@ -18,9 +18,12 @@ function tmpOut() {
   return mkdtempSync(path.join(os.tmpdir(), "loop-out-"));
 }
 
-test("inferCycle splits on midday", () => {
-  assert.equal(inferCycle("2026-06-03T09:00:00.000Z"), "morning");
-  assert.equal(inferCycle("2026-06-03T15:00:00.000Z"), "afternoon");
+test("inferCycle splits on midday (host-local time)", () => {
+  // inferCycle uses local hours to match the host-local cron schedule, so the
+  // test must use local-time strings (no trailing "Z") to stay deterministic
+  // across machine timezones. 09:00 local < noon → morning; 15:00 local → afternoon.
+  assert.equal(inferCycle("2026-06-03T09:00:00"), "morning");
+  assert.equal(inferCycle("2026-06-03T15:00:00"), "afternoon");
 });
 
 test("runner writes latest.json, a dated run, and the work-order store into outputDir", async () => {
