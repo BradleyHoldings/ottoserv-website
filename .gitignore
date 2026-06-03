@@ -54,3 +54,5 @@ next-env.d.ts
 
 # local patch/bundle artifacts
 /patches/
+.graphify-venv/
+graphify-out/
