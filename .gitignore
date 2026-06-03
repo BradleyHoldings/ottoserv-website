@@ -25,6 +25,9 @@
 /data/call-imports/*.json
 /data/revenue-engine/*.json
 /data/revenue-engine/*.log
+# Lead-intent runtime outputs (mutable). Committed examples live in
+# data/lead-intent/examples/ and stay tracked.
+/data/lead-intent/*.json
 # SocialEngine runtime ledgers (mutable). The committed seed lives in
 # data/social-engine/seed/ and evidence in data/social-engine/evidence/.
 /data/social-engine/*.json
