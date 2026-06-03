@@ -230,10 +230,63 @@ export async function readImplementationWorkOrders(options = {}) {
 
 // ─── Combined read model for a single page call ───────────────────────────────
 
+// ─── Approval → execution queue (read-only, evidence PII scrubbed) ────────────
+
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const PHONE_RE = /(\+?\d[\d\s().-]{7,}\d)/g;
+
+function scrubText(value) {
+  return clean(value).replace(EMAIL_RE, "[redacted-email]").replace(PHONE_RE, "[redacted-phone]");
+}
+
+function redactExecutionItem(item = {}) {
+  const lifecycle = item.lifecycle || {};
+  const submitted = asArray(lifecycle.submitted_evidence).map((ev) => ({
+    ...ev,
+    evidence_summary: scrubText(ev.evidence_summary),
+    evidence_reference: scrubText(ev.evidence_reference),
+  }));
+  return {
+    taskPacket: item.taskPacket || null,
+    lifecycle: { ...lifecycle, submitted_evidence: submitted },
+  };
+}
+
+/**
+ * Read the approval → execution queue from the loop document (local file, else
+ * Supabase fallback for Vercel). Read-only; evidence text is PII-scrubbed.
+ */
+export async function readApprovalExecutionQueue(options = {}) {
+  const dir = resolveRevenueEngineDir(options);
+  let { data, lastModified, available } = await readJsonWithMeta(path.join(dir, "latest.json"));
+  let sourceFile = path.join(dir, "latest.json");
+
+  if (!available || !data) {
+    const fallback = await readRevenueStateFallback();
+    if (fallback.available) {
+      data = fallback.data;
+      lastModified = fallback.lastModified;
+      available = true;
+      sourceFile = fallback.source;
+    }
+  }
+
+  const queue = data?.approvalExecutionQueue || {};
+  const items = asArray(queue.items).map(redactExecutionItem);
+  return {
+    available: Boolean(available && data),
+    source: { file: sourceFile, lastModified: lastModified || null },
+    count: items.length,
+    skipped_not_approved: Number(queue.skipped_not_approved || 0),
+    items,
+  };
+}
+
 export async function readRevenueDashboardReadModel(options = {}) {
-  const [revenue, implementation] = await Promise.all([
+  const [revenue, implementation, approvalExecution] = await Promise.all([
     readAutonomousRevenueState(options),
     readImplementationWorkOrders(options),
+    readApprovalExecutionQueue(options),
   ]);
-  return { revenue, implementation, readOnly: true };
+  return { revenue, implementation, approvalExecution, readOnly: true };
 }
