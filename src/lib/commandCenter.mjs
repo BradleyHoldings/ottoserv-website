@@ -53,6 +53,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
   const dashboardAlerts = asArray(raw.dashboardAlerts);
   const dashboardActivity = asArray(raw.recentActivity);
   const leadSupply = raw.leadSupply || null;
+  const revenueEngine = raw.revenueEngine || null;
   const admin = isOttoServAdmin(user);
 
   const activeTasks = tasks.filter((task) => ACTIVE_TASK_STATUSES.has(String(task.status || "").toLowerCase()));
@@ -76,6 +77,14 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     { id: "callsToday", label: "Calls Today", value: callsToday.length, helper: callsToday.length ? `${callsToday.filter((call) => call.status === "completed").length} connected` : "No calls yet", href: "/dashboard/inbox?type=calls&date=today", color: "blue" },
     { id: "openWorkOrders", label: "Open Work Orders", value: openWorkOrders.length, helper: openWorkOrders.length ? "Open jobs" : "No open work orders", href: "/dashboard/work-orders?status=open", color: "blue" },
     { id: "aiPending", label: "AI Actions Pending", value: aiPending.length, helper: aiPending.length ? "Review required" : "All clear", href: "/os/hermes/approvals", color: aiPending.length ? "yellow" : "green" },
+    {
+      id: "revenueRepairs",
+      label: "Revenue Repairs",
+      value: Number(revenueEngine?.repairQueue?.length || 0),
+      helper: revenueEngine?.nextAction || "Revenue loop ready",
+      href: "/dashboard/command-center#revenue-engine",
+      color: revenueEngine?.repairQueue?.length ? "red" : "green",
+    },
   ];
 
   const moduleCards = [
@@ -86,6 +95,13 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     { id: "automations", title: "Active Automations", value: activeAutomations.length, description: failedAutomations.length ? `${failedAutomations.length} need review` : "Running cleanly", href: "/dashboard/automations" },
     { id: "inbox", title: "Unread Inbox", value: unreadInbox.length, description: "Messages and calls", href: "/dashboard/inbox" },
     { id: "agents", title: "Agent Alerts", value: aiPending.length + failedAutomations.length, description: "AI approvals and failures", href: "/os/hermes" },
+    {
+      id: "revenueEngine",
+      title: "Revenue Engine",
+      value: Number(revenueEngine?.revenueMovement?.calls_ready || 0) + Number(revenueEngine?.revenueMovement?.leads_ready || 0),
+      description: revenueEngine?.selfRepairStatus === "repairs_open" ? "Repair before scale" : "Daily loop ready",
+      href: "/dashboard/command-center#revenue-engine",
+    },
   ];
 
   const snapshot = {
@@ -243,6 +259,9 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     recommendation: alerts.length ? "Start with the highest severity alert, then clear follow-ups due today." : "Use the quiet window to add tasks, connect integrations, or review reports.",
     handling: aiPending.length ? `${aiPending.length} Jarvis action${aiPending.length === 1 ? "" : "s"} waiting for approval.` : "Jarvis will show approval requests here when actions need permission.",
     emptyMessage: "Everything looks clear. Connect your CRM, calendar, inbox, and financials to unlock a full daily operating brief.",
+    revenueEngine: revenueEngine
+      ? `${revenueEngine.todayPlan?.icp_focus || "Revenue ICP"} / ${revenueEngine.nextAction || "run daily loop"}`
+      : "RevenueEngine will appear here once dashboard state loads.",
   };
 
   const leadHealth = admin
@@ -275,6 +294,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     recentActivity,
     jarvisBrief,
     leadHealth,
+    revenueEngine,
     meta: {
       activeProjects: activeProjects.length,
       openInvoices: openInvoices.length,

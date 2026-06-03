@@ -1,16 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   type SIAPost,
   type SIATemplate,
   type SIAPainType,
 } from "@/lib/mockData";
-import ComingSoonBanner from "@/components/dashboard/ComingSoonBanner";
+import { getLiveSocialState, type SocialOpsHealth } from "@/lib/dashboardApi";
 
 const mockSIAPosts: SIAPost[] = [];
 const mockSIATemplates: SIATemplate[] = [];
-const mockSIAStats: any = { total_posts: 0, high_intent: 0, replies_drafted: 0, replies_sent: 0 };
 
 type IntentLevel = "high" | "medium" | "low";
 
@@ -253,20 +252,16 @@ function TemplateCard({ tpl }: { tpl: SIATemplate }) {
 
 // ── Engagement Funnel ─────────────────────────────────────────────────────────
 
-const FUNNEL_STAGES = [
-  { label: "Detected", value: 47, color: "bg-blue-600" },
-  { label: "Commented", value: 28, color: "bg-sky-500" },
-  { label: "Replied", value: 10, color: "bg-green-500" },
-  { label: "DM Sent", value: 8, color: "bg-purple-500" },
-  { label: "Converted", value: 3, color: "bg-amber-500" },
-];
+type FunnelStage = { label: string; value: number; color: string };
 
-function EngagementFunnel() {
-  const max = FUNNEL_STAGES[0].value;
+function EngagementFunnel({ stages }: { stages: FunnelStage[] }) {
+  const max = Math.max(stages[0]?.value || 0, 1);
+  const first = stages[0]?.value || 0;
+  const last = stages[stages.length - 1]?.value || 0;
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-4">
-      {FUNNEL_STAGES.map((stage, i) => {
-        const prevVal = i > 0 ? FUNNEL_STAGES[i - 1].value : null;
+      {stages.map((stage, i) => {
+        const prevVal = i > 0 ? stages[i - 1].value : null;
         const dropPct = prevVal ? Math.round((stage.value / prevVal) * 100) : null;
         return (
           <div key={stage.label} className="space-y-1.5">
@@ -280,16 +275,13 @@ function EngagementFunnel() {
               </div>
             </div>
             <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full ${stage.color} rounded-full`}
-                style={{ width: `${(stage.value / max) * 100}%` }}
-              />
+              <div className={`h-full ${stage.color} rounded-full`} style={{ width: `${(stage.value / max) * 100}%` }} />
             </div>
           </div>
         );
       })}
       <p className="text-gray-600 text-xs pt-1">
-        Overall conversion rate: {((3 / 47) * 100).toFixed(1)}% detected → client
+        Draft → published rate: {first ? ((last / first) * 100).toFixed(1) : "0.0"}% (live SocialEngine pipeline)
       </p>
     </div>
   );
@@ -302,6 +294,20 @@ export default function SocialIntelligencePage() {
     mockSIAPosts.filter((p) => p.status === "pending_approval")
   );
 
+  // Live social/revenue intelligence from the SocialEngine (was static before).
+  const [health, setHealth] = useState<SocialOpsHealth | null>(null);
+  const [published, setPublished] = useState<Array<Record<string, any>>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getLiveSocialState().then((live) => {
+      if (cancelled || !live) return;
+      setHealth(live.health);
+      setPublished((live.items || []).filter((i: any) => i.status === "published"));
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const activePosts = mockSIAPosts.filter((p) =>
     ["commented", "replied", "dm_sent"].includes(p.status)
   );
@@ -312,63 +318,72 @@ export default function SocialIntelligencePage() {
     }
   }
 
+  const funnelStages: FunnelStage[] = [
+    { label: "Drafts", value: health?.drafts_count ?? 0, color: "bg-blue-600" },
+    { label: "Pending approval", value: health?.pending_approval_count ?? 0, color: "bg-sky-500" },
+    { label: "Approved / awaiting Cowork", value: health?.approved_awaiting_cowork_count ?? 0, color: "bg-purple-500" },
+    { label: "Published", value: health?.published_count ?? 0, color: "bg-green-500" },
+  ];
+
   return (
     <div className="space-y-8 pb-10">
       {/* Header */}
       <div>
         <h1 className="text-white text-xl font-bold">Social Intelligence Hub</h1>
-      <ComingSoonBanner />
-
         <p className="text-gray-400 text-sm mt-0.5">
-          AI-detected posts with buying signals — approve, comment, and convert
+          Live social/revenue pipeline from the SocialEngine, plus AI-detected buying signals.
+        </p>
+        <p className="text-gray-600 text-xs mt-1">
+          {health
+            ? <>Data source: <span className="text-gray-400 break-all">{health.data_source}</span> · backend {health.backend_connected ? "connected" : "disconnected"}</>
+            : "Connecting to SocialEngine…"}
         </p>
       </div>
 
-      {/* KPI row */}
+      {/* Live SocialEngine KPI row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KpiCard
-          label="Posts Detected"
-          value={mockSIAStats.posts_detected}
-          color="blue"
-          sub="last 30 days"
-        />
-        <KpiCard
-          label="Pending Approval"
-          value={mockSIAStats.pending_approval}
-          color="yellow"
-          sub="need review"
-        />
-        <KpiCard
-          label="Comments Posted"
-          value={mockSIAStats.comments_posted}
-          color="green"
-        />
-        <KpiCard
-          label="Reply Rate"
-          value={mockSIAStats.reply_rate}
-          color="purple"
-          sub="of comments"
-        />
-        <KpiCard
-          label="DMs Sent"
-          value={mockSIAStats.dm_sent}
-          color="pink"
-        />
-        <KpiCard
-          label="Conversions"
-          value={mockSIAStats.conversions}
-          color="amber"
-          sub="this month"
-        />
+        <KpiCard label="Drafts" value={health?.drafts_count ?? 0} color="blue" sub="in pipeline" />
+        <KpiCard label="Pending Approval" value={health?.pending_approval_count ?? 0} color="yellow" sub="need review" />
+        <KpiCard label="Awaiting Cowork" value={health?.approved_awaiting_cowork_count ?? 0} color="purple" sub="approved" />
+        <KpiCard label="Published" value={health?.published_count ?? 0} color="green" sub="with evidence" />
+        <KpiCard label="Failed / Fallback" value={health?.failed_stalled_count ?? 0} color="pink" sub="needs owner" />
+        <KpiCard label="Total Records" value={health?.total_count ?? 0} color="amber" />
+      </div>
+
+      {/* Published evidence (live) */}
+      <div>
+        <div className="mb-4">
+          <h2 className="text-white font-semibold text-base">Published Evidence</h2>
+          <p className="text-gray-500 text-xs mt-0.5">Live published records with proof URLs from the SocialEngine</p>
+        </div>
+        {published.length === 0 ? (
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center"><p className="text-gray-400 text-sm">No published evidence yet</p></div>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {published.map((p) => (
+              <div key={p.id} className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="px-2 py-0.5 rounded border border-gray-700 text-gray-300 capitalize">{p.platform}</span>
+                  <span className="px-2 py-0.5 rounded border border-green-800 text-green-400">{p.content_category || "published"}</span>
+                </div>
+                <p className="text-gray-300 text-sm line-clamp-3">{p.post_text}</p>
+                {p.published_url && (
+                  <a href={p.published_url} target="_blank" rel="noreferrer" className="text-blue-400 text-xs hover:underline break-all">{p.published_url}</a>
+                )}
+                {p.evidence_url && <p className="text-gray-500 text-xs break-all">evidence: {p.evidence_url}</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Approval Queue */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-white font-semibold text-base">Approval Queue</h2>
+            <h2 className="text-white font-semibold text-base">Reddit Comment Approval Queue</h2>
             <p className="text-gray-500 text-xs mt-0.5">
-              Review before comments go live
+              Separate intent monitor. Social post approvals live in /dashboard/social.
             </p>
           </div>
           {queuePosts.length > 0 && (
@@ -428,12 +443,12 @@ export default function SocialIntelligencePage() {
         </div>
         <div>
           <div className="mb-4">
-            <h2 className="text-white font-semibold text-base">Engagement Funnel</h2>
+            <h2 className="text-white font-semibold text-base">Social Pipeline Funnel</h2>
             <p className="text-gray-500 text-xs mt-0.5">
-              Detected → commented → replied → DM → converted
+              Live SocialEngine: drafts → pending → approved → published
             </p>
           </div>
-          <EngagementFunnel />
+          <EngagementFunnel stages={funnelStages} />
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SOCIAL_PLATFORMS, SocialPlatformId } from "@/lib/mockData";
+import { buildStructuredContentDraft } from "@/lib/socialContentEngine.mjs";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -161,13 +162,24 @@ export default function PostCreatorPage() {
 
   function generateAiDraft() {
     const topic = aiTopic.trim() || "missed calls and slow follow-up";
-    const triggerLabel =
-      EMOTIONAL_TRIGGERS.find((item) => item.id === emotionalTrigger)?.label ?? "Urgency";
-    const generated = `Most teams do not notice how much revenue slips through ${topic} until the phones get busy and follow-up slows down.\n\nOttoServ helps small business teams answer inbound demand, qualify the lead, and keep the next step moving without relying on someone being free at the exact right moment.\n\nThe practical win is simple: faster response, fewer dropped opportunities, and cleaner handoff when the request is urgent.\n\n${triggerLabel} matters here because buyers remember who responded first.`;
+    const draft = buildStructuredContentDraft({
+      topic,
+      contentPillar: "Revenue leaks and front office breakdowns",
+      targetAudience: "owners/operators of service businesses, contractors, trades, remodelers, and property managers",
+      angle: topic,
+    });
+    const generated =
+      previewPlatform === "linkedin"
+        ? draft.linkedInPost
+        : previewPlatform === "instagram"
+          ? draft.instagramCaption
+          : previewPlatform === "twitter"
+            ? draft.twitterPost
+            : draft.facebookPost;
 
     setContent(generated);
     if (!cta) {
-      setCta("Book a free call");
+      setCta(draft.cta);
     }
     setShowAiModal(false);
   }
