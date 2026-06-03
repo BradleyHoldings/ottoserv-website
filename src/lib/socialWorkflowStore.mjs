@@ -17,17 +17,17 @@
 // loop / Cowork workspace can point at the same files in production.
 
 import { promises as fs } from "fs";
+import { mkdirSync, accessSync, constants as FS } from "fs";
+import os from "os";
 import path from "path";
 
 export const SOCIAL_ENGINE_DATA_DIR =
   process.env.SOCIAL_ENGINE_DATA_DIR || path.join(process.cwd(), "data", "social-engine");
 
-export const SOCIAL_DRAFTS_PATH = path.join(SOCIAL_ENGINE_DATA_DIR, "social_drafts.json");
-export const SOCIAL_EVENTS_PATH = path.join(SOCIAL_ENGINE_DATA_DIR, "social_events.json");
-
 // Committed seed (imported Instagram/LinkedIn evidence + safe test draft). Lives
 // in a subdirectory so it survives the `/data/social-engine/*.json` gitignore rule
-// that hides the mutable runtime ledgers.
+// that hides the mutable runtime ledgers. Always read from the deploy bundle
+// (readable even on Vercel's read-only /var/task), never written.
 export const SOCIAL_SEED_PATH = path.join(
   process.cwd(),
   "data",
@@ -35,6 +35,43 @@ export const SOCIAL_SEED_PATH = path.join(
   "seed",
   "drafts.json",
 );
+
+// ─── Writable directory resolution ────────────────────────────────────────────
+//
+// On Vercel the app is deployed under a read-only /var/task, so writing
+// data/social-engine/* throws EROFS. Resolve to the first writable directory:
+//   1. SOCIAL_ENGINE_DATA_DIR (or repo data dir) if writable  — local dev
+//   2. <os.tmpdir()>/ottoserv-social-engine                   — serverless safety net
+// The tmp fallback is ephemeral per cold start; Supabase is the durable
+// production store. This only prevents EROFS crashes when Supabase is absent.
+
+let cachedDataDir = null;
+
+function isWritableDir(dir) {
+  try {
+    mkdirSync(dir, { recursive: true });
+    accessSync(dir, FS.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveWritableDataDir(preferred = SOCIAL_ENGINE_DATA_DIR) {
+  if (cachedDataDir && cachedDataDir.preferred === preferred) return cachedDataDir;
+  let dir = preferred;
+  let writable = isWritableDir(preferred);
+  if (!writable) {
+    const fallback = path.join(os.tmpdir(), "ottoserv-social-engine");
+    writable = isWritableDir(fallback);
+    dir = writable ? fallback : preferred;
+  }
+  cachedDataDir = { preferred, dir, writable };
+  return cachedDataDir;
+}
+
+export const SOCIAL_DRAFTS_PATH = path.join(SOCIAL_ENGINE_DATA_DIR, "social_drafts.json");
+export const SOCIAL_EVENTS_PATH = path.join(SOCIAL_ENGINE_DATA_DIR, "social_events.json");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -70,8 +107,13 @@ async function writeJson(filePath, data) {
  * @param {string} [options.seedPath]  Committed seed used to hydrate an empty dir.
  */
 export function createFileSocialWorkflowStore(options = {}) {
-  const filePath = options.filePath || SOCIAL_DRAFTS_PATH;
-  const seedPath = options.seedPath || SOCIAL_SEED_PATH;
+  // Resolve a writable target. An explicit filePath wins (tests/dev); otherwise
+  // pick the first writable dir so production never tries to write to /var/task.
+  const resolved = options.filePath
+    ? { dir: path.dirname(options.filePath), writable: isWritableDir(path.dirname(options.filePath)) }
+    : resolveWritableDataDir();
+  const filePath = options.filePath || path.join(resolved.dir, "social_drafts.json");
+  const seedPath = options.seedPath === undefined ? SOCIAL_SEED_PATH : options.seedPath;
 
   async function loadAll() {
     if (!(await fileExists(filePath))) {
@@ -90,6 +132,8 @@ export function createFileSocialWorkflowStore(options = {}) {
   return {
     kind: "filesystem",
     path: filePath,
+    writable: resolved.writable,
+    descriptor: `filesystem:${filePath}`,
 
     async create(item) {
       const items = await loadAll();
@@ -138,11 +182,26 @@ export function createFileSocialWorkflowStore(options = {}) {
  * "last Cowork evidence" on the dashboard health panel.
  */
 export async function recordSocialEvent(type, ref, detail) {
-  const events = await readJson(SOCIAL_EVENTS_PATH, []);
-  events.push({ type, ref: ref ?? null, detail: detail ?? null, at: new Date().toISOString() });
-  await writeJson(SOCIAL_EVENTS_PATH, events);
+  // Best-effort breadcrumb only. The health panel derives "last run" timestamps
+  // from each item's audit_log, so this file is non-critical — never let a
+  // read-only filesystem (Vercel) or an unwritable path break a request.
+  try {
+    const { dir, writable } = resolveWritableDataDir();
+    if (!writable) return;
+    const eventsPath = path.join(dir, "social_events.json");
+    const events = await readJson(eventsPath, []);
+    events.push({ type, ref: ref ?? null, detail: detail ?? null, at: new Date().toISOString() });
+    await writeJson(eventsPath, events);
+  } catch {
+    // swallow — events are advisory, audit_log is the source of truth
+  }
 }
 
 export async function readSocialEvents() {
-  return readJson(SOCIAL_EVENTS_PATH, []);
+  try {
+    const { dir } = resolveWritableDataDir();
+    return await readJson(path.join(dir, "social_events.json"), []);
+  } catch {
+    return [];
+  }
 }

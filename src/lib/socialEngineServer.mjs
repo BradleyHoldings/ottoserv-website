@@ -1,24 +1,64 @@
-// ─── Server-side SocialEngine binding ─────────────────────────────────────────
+// ─── Server-side SocialEngine binding + store selection ───────────────────────
 //
-// Binds the deep SocialEngine (socialContentEngine.mjs) to the durable filesystem
-// store so API routes share ONE persistent source of truth. This is the bridge
-// that finally connects /dashboard/social to real, surviving workflow state:
+// Binds the deep SocialEngine (socialContentEngine.mjs) to a DURABLE store and
+// selects the right one for the environment:
 //
-//   route handler -> getServerSocialEngine() -> createSocialEngine({ store: file })
+//   * Supabase configured (or SOCIAL_ENGINE_STORE=supabase) -> Supabase store
+//     (production-safe; works on Vercel's read-only filesystem)
+//   * otherwise                                             -> filesystem store
+//     (local dev/tests; resolves to a writable dir, never /var/task)
 //
-// Also computes the dashboard health/status panel (Task 9) by deriving the
-// "last run" timestamps from the engine's own audit log, so the panel reflects
-// real activity rather than a hardcoded value.
+// The deep engine module is unchanged — we only swap the pluggable store and add
+// a health panel. No real social publishing happens here.
 
 import { createSocialEngine } from "./socialContentEngine.mjs";
-import {
-  createFileSocialWorkflowStore,
-  SOCIAL_DRAFTS_PATH,
-} from "./socialWorkflowStore.mjs";
+import { createFileSocialWorkflowStore } from "./socialWorkflowStore.mjs";
+import { createSupabaseSocialWorkflowStore, supabaseConfigured } from "./socialSupabaseStore.mjs";
+
+// Cache the store per-process, keyed by the env signature so tests that toggle
+// env vars get a fresh store instead of a stale cached one.
+let cached = null;
+
+function storeSignature() {
+  return [
+    (process.env.SOCIAL_ENGINE_STORE || "").toLowerCase(),
+    supabaseConfigured() ? "sb" : "fs",
+    process.env.SOCIAL_ENGINE_DATA_DIR || "",
+    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "",
+  ].join("|");
+}
+
+export function selectSocialStore() {
+  const signature = storeSignature();
+  if (cached && cached.signature === signature) return cached;
+
+  const forced = (process.env.SOCIAL_ENGINE_STORE || "").toLowerCase();
+  let store;
+  if (forced === "filesystem") {
+    store = createFileSocialWorkflowStore();
+  } else if (forced === "supabase" || supabaseConfigured()) {
+    try {
+      store = createSupabaseSocialWorkflowStore();
+    } catch (err) {
+      if (forced === "supabase") throw err;
+      store = createFileSocialWorkflowStore(); // misconfigured auto-detect → safe fallback
+    }
+  } else {
+    store = createFileSocialWorkflowStore();
+  }
+
+  cached = {
+    signature,
+    store,
+    type: store.kind,
+    writable: store.writable !== false,
+    descriptor: store.descriptor || store.path || store.kind,
+  };
+  return cached;
+}
 
 export function getServerSocialEngine() {
-  const store = createFileSocialWorkflowStore();
-  return createSocialEngine({ store });
+  return createSocialEngine({ store: selectSocialStore().store });
 }
 
 // Latest `at` timestamp across all items whose audit_log contains `action`.
@@ -36,23 +76,37 @@ function lastAuditAt(items, actions) {
 }
 
 /**
- * Full social-ops health/status panel (Task 9). Combines the engine's own health
- * with derived "last run" timestamps and the workflow counts the dashboard shows.
+ * Social-ops health/status panel (Task 9 + production store visibility).
+ * Reports the active store type, writability, data source, connection status,
+ * last error, "last run" timestamps (from the audit log), and workflow counts.
  */
 export async function getSocialOpsHealthPanel() {
-  const engine = getServerSocialEngine();
-  const [items, baseHealth] = await Promise.all([
-    engine.listDrafts(),
-    engine.getHealthStatus(),
-  ]);
+  const selected = selectSocialStore();
+  const engine = createSocialEngine({ store: selected.store });
+
+  let items = [];
+  let backendConnected = true;
+  let lastError = null;
+
+  try {
+    items = await engine.listDrafts();
+  } catch (err) {
+    backendConnected = false;
+    lastError = err instanceof Error ? err.message : String(err);
+  }
+  // Surface any store-level error (e.g. failed hydration) even if list succeeded.
+  if (!lastError && selected.store.lastError) lastError = selected.store.lastError;
 
   const count = (statuses) => items.filter((i) => statuses.includes(i.status)).length;
 
   return {
     service: "SocialEngine",
-    backend_connected: true,
-    backend_status: baseHealth.status, // healthy | degraded
-    data_source: `filesystem:${SOCIAL_DRAFTS_PATH}`,
+    backend_connected: backendConnected,
+    store_type: selected.type,            // "supabase" | "filesystem"
+    writable: selected.writable,
+    data_source: selected.descriptor,
+    backend_status: backendConnected ? (count(["failed", "fallback"]) ? "degraded" : "healthy") : "disconnected",
+    last_error: lastError,
 
     last_codex_content_prep: lastAuditAt(items, "createDraft"),
     last_hermes_social_review: lastAuditAt(items, "reviewDraft"),
@@ -66,7 +120,5 @@ export async function getSocialOpsHealthPanel() {
     published_count: count(["published"]),
     failed_stalled_count: count(["failed", "fallback"]),
     total_count: items.length,
-
-    errors: baseHealth.errors,
   };
 }

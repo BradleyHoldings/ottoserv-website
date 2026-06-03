@@ -15,9 +15,12 @@ export async function GET() {
       {
         service: "SocialEngine",
         backend_connected: false,
-        error: err instanceof Error ? err.message : "Failed to load health",
+        store_type: "unknown",
+        writable: false,
+        data_source: "unavailable",
+        last_error: err instanceof Error ? err.message : "Failed to load health",
       },
-      { status: 500 },
+      { status: 200 },
     );
   }
 }

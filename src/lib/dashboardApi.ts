@@ -140,6 +140,9 @@ export type SocialOpsHealth = {
   service: string;
   backend_connected: boolean;
   backend_status?: string;
+  store_type?: string;        // "supabase" | "filesystem" | "unknown"
+  writable?: boolean;
+  last_error?: string | null;
   data_source: string;
   last_codex_content_prep: string | null;
   last_hermes_social_review: string | null;

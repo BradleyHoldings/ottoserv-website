@@ -294,15 +294,26 @@ function HealthPanel({ health }: { health: SocialOpsHealth | null }) {
   return (
     <div className="mb-6 rounded-xl border border-gray-800 bg-[#111827] p-4">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={`inline-block w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} />
           <span className="text-sm font-semibold text-white">Social Ops Health</span>
           <span className={`text-xs px-2 py-0.5 rounded border ${connected ? "border-green-800 text-green-400" : "border-red-800 text-red-400"}`}>
             {connected ? `backend connected · ${health.backend_status || "healthy"}` : "backend disconnected"}
           </span>
+          {health.store_type && (
+            <span className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-300">
+              store: {health.store_type}{health.writable === false ? " · read-only" : ""}
+            </span>
+          )}
         </div>
         <span className="text-[11px] text-gray-500 break-all">source: {health.data_source}</span>
       </div>
+
+      {health.last_error && (
+        <div className="mb-3 rounded-lg border border-orange-900/50 bg-orange-900/15 px-3 py-1.5 text-[11px] text-orange-400 break-all">
+          last error: {health.last_error}
+        </div>
+      )}
 
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
         <HealthStat label="Drafts" value={health.drafts_count} />
