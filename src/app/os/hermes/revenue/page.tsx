@@ -1,9 +1,12 @@
 import { formatTimestamp, getHermesLiveDashboardData } from "@/lib/hermesReadOnlyAdapter";
+import { readAutonomousRevenueState } from "@/lib/revenueEngineReadAdapter.mjs";
+import type { AutonomousRevenueState } from "@/lib/revenueEngineReadAdapter";
 
 export const dynamic = "force-dynamic";
 
 export default async function HermesRevenuePage() {
   const data = await getHermesLiveDashboardData();
+  const loop = (await readAutonomousRevenueState()) as AutonomousRevenueState;
   const revenueSource = data.sections.revenueRisks;
   const loopSummary = data.sections.loopRunSummary;
   const isLive = data.dataMode === "real_data_connected";
@@ -69,6 +72,79 @@ export default async function HermesRevenuePage() {
           </p>
         )}
       </div>
+
+      <AutonomousRevenueLoop loop={loop} />
     </div>
+  );
+}
+
+function AutonomousRevenueLoop({ loop }: { loop: AutonomousRevenueState }) {
+  const healthy = loop.health?.status === "healthy";
+  return (
+    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-blue-200">Autonomous revenue loop</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Read-only from {loop.source.file.split("/").slice(-2).join("/")} · last run {formatTimestamp(loop.source.lastModified)}
+          </p>
+        </div>
+        {loop.available ? (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.15em] ${
+              loop.status === "repair_first" || !healthy ? "bg-amber-500/20 text-amber-100" : "bg-emerald-500/20 text-emerald-100"
+            }`}
+          >
+            {loop.status} · {loop.health?.status ?? "unknown"}
+          </span>
+        ) : (
+          <span className="rounded-full bg-gray-500/20 px-3 py-1 text-xs font-bold uppercase tracking-[0.15em] text-gray-300">
+            no loop run yet
+          </span>
+        )}
+      </div>
+
+      {loop.available ? (
+        <>
+          <p className="mt-4 text-sm font-semibold text-white">Next action: {loop.nextAction}</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {Object.entries(loop.queueCounts).map(([key, value]) => (
+              <div key={key} className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                <p className="text-[11px] uppercase tracking-[0.15em] text-gray-500">{key}</p>
+                <p className="mt-1 text-2xl font-black text-white">{value as number}</p>
+              </div>
+            ))}
+          </div>
+
+          {loop.revenueRisks.length > 0 && (
+            <div className="mt-5">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-200">Revenue risks</p>
+              <ul className="mt-2 space-y-1 text-sm leading-6 text-amber-50/80">
+                {loop.revenueRisks.map((risk) => (
+                  <li key={risk}>- {risk}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {loop.repairPackets.length > 0 && (
+            <div className="mt-5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-rose-200">Broken rails / repair packets</p>
+              {loop.repairPackets.map((packet) => (
+                <div key={packet.id} className="rounded-2xl border border-rose-400/20 bg-rose-500/[0.07] p-4">
+                  <p className="text-sm font-semibold text-white">
+                    {packet.category} → {packet.owner}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-300">{packet.actual_behavior}</p>
+                  <p className="mt-1 text-xs text-gray-500">Expected: {packet.expected_behavior}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="mt-4 text-sm leading-6 text-gray-400">{loop.nextAction}</p>
+      )}
+    </section>
   );
 }
