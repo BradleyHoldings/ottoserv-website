@@ -24,6 +24,7 @@
 # operational ledgers with real lead/contact data
 /data/call-imports/*.json
 /data/revenue-engine/*.json
+/data/revenue-engine/*.log
 # SocialEngine runtime ledgers (mutable). The committed seed lives in
 # data/social-engine/seed/ and evidence in data/social-engine/evidence/.
 /data/social-engine/*.json
