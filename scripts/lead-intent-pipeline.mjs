@@ -22,6 +22,7 @@ import path from "node:path";
 
 import { buildLeadPipeline } from "../src/lib/leadIntent.mjs";
 import { buildLeadIntentResearchTasks } from "../src/lib/leadIntentResearchTasks.mjs";
+import { coerceResearchRows, ingestResearchResults } from "../src/lib/leadIntentIngest.mjs";
 
 const now = process.env.LEAD_INTENT_NOW || new Date().toISOString();
 const cwd = process.cwd();
@@ -34,11 +35,30 @@ function readJson(file, fallback) {
   try { return JSON.parse(readFileSync(file, "utf8")); } catch { return fallback; }
 }
 
-const rawLeads = existsSync(inputPath) ? readJson(inputPath, []) : [];
+// Read the research file, capturing a parse error instead of silently dropping
+// it, so Cowork/Hermes get feedback when a malformed file is submitted.
+let rawInput = [];
+let parseError = null;
+if (existsSync(inputPath)) {
+  try {
+    rawInput = JSON.parse(readFileSync(inputPath, "utf8"));
+  } catch (err) {
+    parseError = `research-results.json is not valid JSON: ${err.message}`;
+    rawInput = [];
+  }
+}
+
+// Coerce the realistic shapes Cowork might submit (array, { leads: [...] },
+// single object, ...) into the canonical row array the pipeline expects, and
+// emit a machine-readable ingest report so the hand-off is reliable.
+const { rows: rawLeads, shape: inputShape } = coerceResearchRows(rawInput);
+const ingestReport = ingestResearchResults(rawInput, { now, parseError });
+
 const pipeline = buildLeadPipeline(rawLeads, { now, minRecentIntent, location: process.env.LEAD_INTENT_LOCATION });
 
 mkdirSync(outputDir, { recursive: true });
 writeFileSync(path.join(outputDir, "pipeline.json"), `${JSON.stringify(pipeline, null, 2)}\n`, "utf8");
+writeFileSync(path.join(outputDir, "ingest-report.json"), `${JSON.stringify(ingestReport, null, 2)}\n`, "utf8");
 
 // Merge accepted leads into the revenue loop's input (deduped). This is the only
 // write outside the lead-intent dir; it is data-only and feeds the loop.
@@ -70,11 +90,15 @@ if (pipeline.summary.low_recent_intent) {
 
 console.log(JSON.stringify({
   input: existsSync(inputPath) ? inputPath : "(none — no research yet)",
+  input_shape: inputShape,
+  parse_error: parseError,
+  ingest: ingestReport.summary,
   summary: pipeline.summary,
   leads_added_to_revenue_loop: added,
   leads_total: merged.length,
   repair_packet: pipeline.repairPacket ? pipeline.repairPacket.category : null,
   cowork_research_tasks: research.count,
   pipeline_output: path.join(outputDir, "pipeline.json"),
+  ingest_report_output: path.join(outputDir, "ingest-report.json"),
   leads_output: leadsPath,
 }, null, 2));
