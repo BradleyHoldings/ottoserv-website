@@ -411,6 +411,7 @@ export default function CommandCenterPage() {
           <Link href="/dashboard/automations" className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-700">View Automations</Link>
           <Link href="/dashboard/inbox" className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-700">Open Inbox</Link>
           <button onClick={() => setJarvisOpen(true)} className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-700">Ask Jarvis</button>
+          <Link href="/os/hermes" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400">Open Agent Command Center</Link>
           <Link href="/dashboard/reports" className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-700">View Reports</Link>
         </div>
       </div>

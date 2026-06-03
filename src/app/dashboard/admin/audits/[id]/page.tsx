@@ -3,6 +3,8 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { canAccessAdmin } from "@/lib/userAuth";
+import { PremiumReportPreview } from "@/components/front-office-leak-check/PremiumReportPreview";
+import { buildFrontOfficeLeakCheckReport } from "@/lib/frontOfficeLeakCheck/reportBuilder";
 
 const ADMIN_TOKEN_KEY = "ottoserv_admin_api_token";
 
@@ -227,6 +229,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
   const parsed = parseNotes(row.notes);
   const sections = parsed.sections || {};
   const date = row.request_date || row.created_at;
+  const premiumReport = buildFrontOfficeLeakCheckReport(row, parsed);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -263,6 +266,8 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
       {/* Platform session cross-link — shows the auto-generated onboarding
           session spawned by the audit bridge, if any. */}
       <PlatformSessionCard state={platform} />
+
+      <PremiumReportPreview report={premiumReport} />
 
       {/* Pain signals */}
       {(parsed.pain_tags && parsed.pain_tags.length > 0) ||
