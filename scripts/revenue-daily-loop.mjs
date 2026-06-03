@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createDailyLoopRun } from "../src/lib/revenueEngine.mjs";
 import { assembleRevenueLoopInput } from "../src/lib/revenueLoopSources.mjs";
+import { promoteSeedsToWorkOrders } from "../src/lib/implementationWorkOrders.mjs";
 
 const now = process.env.REVENUE_LOOP_NOW || new Date().toISOString();
 const cycle = process.env.REVENUE_LOOP_CYCLE || inferCycle(now);
@@ -16,9 +17,25 @@ const { input, serviceDelivery, sources } = await assembleRevenueLoopInput({ now
 
 const run = createDailyLoopRun(input);
 
+// Promote report-ready leak-check seeds into durable, approval-gated
+// implementation work orders. Idempotent — safe to run every cycle.
+const implementation = await promoteSeedsToWorkOrders(serviceDelivery, { now });
+
 // Carry the service-delivery spine (leak-check → implementation work orders) and
 // the source provenance alongside the engine run in one document.
-const document = { ...run, serviceDelivery, sources, generated_at: now };
+const document = {
+  ...run,
+  serviceDelivery,
+  implementationWorkOrders: {
+    created_this_run: implementation.created,
+    skipped_existing: implementation.skipped,
+    summary: implementation.summary,
+    store_path: implementation.storePath,
+    orders: implementation.workOrders,
+  },
+  sources,
+  generated_at: now,
+};
 
 mkdirSync(outputDir, { recursive: true });
 const datedPath = path.join(outputDir, `${run.id}.json`);
@@ -38,7 +55,13 @@ const summary = {
   sources,
   execution_packets: run.executionPackets.length,
   repair_packets: run.repairPackets.length,
-  service_delivery_work_orders: serviceDelivery.length,
+  service_delivery_seeds: serviceDelivery.length,
+  implementation_work_orders: {
+    created_this_run: implementation.created,
+    total: implementation.summary.total,
+    needs_approval: implementation.summary.needs_approval,
+    by_stage: implementation.summary.by_stage,
+  },
   revenue_risks: run.plan.revenue_risks,
   health: run.health,
   dated_output_path: datedPath,
