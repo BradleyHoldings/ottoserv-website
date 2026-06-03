@@ -62,12 +62,44 @@ Status, errors, evidence, and audit:
 - `markFailed()` and `assignFallback()` own failure/fallback state and drive `getHealthStatus()`.
 - `getDashboardState()` returns counts, approval queue, Cowork queue, failure queue, next actions, and audit summaries.
 
+## Live integration path (durable, connected)
+
+The SocialEngine is now wired to a durable source of truth and the live dashboard:
+
+- `src/lib/socialWorkflowStore.mjs` — filesystem-backed store implementing the
+  engine's `store` contract (`create/update/get/list/nextId`). Path overridable
+  via `SOCIAL_ENGINE_DATA_DIR`. Mutable ledger lives at
+  `data/social-engine/social_drafts.json` (gitignored); the committed seed is
+  `data/social-engine/seed/drafts.json`.
+- `src/lib/socialEngineServer.mjs` — binds `createSocialEngine({ store })` to the
+  file store and computes the health/status panel (last-run timestamps from the
+  audit log + workflow counts).
+- API routes (Node runtime, same-origin — no JWT needed):
+  - `GET /api/social` → `{ state, health, items }`
+  - `POST /api/social` → Codex creates/imports a draft
+  - `POST /api/social/[id]` → `{ action: submit|review|approve|reject|handoff|evidence|fail|fallback }`
+  - `GET /api/social/health` → social-ops health panel
+- `/dashboard/social` reads `/api/social` and writes approvals/handoff/evidence/
+  fallback back through it (`getLiveSocialState`, `approveSocialPost`, etc. in
+  `src/lib/dashboardApi.ts`). Approve/reject now persist — no longer local-only.
+- `/dashboard/growth/intelligence` reads live SocialEngine KPIs, a real pipeline
+  funnel, and published-evidence records (was fully static).
+- Imported evidence: `scripts/import-social-evidence.mjs` creates published
+  records for the Instagram post and Cowork LinkedIn engagement logs (copied into
+  `data/social-engine/evidence/`). Run via `npm run social:import-evidence`.
+- End-to-end proof: `npm run verify:social-flow` boots the app against an isolated
+  data dir and exercises create → approve → handoff → fallback → evidence →
+  health → persistence. Unit coverage: `tests/social-engine-store.test.mjs`.
+
 Remaining technical debt:
 
-- Platform write endpoints are not wired in this repo yet, so dashboard approve/reject buttons still perform local optimistic UI changes only.
-- `createMemorySocialWorkflowStore()` is a source abstraction, not durable production storage.
-- Hermes and Cowork runtime scripts outside this website repo still need to call a durable SocialEngine-backed API/store rather than local files.
-- `/dashboard/social/post` still composes client-side drafts; persistence should call `createDraft()` through a platform route once write auth is available.
+- `/dashboard/social/post` still composes client-side drafts; persistence should
+  POST to `/api/social` (the route now exists).
+- The external platform `/social/posts` adapter (`getSocialDashboardState`) is
+  retained for back-compat but is not the live source of truth anymore.
+- Hermes/Cowork runtime scripts outside this repo can now point
+  `SOCIAL_ENGINE_DATA_DIR` at the shared workspace, or call the API routes
+  directly, instead of using hidden local logs.
 - Some legacy dashboard pages may still use static/mock data unrelated to the social workflow; this doc only covers the social engine path.
 
 Mock/static/disconnected data:

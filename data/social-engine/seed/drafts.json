@@ -1,0 +1,176 @@
+[
+  {
+    "id": "social-0001",
+    "platform": "instagram",
+    "content_type": "post",
+    "post_text": "Behind the scenes of the OttoServ AI lead handler — missed-call recovery and lead qualification running live.",
+    "asset_path": "",
+    "asset_url": "",
+    "status": "published",
+    "content_category": "Proof/Process Post",
+    "core_insight_or_reframe": "Show the real operating system behind OttoServ, not a sales pitch.",
+    "intended_audience": "Property managers and home-service operators",
+    "cta_status": "soft CTA",
+    "billboard_risk_score": 0,
+    "social_strategy_review": null,
+    "created_by": "Cowork",
+    "reviewed_by": "",
+    "approved_by": "",
+    "created_at": "2026-06-03T01:51:57.846Z",
+    "reviewed_at": "",
+    "approved_at": "",
+    "scheduled_for": "",
+    "handed_to_cowork_at": "",
+    "published_at": "2026-05-28T15:00:00.000Z",
+    "published_url": "https://www.instagram.com/p/DZGInobGU-z/",
+    "evidence_path": "",
+    "evidence_url": "",
+    "failure_reason": "",
+    "fallback_owner": "",
+    "next_action": "monitor_performance",
+    "learning_tags": [
+      "imported_evidence",
+      "instagram",
+      "proof_post"
+    ],
+    "performance_notes": "Imported existing published Instagram post as formal evidence record.",
+    "audit_log": [
+      {
+        "action": "createDraft",
+        "actor": "Cowork",
+        "detail": {
+          "platform": "instagram"
+        },
+        "at": "2026-06-03T01:51:57.846Z"
+      },
+      {
+        "action": "recordEvidence",
+        "actor": "Cowork",
+        "detail": {
+          "published_url": "https://www.instagram.com/p/DZGInobGU-z/",
+          "published_at": "2026-05-28T15:00:00.000Z",
+          "recorded_by": "Cowork",
+          "performance_notes": "Imported existing published Instagram post as formal evidence record."
+        },
+        "at": "2026-06-03T01:51:57.847Z"
+      }
+    ],
+    "executor": "",
+    "executor_handoff": null
+  },
+  {
+    "id": "social-0002",
+    "platform": "linkedin",
+    "content_type": "engagement_comment",
+    "post_text": "Cowork LinkedIn engagement batch (comments + connection touches) executed in the Hermes daily operating loop.",
+    "asset_path": "",
+    "asset_url": "",
+    "status": "published",
+    "content_category": "Influence Post",
+    "core_insight_or_reframe": "Engage in operator conversations about missed calls and slow follow-up.",
+    "intended_audience": "Property management and home-service decision makers",
+    "cta_status": "none",
+    "billboard_risk_score": 0,
+    "social_strategy_review": null,
+    "created_by": "Cowork",
+    "reviewed_by": "",
+    "approved_by": "",
+    "created_at": "2026-06-03T01:51:57.849Z",
+    "reviewed_at": "",
+    "approved_at": "",
+    "scheduled_for": "",
+    "handed_to_cowork_at": "",
+    "published_at": "2026-05-30T18:00:00.000Z",
+    "published_url": "https://www.linkedin.com/company/ottoserv/",
+    "evidence_path": "/home/user/ottoserv-website/data/social-engine/evidence/linkedin_engagement_logs.md",
+    "evidence_url": "/home/hermes-agent/workspace/hermes_daily_operating_loop/cowork_completion_evidence/linkedin_engagement_logs.md",
+    "failure_reason": "",
+    "fallback_owner": "",
+    "next_action": "monitor_performance",
+    "learning_tags": [
+      "imported_evidence",
+      "linkedin",
+      "engagement"
+    ],
+    "performance_notes": "Imported from Cowork LinkedIn engagement logs. See committed evidence file for details.",
+    "audit_log": [
+      {
+        "action": "createDraft",
+        "actor": "Cowork",
+        "detail": {
+          "platform": "linkedin"
+        },
+        "at": "2026-06-03T01:51:57.849Z"
+      },
+      {
+        "action": "recordEvidence",
+        "actor": "Cowork",
+        "detail": {
+          "published_url": "https://www.linkedin.com/company/ottoserv/",
+          "evidence_path": "/home/user/ottoserv-website/data/social-engine/evidence/linkedin_engagement_logs.md",
+          "evidence_url": "/home/hermes-agent/workspace/hermes_daily_operating_loop/cowork_completion_evidence/linkedin_engagement_logs.md",
+          "published_at": "2026-05-30T18:00:00.000Z",
+          "recorded_by": "Cowork",
+          "performance_notes": "Imported from Cowork LinkedIn engagement logs. See committed evidence file for details."
+        },
+        "at": "2026-06-03T01:51:57.851Z"
+      }
+    ],
+    "executor": "",
+    "executor_handoff": null
+  },
+  {
+    "id": "social-0003",
+    "platform": "linkedin",
+    "content_type": "post",
+    "post_text": "[SAFE TEST DRAFT — DO NOT PUBLISH] How a property manager recovered 23 missed leasing calls in a week with an AI front office. Walkthrough of the recovery loop.",
+    "asset_path": "",
+    "asset_url": "",
+    "status": "pending_review",
+    "content_category": "Proof/Process Post",
+    "core_insight_or_reframe": "Most missed revenue is missed calls, not missing leads — show the recovery loop.",
+    "intended_audience": "Property managers drowning in after-hours calls",
+    "cta_status": "soft CTA",
+    "billboard_risk_score": 12,
+    "social_strategy_review": null,
+    "created_by": "Codex",
+    "reviewed_by": "",
+    "approved_by": "",
+    "created_at": "2026-06-03T01:51:57.853Z",
+    "reviewed_at": "",
+    "approved_at": "",
+    "scheduled_for": "",
+    "handed_to_cowork_at": "",
+    "published_at": "",
+    "published_url": "",
+    "evidence_path": "",
+    "evidence_url": "",
+    "failure_reason": "",
+    "fallback_owner": "",
+    "next_action": "hermes_review",
+    "learning_tags": [
+      "safe_test",
+      "missed_call_recovery"
+    ],
+    "performance_notes": "",
+    "audit_log": [
+      {
+        "action": "createDraft",
+        "actor": "Codex",
+        "detail": {
+          "platform": "linkedin"
+        },
+        "at": "2026-06-03T01:51:57.853Z"
+      },
+      {
+        "action": "submitForReview",
+        "actor": "Codex",
+        "detail": {},
+        "at": "2026-06-03T01:51:57.855Z"
+      }
+    ],
+    "executor": "",
+    "executor_handoff": null,
+    "submitted_at": "2026-06-03T01:51:57.855Z"
+  }
+]

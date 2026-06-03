@@ -128,6 +128,100 @@ export async function getPlatformSocialPosts(): Promise<any[]> {
   return state.posts;
 }
 
+// ─── Live SocialEngine (durable, same-origin API routes) ──────────────────────
+//
+// The functions above seed an engine from the external platform per request and
+// do not persist. These talk to /api/social, which is backed by the durable
+// filesystem store — so this is the live, connected source of truth that powers
+// /dashboard/social, including approval write-back, Cowork handoff, evidence
+// return, and fallback. No JWT needed; these are our own Next route handlers.
+
+export type SocialOpsHealth = {
+  service: string;
+  backend_connected: boolean;
+  backend_status?: string;
+  data_source: string;
+  last_codex_content_prep: string | null;
+  last_hermes_social_review: string | null;
+  last_approval_writeback: string | null;
+  last_cowork_handoff: string | null;
+  last_cowork_evidence: string | null;
+  drafts_count: number;
+  pending_approval_count: number;
+  approved_awaiting_cowork_count: number;
+  published_count: number;
+  failed_stalled_count: number;
+  total_count: number;
+  errors?: string[];
+};
+
+export type LiveSocialState = {
+  state: SocialDashboardState;
+  health: SocialOpsHealth;
+  items: Array<Record<string, any>>;
+};
+
+export async function getLiveSocialState(): Promise<LiveSocialState | null> {
+  try {
+    const res = await fetch("/api/social", { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as LiveSocialState;
+  } catch {
+    return null;
+  }
+}
+
+export async function getLiveSocialHealth(): Promise<SocialOpsHealth | null> {
+  try {
+    const res = await fetch("/api/social/health", { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as SocialOpsHealth;
+  } catch {
+    return null;
+  }
+}
+
+async function socialTransition(id: string, body: Record<string, unknown>): Promise<any> {
+  const res = await fetch(`/api/social/${id}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Social transition failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function createSocialDraft(body: Record<string, unknown>): Promise<any> {
+  const res = await fetch("/api/social", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Create draft failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export const submitSocialPost = (id: string) => socialTransition(id, { action: "submit" });
+export const reviewSocialPost = (id: string, review: Record<string, unknown>) =>
+  socialTransition(id, { action: "review", review });
+export const approveSocialPost = (id: string, approved_by = "Jonathan") =>
+  socialTransition(id, { action: "approve", approved_by });
+export const rejectSocialPost = (id: string, reason = "Rejected via dashboard") =>
+  socialTransition(id, { action: "reject", reason });
+export const handoffSocialPost = (id: string) => socialTransition(id, { action: "handoff" });
+export const recordSocialEvidence = (id: string, evidence: Record<string, unknown>) =>
+  socialTransition(id, { action: "evidence", ...evidence });
+export const failSocialPost = (id: string, failure_reason: string) =>
+  socialTransition(id, { action: "fail", failure_reason });
+export const assignSocialFallback = (id: string, fallback_owner = "Hermes") =>
+  socialTransition(id, { action: "fallback", fallback_owner });
+
 export async function getRevenueDashboardState(): Promise<RevenueDashboardState> {
   const [leads, calls, social] = await Promise.all([
     getPlatformLeads(),
