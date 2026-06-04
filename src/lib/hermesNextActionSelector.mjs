@@ -18,6 +18,8 @@
 
 import { canCompleteExecution, HIGH_RISK_APPROVAL_ACTIONS } from "./approvalExecutionBridge.mjs";
 import { detectCallRailState } from "./hermesCallRail.mjs";
+import { buildLeadIntentResearchTasks } from "./leadIntentResearchTasks.mjs";
+import { RESEARCH_RESULTS_CONTRACT } from "./leadResearchContract.mjs";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -77,6 +79,33 @@ const CLIENT_FACING_FORBIDDEN = [
 
 // ─── Case handlers ────────────────────────────────────────────────────────────
 
+// Build a compact, actor-ready Cowork research brief so dispatch_lead_research is
+// executable without Jonathan composing it. Trims the full per-ICP packet to the
+// top ICPs + first queries, and attaches the research-results.json contract.
+function buildCoworkResearchPacket({ now, location, reason, maxIcps = 3 }) {
+  const full = buildLeadIntentResearchTasks({ now, location, reason });
+  const briefs = asArray(full.tasks).slice(0, maxIcps).map((t) => ({
+    task_id: t.task_id,
+    icp: t.icp,
+    mission_title: t.mission_title,
+    top_queries: asArray(t.sources).flatMap((s) => asArray(s.queries)).slice(0, 3),
+    evidence_required: "Public source URL + exact quoted snippet + date_of_signal per high-intent lead.",
+  }));
+  return {
+    kind: "cowork_research",
+    run: RESEARCH_RESULTS_CONTRACT.apply_command,
+    generate_full_packet: "npm run lead:research",
+    output_file: RESEARCH_RESULTS_CONTRACT.output_file,
+    icp_briefs: briefs,
+    contract: {
+      required_fields: RESEARCH_RESULTS_CONTRACT.required_fields,
+      recent_intent_fields: RESEARCH_RESULTS_CONTRACT.recent_intent_fields,
+      evidence_rule: RESEARCH_RESULTS_CONTRACT.evidence_rule,
+      forbidden: RESEARCH_RESULTS_CONTRACT.forbidden,
+    },
+  };
+}
+
 // 1 + 2: lead pipeline state → research / verification.
 function leadPipelineActions({ leads, pipeline, ingestReport, now }) {
   const actions = [];
@@ -102,8 +131,12 @@ function leadPipelineActions({ leads, pipeline, ingestReport, now }) {
       required_evidence: ["Public source URL + exact snippet + date for each high-intent lead."],
       risk_level: "low",
       forbidden_actions: ["Do NOT contact any lead.", "Do NOT fabricate evidence or infer intent without a citation."],
-      next_step: "Run Cowork intent research, then `npm run lead:intake` to refill the pipeline.",
-      suggested_prompt_or_packet: { kind: "cowork_research", run: "npm run lead:intake" },
+      next_step: "Run `npm run lead:research` to get the Cowork brief, do the public research into research-results.json, then `npm run lead:intake` to refill the pipeline.",
+      suggested_prompt_or_packet: buildCoworkResearchPacket({
+        now,
+        location: pipeline?.location || "",
+        reason: empty ? "Cold-lead pipeline is empty." : lowRecent ? "Recent-intent lead volume below threshold." : "No fresh leads in the last 2 days.",
+      }),
     }));
   }
 

@@ -11,6 +11,7 @@
     "ops:evening": "node scripts/ops-report.mjs evening",
     "revenue:daily-loop": "node scripts/revenue-daily-loop.mjs",
     "lead:intake": "node scripts/lead-intent-pipeline.mjs",
+    "lead:research": "node scripts/hermes-lead-research.mjs",
     "evidence:submit": "node scripts/actor-submit-evidence.mjs",
     "hermes:operate": "node scripts/hermes-operate.mjs",
     "hermes:call-rail": "node scripts/hermes-call-rail.mjs",
