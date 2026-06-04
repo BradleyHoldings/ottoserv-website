@@ -18,6 +18,7 @@
     "hermes:throughput": "node scripts/hermes-throughput.mjs",
     "hermes:actor-queue": "node scripts/hermes-actor-queue.mjs",
     "hermes:rail-handoff": "node scripts/hermes-rail-handoff.mjs",
+    "hermes:state-check": "node scripts/hermes-state-check.mjs",
     "hermes:handoff": "node scripts/hermes-handoff.mjs",
     "hermes:build-packets": "node scripts/hermes-build-packets.mjs",
     "hermes:client-success": "node scripts/hermes-client-success.mjs",
