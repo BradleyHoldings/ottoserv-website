@@ -14,7 +14,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import { ingestSpreadsheetRows, selectControlledPilot } from "../src/lib/leadSpreadsheetIngest.mjs";
+import { ingestSpreadsheetRows, selectControlledPilot, pilotToQueueEntry } from "../src/lib/leadSpreadsheetIngest.mjs";
 import { buildLeadPipeline } from "../src/lib/leadIntent.mjs";
 
 const now = process.env.HERMES_NOW || new Date().toISOString();
@@ -55,9 +55,33 @@ if (process.env.WRITE_INTAKE === "true") {
   intake = { wrote: [leadsFile, pipeFile], revenue_leads: pipeline.revenueLoopLeads.length, by_tier: pipeline.summary };
 }
 
+let queued = null;
+if (process.env.BUILD_QUEUE === "true") {
+  // Enqueue the controlled pilot into the durable actor queue (gitignored
+  // latest.json) so the email/call executors can act on it. NO sends/dials — the
+  // packets are no_send/no_call; live execution needs a wired, credentialed transport.
+  const cwd = process.cwd();
+  const latestFile = path.join(cwd, "data", "revenue-engine", "latest.json");
+  let doc = {};
+  try { doc = JSON.parse(await fs.readFile(latestFile, "utf8")); } catch { doc = {}; }
+  const existing = Array.isArray(doc?.approvalExecutionQueue?.items) ? doc.approvalExecutionQueue.items : [];
+  const entries = [
+    ...pilot.email_pilot.map((l) => pilotToQueueEntry(l, "email", { now })),
+    ...pilot.call_pilot.map((l) => pilotToQueueEntry(l, "call", { now })),
+  ];
+  const existingIds = new Set(existing.map((i) => i.taskPacket?.task_id));
+  const additions = entries.filter((e) => !existingIds.has(e.taskPacket.task_id));
+  const items = [...existing, ...additions];
+  doc = { ...doc, approvalExecutionQueue: { ...(doc.approvalExecutionQueue || {}), generated_at: now, count: items.length, items } };
+  await fs.mkdir(path.dirname(latestFile), { recursive: true });
+  await fs.writeFile(latestFile, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
+  queued = { wrote: latestFile, added: additions.length, total_queue: items.length };
+}
+
 console.log(JSON.stringify({
   generated_at: now,
   ingest_summary: ingest.summary,
+  queued,
   pilot_summary: pilot.summary,
   email_pilot: pilot.email_pilot.map((l) => ({ company: l.business_name, to: redact(l.email), source: l.source_url, angle: l.likely_ottoserv_angle })),
   call_pilot: pilot.call_pilot.map((l) => ({ company: l.business_name, to: redact(l.phone), source: l.source_url })),

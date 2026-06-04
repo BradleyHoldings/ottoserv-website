@@ -49,6 +49,18 @@ test("contact path is detected from anywhere in the row", () => {
   assert.ok(withPhone.lead.phone.includes("555"));
 });
 
+test("SAFETY: numbers embedded in URLs are NOT treated as a dialable phone", () => {
+  // Real spreadsheet failure mode: a BBB/LinkedIn profile or job ID inside a URL
+  // looks like a 10-digit number. It must never become a contact path.
+  const r1 = rowToResearchLead(row({ "Decision-Maker Proof URL": "https://www.bbb.org/us/az/profile/1126-1000023", Notes: "" }));
+  assert.equal(r1.lead.phone, "", "URL profile-id is not a phone");
+  const r2 = rowToResearchLead(row({ "Source URL": "https://www.linkedin.com/jobs/view/csr-at-acme-4409749089", Notes: "" }));
+  assert.equal(r2.lead.phone, "", "URL job-id is not a phone");
+  // A properly formatted phone in a free-text field IS accepted.
+  const r3 = rowToResearchLead(row({ Notes: "best line: (407) 555-0142" }));
+  assert.ok(r3.lead.phone.includes("555"));
+});
+
 test("ingest validates, dedupes, and classifies eligibility", () => {
   const rows = [
     row(), // no contact path → needs enrichment

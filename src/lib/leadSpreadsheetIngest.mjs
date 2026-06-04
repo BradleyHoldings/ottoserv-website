@@ -32,7 +32,10 @@ function asArray(value) {
 }
 
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
-const PHONE_RE = /(?:\+?1[\s.\-]?)?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}/;
+// A real phone needs separators/parens between groups. A bare 10-digit run is
+// REJECTED — those are almost always URL/job/profile IDs scraped from links, and
+// dialing one would contact the wrong party. Verified contact paths only.
+const PHONE_RE = /(?:\+?1[\s.\-])?\(\d{3}\)[\s.\-]?\d{3}[\s.\-]?\d{4}|(?:\+?1[\s.\-])?\d{3}[\s.\-]\d{3}[\s.\-]\d{4}/;
 
 // Home-service / property-management ICP keywords (OttoServ's wedge).
 const ICP_KEYWORDS = [
@@ -53,9 +56,20 @@ function pick(row, aliases) {
   return "";
 }
 
-// Find the first email / phone anywhere in the row's free text (contact path).
+// Strip URLs/domains so IDs embedded in links are never read as contact paths.
+function stripUrls(text) {
+  return String(text || "").replace(/https?:\/\/\S+/gi, " ").replace(/\bwww\.\S+/gi, " ").replace(/\b[\w-]+\.(?:com|net|org|io|co|us|biz|info)\b\S*/gi, " ");
+}
+
+// Find a VERIFIED email / phone in the row's free text (contact path). URL-ish
+// columns are skipped entirely, and URLs are stripped from the remaining text, so
+// profile/job IDs inside links are never mistaken for a dialable phone.
 function findContact(row) {
-  const blob = Object.values(row || {}).map((v) => clean(v)).filter(Boolean).join(" \n ");
+  const blob = Object.entries(row || {})
+    .filter(([k]) => !/url|website|domain|link|source|proof/i.test(k))
+    .map(([, v]) => stripUrls(clean(v)))
+    .filter(Boolean)
+    .join(" \n ");
   const email = (blob.match(EMAIL_RE) || [])[0] || "";
   const phone = (blob.match(PHONE_RE) || [])[0] || "";
   return { email: lower(email), phone: clean(phone) };
@@ -188,6 +202,39 @@ export function ingestSpreadsheetRows(rows = [], options = {}) {
       call_eligible: leads.filter((l) => l.eligibility.call_eligible).length,
       needs_enrichment: leads.filter((l) => l.eligibility.needs_enrichment).length,
     },
+  };
+}
+
+/**
+ * Build a durable actor-queue entry (taskPacket + lifecycle) for a controlled-pilot
+ * lead on a given channel. The entry is no_send/no_call by default — it is intent
+ * only; the email/call executors send/dial ONLY in explicit live mode with a wired,
+ * credentialed transport. Pure. Reuses the same shape the throughput layer produces.
+ */
+export function pilotToQueueEntry(lead = {}, channel = "email", options = {}) {
+  const now = options.now || new Date().toISOString();
+  const id = `apx-pilot-${lower(lead.business_name).replace(/[^a-z0-9]+/g, "-").slice(0, 28)}-${channel}`;
+  const requiredEvidence = channel === "email"
+    ? ["Outbound email evidence: message id, timestamp, recipient, disposition, and next action."]
+    : ["Outbound call evidence: call id, timestamp, disposition/outcome, and next action."];
+  const actor_packet = {
+    task_id: id,
+    channel,
+    lead_id: lower(lead.website) || lower(lead.email) || clean(lead.phone) || lower(lead.business_name),
+    company: clean(lead.business_name),
+    contact: { email: lower(lead.email), phone: clean(lead.phone) },
+    packet: channel === "email" ? { kind: "email_packet", offer: clean(lead.likely_ottoserv_angle) } : { kind: "call_packet", angle: clean(lead.likely_ottoserv_angle) },
+    evidence: { source_url: clean(lead.source_url), snippet: clean(lead.evidence_snippet), pain_point: clean(lead.pain_point), offer_angle: clean(lead.likely_ottoserv_angle) },
+    policy: { materialized_via: "controlled_pilot_standing_policy", daily_cap: channel === "email" ? 50 : 20, tier: clean(lead.seed_priority_tier_hint), approved_by: "standing_policy" },
+    required_evidence: requiredEvidence,
+    mode: clean(options.mode) || "no_send_no_call",
+    no_send: (clean(options.mode) || "no_send_no_call") !== "live",
+    no_call: (clean(options.mode) || "no_send_no_call") !== "live",
+    status: "queued",
+  };
+  return {
+    taskPacket: { task_id: id, actor_packet },
+    lifecycle: { assigned_task_id: id, execution_status: "queued", evidence_status: "required", required_evidence: requiredEvidence, submitted_evidence: [], last_status_update_at: now },
   };
 }
 
