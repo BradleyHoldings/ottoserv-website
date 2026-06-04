@@ -17,9 +17,10 @@
 // adds no parallel store.
 
 import { canCompleteExecution, HIGH_RISK_APPROVAL_ACTIONS } from "./approvalExecutionBridge.mjs";
-import { detectCallRailState } from "./hermesCallRail.mjs";
+import { detectCallRailState, isCallTask } from "./hermesCallRail.mjs";
 import { buildLeadIntentResearchTasks } from "./leadIntentResearchTasks.mjs";
 import { RESEARCH_RESULTS_CONTRACT } from "./leadResearchContract.mjs";
+import { detectInterestedHandoffs } from "./hermesPaidClientHandoff.mjs";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -252,6 +253,53 @@ function callRailActions({ leads, document, ledger, now }) {
   })];
 }
 
+// 4b: interested lead / qualified call outcome → open an implementation work order
+// (lands on the proposal/payment gate). Opening the WO is internal; the proposal,
+// payment link, and build stay gated by the work order's stage ladder.
+function paidClientHandoffActions({ leads, document, now }) {
+  // Derive interested call outcomes from the document's call tasks (heuristic over
+  // the recorded outcome evidence: booked/callback dispositions).
+  const callOutcomes = asArray(document?.approvalExecutionQueue?.items)
+    .filter(isCallTask)
+    .flatMap((item) => {
+      const lc = item.lifecycle || {};
+      const text = asArray(lc.submitted_evidence).map((e) => `${e.evidence_summary} ${e.evidence_reference}`).join(" ");
+      const dispo = clean(lc.disposition) || (/\bbooked\b|booked[_\s]demo/i.test(text) ? "booked_demo" : /callback/i.test(text) ? "callback_scheduled" : "");
+      if (!dispo) return [];
+      return [{
+        lead_id: clean(lc.lead_id) || clean(item.taskPacket?.related_approval_item_id) || clean(item.taskPacket?.lead_id),
+        company: clean(item.taskPacket?.company),
+        disposition: dispo,
+        call_id: asArray(lc.submitted_evidence)[0]?.evidence_reference || "",
+        summary: asArray(lc.submitted_evidence)[0]?.evidence_summary || "",
+        recorded_at: clean(lc.last_status_update_at) || now,
+      }];
+    });
+
+  const existingWorkOrders = asArray(document?.implementationWorkOrders?.orders);
+  const detected = detectInterestedHandoffs({ leads, callOutcomes, existingWorkOrders, now });
+  return detected.seeds.map((seed) => makeAction({
+    action_id: `na-handoff-${slug(seed.lead_id)}`,
+    source_type: "paid_client_handoff",
+    source_id: seed.id,
+    priority: "high",
+    actor: "Hermes/Codex",
+    action_type: "open_implementation_work_order",
+    reason: `Interested signal (${seed.interest_signal.kind}${seed.interest_signal.disposition ? `: ${seed.interest_signal.disposition}` : ""}) for ${seed.company} — open the implementation work order on the proposal/payment gate.`,
+    required_approval: false,
+    required_evidence: seed.required_evidence,
+    risk_level: "low",
+    forbidden_actions: CLIENT_FACING_FORBIDDEN,
+    next_step: seed.next_action,
+    suggested_prompt_or_packet: {
+      kind: "implementation_work_order_seed",
+      seed,
+      gate: "awaiting_pilot_scope_or_proposal (proposal/pricing/payment-link stay approval-gated)",
+      promote: "promoteSeedsToWorkOrders([seed])",
+    },
+  }));
+}
+
 // 5 + 6 + 7: approval-execution lifecycles → evidence / review / follow-up.
 function executionActions({ document }) {
   const actions = [];
@@ -471,6 +519,7 @@ export function selectNextActions(state = {}, options = {}) {
     ...repairActions({ document }),
     ...leadPipelineActions({ leads: state.leads, pipeline: state.pipeline, ingestReport: state.ingestReport, now }),
     ...callRailActions({ leads: state.leads, document, ledger: state.ledger, now }),
+    ...paidClientHandoffActions({ leads: state.leads, document, now }),
     ...executionActions({ document }),
     ...workOrderActions({ document }),
     ...tieredLeadActions({ leads: state.leads }),
