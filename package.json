@@ -13,6 +13,7 @@
     "lead:intake": "node scripts/lead-intent-pipeline.mjs",
     "evidence:submit": "node scripts/actor-submit-evidence.mjs",
     "hermes:operate": "node scripts/hermes-operate.mjs",
+    "hermes:call-rail": "node scripts/hermes-call-rail.mjs",
     "hermes:safe-execute": "node scripts/hermes-safe-execute.mjs",
     "verify:ops": "node scripts/verify-call-import.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",

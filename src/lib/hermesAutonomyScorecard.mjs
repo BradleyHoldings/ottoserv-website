@@ -16,6 +16,7 @@
 // reuses existing systems (no parallel store).
 
 import { summarizeLedger } from "./hermesOperatingLedger.mjs";
+import { detectCallRailState } from "./hermesCallRail.mjs";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -178,7 +179,7 @@ function serviceDeliveryHealth(document) {
 }
 
 // ─── Top blockers (ranked) ────────────────────────────────────────────────────
-function topBlockers({ execution, bottleneck, repair, pipeline, service, document, now }) {
+function topBlockers({ execution, bottleneck, repair, pipeline, callRail, service, document, now }) {
   const blockers = [];
   for (const p of asArray(document?.repairPackets)) {
     if (["verified", "repaired", "closed"].includes(lower(p.status))) continue;
@@ -187,6 +188,8 @@ function topBlockers({ execution, bottleneck, repair, pipeline, service, documen
   }
   if (pipeline.status === "empty") blockers.push({ type: "empty_pipeline", id: "lead_discovery_rail", priority: "critical", detail: "No leads — revenue cannot move." });
   else if (pipeline.status === "degraded") blockers.push({ type: "stale_pipeline", id: "lead_discovery_rail", priority: "high", detail: "Low recent-intent / no fresh leads." });
+  if (callRail?.status === "idle") blockers.push({ type: "call_rail_idle", id: "call_rail", priority: "high", detail: callRail.detail });
+  else if (callRail?.status === "stale") blockers.push({ type: "call_rail_stale", id: "call_rail", priority: "medium", detail: callRail.detail });
   if (bottleneck.pending_approvals > 0) blockers.push({ type: "jonathan_approval", id: "approval_queue", priority: "high", detail: `${bottleneck.pending_approvals} item(s) awaiting Jonathan.` });
   if (execution.blocked > 0) blockers.push({ type: "blocked_tasks", id: "execution_queue", priority: "high", detail: `${execution.blocked} execution task(s) blocked/failed.` });
   if (service.stalled_delivery > 0) blockers.push({ type: "stalled_delivery", id: "service_delivery", priority: "medium", detail: `${service.stalled_delivery} report(s) ready but undelivered.` });
@@ -213,8 +216,9 @@ export function computeScorecard(state = {}, options = {}) {
   const bottleneck = bottleneckHealth(document, ledgerSummary);
   const repair = repairHealth(document, ledgerEntries, now);
   const pipeline = pipelineHealth({ leads: state.leads, pipeline: state.pipeline, ingestReport: state.ingestReport, now });
+  const callRail = detectCallRailState({ leads: state.leads, document, ledger: ledgerEntries, now });
   const service = serviceDeliveryHealth(document);
-  const blockers = topBlockers({ execution, bottleneck, repair, pipeline, service, document, now });
+  const blockers = topBlockers({ execution, bottleneck, repair, pipeline, callRail, service, document, now });
 
   const T = SCORECARD_THRESHOLDS;
   // Per-dimension pass/fail (null metric = not-applicable → not failing).
@@ -225,6 +229,7 @@ export function computeScorecard(state = {}, options = {}) {
     rail_reliability: repair.rail_reliability === null ? "n/a" : repair.rail_reliability >= T.rail_reliability_min ? "pass" : "fail",
     repair_aging: repair.aging_repairs === 0 ? "pass" : "fail",
     lead_pipeline: pipeline.status === "empty" ? "fail" : pipeline.status === "degraded" ? "warn" : "pass",
+    call_rail: callRail.status === "no_demand" ? "n/a" : callRail.status === "idle" ? "fail" : callRail.status === "stale" ? "warn" : "pass",
   };
 
   // Weighted 0-100 score over APPLICABLE dimensions.
@@ -234,6 +239,8 @@ export function computeScorecard(state = {}, options = {}) {
   parts.push([20, 1 - bottleneck.bottleneck_rate]);
   if (repair.rail_reliability !== null) parts.push([15, repair.rail_reliability]);
   parts.push([15, pipeline.status === "healthy" ? 1 : pipeline.status === "degraded" ? 0.5 : 0]);
+  // Call rail counts only when there is call demand (n/a → not weighted).
+  if (callRail.status !== "no_demand") parts.push([15, callRail.status === "healthy" ? 1 : callRail.status === "stale" ? 0.5 : 0]);
   const weightSum = parts.reduce((s, [w]) => s + w, 0);
   const autonomy_score = weightSum ? Math.round(parts.reduce((s, [w, v]) => s + w * Math.max(0, Math.min(1, v)), 0) / weightSum * 100) : 0;
 
@@ -250,6 +257,7 @@ export function computeScorecard(state = {}, options = {}) {
       jonathan_bottleneck: bottleneck,
       repair,
       lead_pipeline: pipeline,
+      call_rail: callRail,
       service_delivery: service,
     },
     actor_reliability: ledgerSummary?.actors || {},

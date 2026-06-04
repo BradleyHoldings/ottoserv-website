@@ -17,6 +17,7 @@
 // adds no parallel store.
 
 import { canCompleteExecution, HIGH_RISK_APPROVAL_ACTIONS } from "./approvalExecutionBridge.mjs";
+import { detectCallRailState } from "./hermesCallRail.mjs";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -182,6 +183,40 @@ function tieredLeadActions({ leads }) {
     }));
   }
   return actions;
+}
+
+// 3b: call rail idle/stale → propose a call-rail repair (generate packets, route
+// already-approved calls, record outcomes). The per-lead dial stays approval-gated
+// via recommend_approved_call; this is the rail-level "unstick it" action.
+function callRailActions({ leads, document, ledger, now }) {
+  const rail = detectCallRailState({ leads, document, ledger, now }, { now });
+  if (rail.status !== "idle" && rail.status !== "stale") return [];
+  const idle = rail.status === "idle";
+  return [makeAction({
+    action_id: `na-call_rail-repair-${now.slice(0, 10)}`,
+    source_type: "call_rail",
+    source_id: "call_rail",
+    priority: idle ? "high" : "medium",
+    actor: "Morgan/Retell",
+    action_type: "repair_call_rail",
+    reason: rail.detail,
+    required_approval: false,
+    required_evidence: ["Retell/Morgan call id, disposition/outcome, and next action per attempted lead (via evidence intake)."],
+    risk_level: "low",
+    forbidden_actions: [
+      "Do NOT dial any lead before that lead's approval is recorded.",
+      "Do NOT bypass do-not-call, cooldown, business-hours, or max-attempt caps.",
+      "Do NOT fabricate or simulate an outcome as a real call.",
+    ],
+    next_step: "Generate call packets for the call-ready A-tier leads, route the approved calls to Morgan/Retell, then record each outcome via evidence intake. Run `npm run hermes:call-rail` to generate packets.",
+    suggested_prompt_or_packet: {
+      kind: "call_rail_repair",
+      run: "npm run hermes:call-rail",
+      call_ready_a_tier: rail.call_ready_a_tier,
+      recorded_outcomes: rail.recorded_outcomes,
+      top_call_ready: rail.top_call_ready,
+    },
+  })];
 }
 
 // 5 + 6 + 7: approval-execution lifecycles → evidence / review / follow-up.
@@ -402,6 +437,7 @@ export function selectNextActions(state = {}, options = {}) {
   const actions = [
     ...repairActions({ document }),
     ...leadPipelineActions({ leads: state.leads, pipeline: state.pipeline, ingestReport: state.ingestReport, now }),
+    ...callRailActions({ leads: state.leads, document, ledger: state.ledger, now }),
     ...executionActions({ document }),
     ...workOrderActions({ document }),
     ...tieredLeadActions({ leads: state.leads }),
