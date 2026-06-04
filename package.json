@@ -21,6 +21,7 @@
     "hermes:state-check": "node scripts/hermes-state-check.mjs",
     "hermes:route-outcomes": "node scripts/hermes-route-outcomes.mjs",
     "hermes:handoff-simulate": "node scripts/hermes-handoff-simulate.mjs",
+    "hermes:readiness": "node scripts/hermes-readiness.mjs",
     "hermes:handoff": "node scripts/hermes-handoff.mjs",
     "hermes:build-packets": "node scripts/hermes-build-packets.mjs",
     "hermes:client-success": "node scripts/hermes-client-success.mjs",
