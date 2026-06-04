@@ -25,7 +25,7 @@ import { loadRevenueDocument } from "./actorEvidenceIntake.mjs";
 import { loadOperatingLedger, summarizeLedger, recordLedgerEvents, entriesFromNextActions, entriesFromRepairPackets } from "./hermesOperatingLedger.mjs";
 import { selectNextActionsWithLearning } from "./hermesLearningWeights.mjs";
 import { computeScorecard } from "./hermesAutonomyScorecard.mjs";
-import { materializeActorPackets, DEFAULT_STANDING_OUTBOUND_POLICY } from "./hermesApprovalThroughput.mjs";
+import { materializeActorPackets, reconcileNextActions, DEFAULT_STANDING_OUTBOUND_POLICY } from "./hermesApprovalThroughput.mjs";
 import { generateRepairPackets } from "./hermesSelfRepair.mjs";
 import { upsertRevenueState } from "./revenueEngineSupabaseStore.mjs";
 
@@ -135,11 +135,20 @@ export async function runOperatingCycle(options = {}) {
   //     bottleneck, so normal standing-materialized outbound no longer drags it.
   const scorecard = computeScorecard({ ...senseState, document: documentForActions, throughput }, { now });
 
+  // 4d. RECONCILE — annotate published next_actions with what throughput did, so a
+  //     normal outbound action that materialized under standing policy is shown as
+  //     queued (required_approval:false), not "request Jonathan approval". Only
+  //     genuinely gated proposals stay Jonathan approval blockers.
+  const reconciledActions = reconcileNextActions(decided.actions, throughput);
+
   // 5. RECORD — write proposed actions + rail state into the operating ledger.
   let recorded = { added: 0, total: ledger.entries.length };
   if (options.recordLedger !== false) {
+    // Record the RECONCILED actions so materialized outbound is logged as
+    // proposed/queued (not approval-pending) — otherwise the ledger's
+    // approvals.pending count keeps the Jonathan bottleneck artificially high.
     const events = [
-      ...entriesFromNextActions(decided, { now }),
+      ...entriesFromNextActions({ ...decided, actions: reconciledActions }, { now }),
       ...entriesFromRepairPackets(asArray(documentForActions.repairPackets), { now }),
     ];
     recorded = await recordLedgerEvents(events, { ...options, now });
@@ -153,7 +162,7 @@ export async function runOperatingCycle(options = {}) {
     autonomy_score: scorecard.autonomy_score,
     grades: scorecard.grades,
     top_blockers: scorecard.top_blockers,
-    next_actions: decided.actions,
+    next_actions: reconciledActions,
     next_actions_by_priority: decided.by_priority,
     throughput: {
       summary: throughput.summary,
@@ -200,8 +209,9 @@ export async function runOperatingCycle(options = {}) {
     summary: {
       autonomy_status: scorecard.autonomy_status,
       autonomy_score: scorecard.autonomy_score,
-      next_actions: decided.actions.length,
-      top_action: decided.actions[0] ? { action_type: decided.actions[0].action_type, actor: decided.actions[0].actor, priority: decided.actions[0].priority } : null,
+      next_actions: reconciledActions.length,
+      throughput: throughput.summary,
+      top_action: reconciledActions[0] ? { action_type: reconciledActions[0].action_type, actor: reconciledActions[0].actor, priority: reconciledActions[0].priority, throughput_status: reconciledActions[0].throughput_status, required_approval: reconciledActions[0].required_approval } : null,
       blockers: scorecard.top_blockers.length,
       self_repair_packets: selfRepair.new_packets.length,
       ledger_added: recorded.added,

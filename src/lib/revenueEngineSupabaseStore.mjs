@@ -25,6 +25,29 @@ export function revenueSupabaseConfigured() {
   return getSupabaseConfig() !== null;
 }
 
+/**
+ * Describe the persistence configuration WITHOUT exposing any secret values.
+ * Reports only which env var NAMES are present/missing so an operator can tell
+ * why production shows supabase_not_configured. Never returns URLs or keys.
+ */
+export function describeRevenueStateConfig() {
+  const hasUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL);
+  const hasKey = Boolean(process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const missing = [];
+  if (!hasUrl) missing.push("NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL)");
+  if (!hasKey) missing.push("SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY)");
+  return {
+    configured: hasUrl && hasKey,
+    present: { supabase_url: hasUrl, service_key: hasKey },
+    missing_env: missing,
+    table: REVENUE_STATE_TABLE,
+    row_id: REVENUE_STATE_ID,
+    schema_file: "supabase/revenue_engine_schema.sql",
+    used_by: ["revenue:daily-loop", "hermes:operate", "hermes:actor-queue", "evidence:submit"],
+    reason: hasUrl && hasKey ? "configured" : "supabase_not_configured",
+  };
+}
+
 function headers(key) {
   return {
     "Content-Type": "application/json",

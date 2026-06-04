@@ -262,7 +262,7 @@ export function dedupeEnrichedLeads(leads = []) {
 
 // ─── Map to the revenue loop's NormalizedLead-compatible input ────────────────
 
-export function toRevenueLoopLead(lead) {
+export function toRevenueLoopLead(lead, now = new Date().toISOString()) {
   const status =
     lead.tier === "A-tier" ? "ready_to_call" :
     lead.tier === "B-tier" ? "ready_to_email" :
@@ -293,7 +293,14 @@ export function toRevenueLoopLead(lead) {
     status,
     suggested_owner: owner,
     scheduled_call_local: null,
-    created_at: clean(lead.date_of_signal) || lead.last_enriched_date,
+    // created_at is the INTAKE/import time (when this lead entered the revenue
+    // loop) — this is what freshness/"imported in the last N days" checks read.
+    // The intent SIGNAL date stays in date_of_signal (used for signal windows),
+    // so a recent import of an older-but-valid signal no longer reads as stale,
+    // and placeholder/synthetic signal strings never leak into created_at.
+    created_at: now,
+    date_of_signal: clean(lead.date_of_signal),
+    imported_at: now,
     // Enrichment superset (engine ignores; Hermes/dashboard can use).
     intent: {
       signal_window: lead.signal_window,
@@ -361,7 +368,7 @@ export function buildLeadPipeline(rawLeads = [], options = {}) {
     medium_intent_90d,
     qualified_icp,
     queues: { a_tier_calls, b_tier_emails, cowork_research, rejected },
-    revenueLoopLeads: accepted.map(toRevenueLoopLead),
+    revenueLoopLeads: accepted.map((l) => toRevenueLoopLead(l, now)),
     repairPacket,
   };
 }

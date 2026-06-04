@@ -39,14 +39,39 @@ const INTEGRATION_RULES = [
   { re: /review|reputation|google/i, integration: "Reviews / reputation" },
 ];
 
-function inferIntegrations(texts) {
-  const blob = texts.map(clean).join(" \n ");
+export function inferIntegrations(texts) {
+  const blob = asArray(texts).map(clean).join(" \n ");
   const found = [];
   for (const { re, integration } of INTEGRATION_RULES) {
     if (re.test(blob) && !found.includes(integration)) found.push(integration);
   }
   return found.length ? found : ["Scoping required — no integration keywords detected; confirm with client."];
 }
+
+// Acceptance criteria, data/security notes, and a rollback/failure plan a build
+// packet must carry so "done" is testable and a bad build can be reversed safely.
+function acceptanceCriteriaFor(integrations) {
+  const ac = [
+    "All test-plan steps pass with attached evidence (commit, build/test, route check).",
+    "No production activation, real send, or client deliverable shipped without a recorded approval.",
+  ];
+  if (integrations.some((i) => /telephony|receptionist/i.test(i))) ac.push("Inbound flow greets, qualifies, and books/routes correctly in the simulated call test.");
+  if (integrations.some((i) => /crm/i.test(i))) ac.push("Lead/contact writes land in the CRM test record with correct stage mapping.");
+  ac.push("Pilot metric instrumentation captures baseline vs target.");
+  return ac;
+}
+const DATA_SECURITY_NOTES = [
+  "Hermes never handles client credentials/secrets — Jonathan provisions all access.",
+  "Use test/sandbox credentials only; no production keys in code, logs, or evidence.",
+  "Store no PII in build artifacts/evidence — business-name level only.",
+  "Approved templates only; no scraping of private data; public evidence sources only.",
+];
+const ROLLBACK_PLAN = [
+  "Build in a sandbox; production activation is a separate approval-gated step.",
+  "Keep the prior workflow/state snapshot before any change so it can be restored.",
+  "On a failed test or regression: do not activate; revert to snapshot and re-scope.",
+  "If activated and failing: disable the workflow, restore snapshot, log the failure + evidence, and escalate to Jonathan.",
+];
 
 const STANDARD_CLIENT_INPUTS = [
   "Business hours, service area, and call-handling rules.",
@@ -114,11 +139,15 @@ export function buildServiceDeliveryPacket(workOrder = {}, options = {}) {
     engagement_type: clean(workOrder.engagement_type) || "automation_implementation",
     status: approved ? "ready_for_build" : "blocked_awaiting_approval",
     blocking_gate: approved ? "" : "Work order is not approved/paid — pricing/proposal/payment must clear first (Jonathan).",
+    scope: oppText,
     automation_opportunity: oppText,
+    acceptance_criteria: acceptanceCriteriaFor(integrations),
     required_integrations: integrations,
     client_inputs_needed: STANDARD_CLIENT_INPUTS,
     ottoserv_steps: STANDARD_BUILD_STEPS,
     test_plan: testPlanFor(integrations),
+    data_security_notes: DATA_SECURITY_NOTES,
+    rollback_plan: ROLLBACK_PLAN,
     required_evidence: requiredEvidence,
     approval_gates: approvalGates,
     visual_deliverable_requirements: VISUAL_DELIVERABLE_REQUIREMENTS,

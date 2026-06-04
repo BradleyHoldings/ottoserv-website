@@ -27,6 +27,29 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { buildWorkOrder, updateWorkOrderStatus } from "./workOrders.mjs";
+import { inferIntegrations } from "./hermesBuildPacket.mjs";
+
+// Standard client inputs and engagement risks a work order must surface so the
+// proposal/scoping conversation and the build packet are complete.
+function clientInputsFor() {
+  return [
+    "Business hours, service area, and call-handling rules.",
+    "Top FAQs/scripts and the desired booking/qualification flow.",
+    "Phone-number/forwarding + CRM access (provisioned by Jonathan; Hermes never handles credentials).",
+    "Approved messaging/tone and any compliance constraints.",
+  ];
+}
+function engagementRisksFor(seed) {
+  const risks = [
+    "Client does not pay/sign the pilot scope → engagement cannot open (gate holds).",
+    "Required client inputs/access delayed → implementation blocked.",
+    "Integration limits (telephony/CRM/calendar) reduce automation coverage → re-scope.",
+  ];
+  if (/payment|stripe|invoice|billing/i.test(String(seed.main_leak) + String(seed.pilot_recommendation))) {
+    risks.push("Payment/financial step is client-facing and approval-gated — never auto-execute.");
+  }
+  return risks;
+}
 
 export function resolveImplementationStorePath(options = {}) {
   if (options.storePath) return options.storePath;
@@ -152,6 +175,19 @@ export function seedToImplementationWorkOrder(seed = {}, options = {}) {
     main_leak: clean(seed.main_leak),
     pilot_recommendation: clean(seed.pilot_recommendation),
     automation_opportunities: asArray(seed.automation_opportunities),
+    // Client context + planning fields so the work order is complete on its own.
+    client_context: {
+      company,
+      contact: clean(seed.contact),
+      email: clean(seed.email),
+      source_url: clean(seed.interest_signal?.source_url) || clean(seed.report_url),
+      main_pain: clean(seed.main_leak),
+      interest_signal: seed.interest_signal || null,
+    },
+    pain: clean(seed.main_leak),
+    integration_needs: inferIntegrations([...asArray(seed.automation_opportunities), clean(seed.main_leak), clean(seed.pilot_recommendation)]),
+    client_inputs_needed: clientInputsFor(),
+    risks: engagementRisksFor(seed),
     implementation_stage: stage,
     stage_ladder: IMPLEMENTATION_STAGES,
     recommended_actor: role.actor,
