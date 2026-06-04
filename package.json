@@ -28,6 +28,7 @@
     "hermes:self-repair": "node scripts/hermes-self-repair.mjs",
     "hermes:safe-execute": "node scripts/hermes-safe-execute.mjs",
     "hermes:send-email": "node scripts/hermes-send-email.mjs",
+    "hermes:place-calls": "node scripts/hermes-place-calls.mjs",
     "verify:ops": "node scripts/verify-call-import.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "verify:revenue-flow": "node scripts/verify-revenue-flow.mjs",
