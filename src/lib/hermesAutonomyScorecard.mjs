@@ -147,16 +147,23 @@ function pipelineHealth({ leads, pipeline, ingestReport, now }) {
   const lowRecent = Boolean(pipeline?.summary?.low_recent_intent);
   const needsVerification = asArray(ingestReport?.rows).filter((r) => clean(r.ingest_status) === "needs_verification").length;
 
+  // Distinguish "no fresh imports" (truly stale) from "fresh imports but low
+  // recent-intent volume" — so Hermes reports an accurate, non-misleading reason.
+  const stale = leadList.length > 0 && !fresh;
   let status = "healthy";
+  let degraded_reason = "";
   if (!leadList.length) status = "empty";
-  else if (lowRecent || !fresh) status = "degraded";
+  else if (stale) { status = "degraded"; degraded_reason = "no_fresh_imports"; }
+  else if (lowRecent) { status = "degraded"; degraded_reason = "low_recent_intent_volume"; }
 
   return {
     total_leads: leadList.length,
     fresh_leads: fresh,
     a_tier: aTier,
     low_recent_intent: lowRecent,
+    stale_imports: stale,
     needs_verification_rows: needsVerification,
+    degraded_reason,
     status,
   };
 }
@@ -193,7 +200,17 @@ function topBlockers({ execution, bottleneck, repair, pipeline, callRail, servic
     blockers.push({ type: "broken_rail", id: clean(p.id) || clean(p.what_failed), priority: "critical", age_days: age === null ? null : round(age, 2), detail: clean(p.actual_behavior) || clean(p.category) });
   }
   if (pipeline.status === "empty") blockers.push({ type: "empty_pipeline", id: "lead_discovery_rail", priority: "critical", detail: "No leads — revenue cannot move." });
-  else if (pipeline.status === "degraded") blockers.push({ type: "stale_pipeline", id: "lead_discovery_rail", priority: "high", detail: "Low recent-intent / no fresh leads." });
+  else if (pipeline.status === "degraded") {
+    const lowVolume = pipeline.degraded_reason === "low_recent_intent_volume";
+    blockers.push({
+      type: lowVolume ? "low_recent_intent" : "stale_pipeline",
+      id: "lead_discovery_rail",
+      priority: "high",
+      detail: lowVolume
+        ? `Leads are fresh but recent high-intent volume is low (${pipeline.a_tier} A-tier; want more last_30_days intent) — run more Cowork research.`
+        : "No leads imported recently — top of funnel is going stale.",
+    });
+  }
   if (callRail?.status === "idle") blockers.push({ type: "call_rail_idle", id: "call_rail", priority: "high", detail: callRail.detail });
   else if (callRail?.status === "stale") blockers.push({ type: "call_rail_stale", id: "call_rail", priority: "medium", detail: callRail.detail });
   if (bottleneck.pending_approvals > 0) blockers.push({ type: "jonathan_approval", id: "approval_queue", priority: "high", detail: `${bottleneck.pending_approvals} item(s) awaiting Jonathan.` });
