@@ -398,3 +398,59 @@ export function materializeActorPackets(nextActions = [], options = {}) {
     },
   };
 }
+
+/**
+ * Reconcile published next_actions with a throughput result so the operating
+ * cycle reflects what ACTUALLY happened to each proposal. A normal outbound
+ * action that materialized under standing policy must no longer be advertised as
+ * "required_approval: true / request Jonathan approval" — it is queued for
+ * execution + evidence. Only genuinely GATED proposals stay Jonathan blockers.
+ * Pure — returns new action objects.
+ *
+ * @returns actions[] each annotated with throughput_status and, where relevant,
+ *   materialized_via / task_id / execution_status / gate_reason / block_reason.
+ */
+export function reconcileNextActions(actions = [], throughput = {}) {
+  const materializedByAction = new Map(asArray(throughput.materialized).map((m) => [clean(m.action_id), m]));
+  const gatedByAction = new Map(asArray(throughput.gated).map((g) => [clean(g.action_id), g]));
+  const blockedByAction = new Map(asArray(throughput.blocked).map((b) => [clean(b.action_id), b]));
+  const enqueuedByAction = new Map(asArray(throughput.already_enqueued).map((e) => [clean(e.action_id), e]));
+
+  return asArray(actions).map((a) => {
+    const id = clean(a.action_id);
+
+    const m = materializedByAction.get(id);
+    if (m) {
+      const evidence = asArray(m.lifecycle?.required_evidence).length ? asArray(m.lifecycle.required_evidence) : asArray(a.required_evidence);
+      return {
+        ...a,
+        required_approval: false,
+        throughput_status: "queued",
+        materialized: true,
+        materialized_via: clean(m.via),
+        task_id: clean(m.task_id),
+        execution_status: clean(m.lifecycle?.execution_status) || "queued",
+        next_step: `Queued for execution under ${clean(m.via)} (no Jonathan approval needed). Execute within policy/caps, then submit evidence: ${evidence.join("; ")}`,
+      };
+    }
+
+    const enq = enqueuedByAction.get(id);
+    if (enq) {
+      return { ...a, required_approval: false, throughput_status: "queued", task_id: clean(enq.task_id), next_step: clean(a.next_step) || "Already queued for execution; awaiting evidence." };
+    }
+
+    const b = blockedByAction.get(id);
+    if (b) {
+      const reason = clean(b.block_reason) || clean(b.reason);
+      return { ...a, required_approval: false, throughput_status: "blocked", block_reason: reason, next_step: `Blocked before execution (${reason}). Resolve the prerequisite — nothing is sent or dialed.` };
+    }
+
+    const g = gatedByAction.get(id);
+    if (g) {
+      return { ...a, required_approval: true, throughput_status: "gated", gate_reason: clean(g.reason) };
+    }
+
+    // Not outbound/standing-classified (e.g. internal coordination proposal).
+    return { ...a, throughput_status: a.required_approval ? "needs_approval" : "proposed" };
+  });
+}
