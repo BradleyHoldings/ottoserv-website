@@ -18,6 +18,7 @@
 // Closing a packet is gated on real verification evidence.
 
 import { createRepairPacket } from "./revenueEngine.mjs";
+import { resolveActorAvailability } from "./hermesActorAvailability.mjs";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -91,18 +92,28 @@ function repairKey(packet) {
  * Generate repair packets for the scorecard's currently-detected broken rails that
  * do NOT already have an open repair packet. Pure. Reuses createRepairPacket.
  *
- * @param {object} input { scorecard, document?, now? }
- * @returns { generated_at, new_packets[], skipped_existing, summary }
+ * COST/AVAILABILITY AWARENESS (priority 4): when `input.availability` is supplied
+ * and a blocker's owning actor is TEMPORARILY unavailable (credit/window/rate/
+ * budget exhaustion), the work is DEFERRED (queued until reset) instead of becoming
+ * a broken-rail repair packet. A temporary credit outage is not a defect, so it
+ * must not mint a critical repair packet or drag rail reliability down. Genuine
+ * defects (no availability info, or a non-temporary "disabled"/"broken" actor)
+ * still produce repair packets as before. Opt-in: omit `availability` → unchanged.
+ *
+ * @param {object} input { scorecard, document?, now?, availability? }
+ * @returns { generated_at, new_packets[], deferred[], skipped_existing, summary }
  */
 export function generateRepairPackets(input = {}) {
   const now = input.now || new Date().toISOString();
   const scorecard = input.scorecard || {};
   const existing = asArray(input.document?.repairPackets);
   const existingKeys = new Set(existing.map(repairKey).filter(Boolean));
+  const availability = input.availability;
 
   const blockers = asArray(scorecard.top_blockers).filter((b) => REPAIRABLE_BLOCKER_TYPES.has(clean(b.type)));
 
   const new_packets = [];
+  const deferred = [];
   let skipped_existing = 0;
   const seen = new Set();
   for (const blocker of blockers) {
@@ -111,6 +122,23 @@ export function generateRepairPackets(input = {}) {
     packet.created_at = now; // deterministic timestamp for the cycle
     packet.detected_by = "hermes_self_repair";
     packet.required_evidence = packet.required_evidence || ["Repair evidence: logs/commit/route-check/test output proving the rail works again."];
+
+    // A temporarily-exhausted owning actor → defer (queue until reset), not repair.
+    if (availability) {
+      const avail = resolveActorAvailability(packet.owner, availability, now);
+      if (avail.temporary) {
+        deferred.push({
+          rail: clean(packet.what_failed) || clean(blocker.id),
+          blocker_type: clean(blocker.type),
+          owner: clean(packet.owner),
+          reason: avail.state,
+          resets_at: avail.resets_at,
+          detail: `Owner ${packet.owner} ${avail.state}; queued until reset — not a broken rail.`,
+        });
+        continue;
+      }
+    }
+
     const key = repairKey(packet);
     if (existingKeys.has(key) || seen.has(key)) { skipped_existing += 1; continue; }
     seen.add(key);
@@ -123,10 +151,12 @@ export function generateRepairPackets(input = {}) {
   return {
     generated_at: now,
     new_packets,
+    deferred,
     skipped_existing,
     summary: {
       detected_broken_rails: blockers.length,
       new_repair_packets: new_packets.length,
+      deferred_until_reset: deferred.length,
       skipped_existing,
       by_owner,
     },

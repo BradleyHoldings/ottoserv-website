@@ -57,6 +57,17 @@ async function senseLeadSignals(options) {
   return { leads: asArray(leadsRaw), pipeline, ingestReport };
 }
 
+// Resolve the actor availability descriptor (best-effort; absent → undefined so
+// self-repair behavior is unchanged). Lets temporary credit/window exhaustion be
+// queued-until-reset instead of misread as a broken rail.
+async function senseActorAvailability(options) {
+  const cwd = options.cwd || process.cwd();
+  const file = options.availabilityPath || process.env.HERMES_ACTOR_AVAILABILITY_PATH || path.join(cwd, "data", "actors", "availability.json");
+  const raw = await readJsonSafe(file);
+  if (raw && typeof raw === "object") return raw;
+  return undefined;
+}
+
 // Resolve the client-success signals (best-effort; absent → [], not fatal). Safe
 // fixture/store shape — business-name level, no PII required.
 async function senseClientSignals(options) {
@@ -92,6 +103,7 @@ export async function runOperatingCycle(options = {}) {
     : await senseLeadSignals(options);
 
   const clients = injected.clients !== undefined ? asArray(injected.clients) : await senseClientSignals(options);
+  const availability = injected.availability !== undefined ? injected.availability : await senseActorAvailability(options);
 
   const ledger = await loadOperatingLedger(options);
   const ledgerSummary = summarizeLedger(ledger.entries);
@@ -113,7 +125,7 @@ export async function runOperatingCycle(options = {}) {
   // 3. SELF-REPAIR — turn detected broken rails into owned repair packets, so the
   //    selector routes them and the ledger learns (broken → repaired / MTTR). The
   //    generated packets are merged into the document the decide+record steps use.
-  const selfRepair = generateRepairPackets({ scorecard: detectionScore, document, now });
+  const selfRepair = generateRepairPackets({ scorecard: detectionScore, document, now, availability });
   const documentForActions = selfRepair.new_packets.length
     ? { ...document, repairPackets: [...asArray(document.repairPackets), ...selfRepair.new_packets] }
     : document;
@@ -174,8 +186,10 @@ export async function runOperatingCycle(options = {}) {
     scorecard,
     self_repair: {
       generated: selfRepair.new_packets.length,
+      deferred_until_reset: asArray(selfRepair.deferred).length,
       by_owner: selfRepair.summary.by_owner,
       packets: selfRepair.new_packets.map((p) => ({ id: p.id, what_failed: p.what_failed, owner: p.owner, category: p.category, status: p.status })),
+      deferred: asArray(selfRepair.deferred),
     },
     sense: {
       document_source: loadedDoc.source?.kind || "none",
@@ -214,6 +228,7 @@ export async function runOperatingCycle(options = {}) {
       top_action: reconciledActions[0] ? { action_type: reconciledActions[0].action_type, actor: reconciledActions[0].actor, priority: reconciledActions[0].priority, throughput_status: reconciledActions[0].throughput_status, required_approval: reconciledActions[0].required_approval } : null,
       blockers: scorecard.top_blockers.length,
       self_repair_packets: selfRepair.new_packets.length,
+      deferred_until_reset: asArray(selfRepair.deferred).length,
       ledger_added: recorded.added,
       persisted: { local: local_written, supabase },
     },
