@@ -144,8 +144,11 @@ export async function runOperatingCycle(options = {}) {
   // 5. RECORD — write proposed actions + rail state into the operating ledger.
   let recorded = { added: 0, total: ledger.entries.length };
   if (options.recordLedger !== false) {
+    // Record the RECONCILED actions so materialized outbound is logged as
+    // proposed/queued (not approval-pending) — otherwise the ledger's
+    // approvals.pending count keeps the Jonathan bottleneck artificially high.
     const events = [
-      ...entriesFromNextActions(decided, { now }),
+      ...entriesFromNextActions({ ...decided, actions: reconciledActions }, { now }),
       ...entriesFromRepairPackets(asArray(documentForActions.repairPackets), { now }),
     ];
     recorded = await recordLedgerEvents(events, { ...options, now });

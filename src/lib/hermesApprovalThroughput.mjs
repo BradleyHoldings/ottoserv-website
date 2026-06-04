@@ -189,8 +189,13 @@ export function classifyProposedAction(action = {}, options = {}) {
     const out = classifyOutboundAction(action, options.standingOutboundPolicy, options.outboundCounters);
     return { disposition: out.disposition, risk, reason: out.reason, channel: out.channel };
   }
-  if (!action.required_approval && STANDING_POLICY_ACTION_TYPES.has(type) && risk !== "high") {
-    return { disposition: "standing", risk, reason: "Low-risk standing-policy action (no per-item approval required)." };
+  // STANDING_POLICY_ACTION_TYPES are internal coordination/research that trigger
+  // nothing external (request evidence, review, route, follow-up, research). They
+  // stay standing even when they concern a high-risk task — e.g. asking the actor
+  // for evidence on a high-risk call is itself a safe internal step, so it must not
+  // inherit the task's risk and get gated.
+  if (!action.required_approval && STANDING_POLICY_ACTION_TYPES.has(type)) {
+    return { disposition: "standing", risk, reason: "Internal standing-policy action (no per-item approval required)." };
   }
   return { disposition: "gated", risk, reason: "Revenue-moving / high-risk action — requires a recorded approval or standing grant." };
 }
