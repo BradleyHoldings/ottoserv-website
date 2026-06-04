@@ -233,6 +233,11 @@ export function normalizeEnrichedLead(raw = {}, options = {}) {
     risk_compliance_notes: clean(raw.risk_compliance_notes) || (scored.hasEvidence ? "Public source only." : "Unverified intent — verify public evidence before contact."),
     last_enriched_date: now,
     evidence_required: evidenceRequired,
+    // Freshness signals (priority 5): keep duplicate revalidation from re-triggering
+    // false stale-pipeline blockers. last_seen_at = last time this lead appeared in a
+    // research result; last_validated_at = last time its evidence was validated.
+    last_seen_at: now,
+    last_validated_at: scored.hasEvidence ? now : "",
   };
 }
 
@@ -248,15 +253,35 @@ function dedupeKeys(lead) {
   return keys;
 }
 
-export function dedupeEnrichedLeads(leads = []) {
-  const seen = new Set();
+export function dedupeEnrichedLeads(leads = [], options = {}) {
+  const now = options.now || new Date().toISOString();
+  const keyToIdx = new Map();
   const out = [];
+  let revalidated = 0;
   for (const lead of asArray(leads)) {
     const keys = dedupeKeys(lead);
-    if (keys.some((k) => seen.has(k))) continue;
-    keys.forEach((k) => seen.add(k));
+    const hitKey = keys.find((k) => keyToIdx.has(k));
+    if (hitKey !== undefined) {
+      // Duplicate of an already-accepted lead → REVALIDATE its freshness instead of
+      // silently dropping. A fresh re-sighting updates last_seen_at (and
+      // last_validated_at when the dup carries evidence), so stale-pipeline checks do
+      // not falsely fire on a lead we are still actively seeing. Evidence rules are
+      // unchanged: a dup without evidence does not grant validation.
+      const kept = out[keyToIdx.get(hitKey)];
+      kept.last_seen_at = now;
+      if (clean(lead.last_validated_at) || clean(lead.evidence_snippet) || asArray(lead.source_urls).length) {
+        kept.last_validated_at = clean(lead.last_validated_at) || now;
+      }
+      // Register any additional dedupe keys this duplicate carried onto the kept lead.
+      keys.forEach((k) => { if (!keyToIdx.has(k)) keyToIdx.set(k, keyToIdx.get(hitKey)); });
+      revalidated += 1;
+      continue;
+    }
+    const idx = out.length;
     out.push(lead);
+    keys.forEach((k) => keyToIdx.set(k, idx));
   }
+  out.revalidated_count = revalidated;
   return out;
 }
 
@@ -301,6 +326,11 @@ export function toRevenueLoopLead(lead, now = new Date().toISOString()) {
     created_at: now,
     date_of_signal: clean(lead.date_of_signal),
     imported_at: now,
+    // Freshness signals carried into the revenue loop (priority 5). last_intake_at is
+    // the import time; last_seen_at/last_validated_at come from dedupe revalidation.
+    last_seen_at: clean(lead.last_seen_at) || now,
+    last_validated_at: clean(lead.last_validated_at),
+    last_intake_at: now,
     // Enrichment superset (engine ignores; Hermes/dashboard can use).
     intent: {
       signal_window: lead.signal_window,
@@ -321,7 +351,7 @@ export function buildLeadPipeline(rawLeads = [], options = {}) {
   const now = options.now || new Date().toISOString();
   const minRecentIntent = Number(options.minRecentIntent ?? 3);
 
-  const normalized = dedupeEnrichedLeads(asArray(rawLeads).map((raw) => normalizeEnrichedLead(raw, { now })));
+  const normalized = dedupeEnrichedLeads(asArray(rawLeads).map((raw) => normalizeEnrichedLead(raw, { now })), { now });
   const accepted = normalized.filter((l) => l.tier !== "Reject");
   const rejected = normalized.filter((l) => l.tier === "Reject");
 

@@ -221,6 +221,41 @@ function tieredLeadActions({ leads }) {
   return actions;
 }
 
+// 5: leads with public intent + evidence but NO usable contact path → contact
+// ENRICHMENT (sprint priority 5). The seed spreadsheet supplies source URLs and
+// pain, but often no email/phone. Rather than let those leads sit idle (a "healthy
+// pipeline" that produces no work) or contact them with no contact path, Hermes
+// proposes a low-risk enrichment task routed to Cowork (or safe self-research). It
+// is NOT per-item Jonathan-gated. If the owning actor is credit/window exhausted,
+// the downstream availability layer defers it (queue-until-reset), no broken rail.
+function leadEnrichmentActions({ leads }) {
+  const actions = [];
+  const needsEnrichment = asArray(leads)
+    .filter((l) => clean(l.status) !== "rejected")
+    .filter((l) => !(clean(l.email) || clean(l.normalized_phone) || clean(l.phone)))
+    .filter((l) => leadHasEvidence(l)) // only enrich leads that already carry public evidence
+    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+    .slice(0, 5);
+  for (const lead of needsEnrichment) {
+    const id = clean(lead.lead_id) || slug(`${lead.company}`);
+    actions.push(makeAction({
+      action_id: `na-lead-${slug(id)}-enrich`,
+      source_type: "lead",
+      source_id: id,
+      priority: "medium",
+      actor: "Cowork",
+      action_type: "enrich_lead_contact",
+      reason: `Lead (${clean(lead.company)}) has public intent + source but no verified contact path — enrich before any outreach.`,
+      required_approval: false,
+      required_evidence: ["Verified decision-maker contact path (email or phone) with public source, plus updated last_validated_at."],
+      risk_level: "low",
+      next_step: "Cowork: find a verified decision-maker email/phone from public sources, then re-intake so the lead becomes outreach-eligible. If Cowork credits are exhausted, queue until reset (do not mark a broken rail).",
+      suggested_prompt_or_packet: { kind: "lead_enrichment", lead_id: id, company: clean(lead.company), website: clean(lead.website_url), source_url: clean(lead.source_url), need: ["decision_maker_email_or_phone", "business_hours_timezone"] },
+    }));
+  }
+  return actions;
+}
+
 // 3b: call rail idle/stale → propose a call-rail repair (generate packets, route
 // already-approved calls, record outcomes). The per-lead dial stays approval-gated
 // via recommend_approved_call; this is the rail-level "unstick it" action.
@@ -542,6 +577,7 @@ export function selectNextActions(state = {}, options = {}) {
     ...executionActions({ document }),
     ...workOrderActions({ document, now }),
     ...tieredLeadActions({ leads: state.leads }),
+    ...leadEnrichmentActions({ leads: state.leads }),
     ...clientSuccessActions({ clients: state.clients, document, now }),
   ];
 

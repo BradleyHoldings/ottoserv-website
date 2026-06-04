@@ -12,6 +12,7 @@
     "revenue:daily-loop": "node scripts/revenue-daily-loop.mjs",
     "lead:intake": "node scripts/lead-intent-pipeline.mjs",
     "lead:research": "node scripts/hermes-lead-research.mjs",
+    "lead:spreadsheet-import": "node scripts/lead-spreadsheet-import.mjs",
     "evidence:submit": "node scripts/actor-submit-evidence.mjs",
     "hermes:operate": "node scripts/hermes-operate.mjs",
     "hermes:call-rail": "node scripts/hermes-call-rail.mjs",
