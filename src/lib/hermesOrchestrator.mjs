@@ -25,6 +25,7 @@ import { loadRevenueDocument } from "./actorEvidenceIntake.mjs";
 import { loadOperatingLedger, summarizeLedger, recordLedgerEvents, entriesFromNextActions, entriesFromRepairPackets } from "./hermesOperatingLedger.mjs";
 import { selectNextActionsWithLearning } from "./hermesLearningWeights.mjs";
 import { computeScorecard } from "./hermesAutonomyScorecard.mjs";
+import { generateRepairPackets } from "./hermesSelfRepair.mjs";
 import { upsertRevenueState } from "./revenueEngineSupabaseStore.mjs";
 
 export const CYCLE_ROW_ID = "operating_cycle";
@@ -105,18 +106,26 @@ export async function runOperatingCycle(options = {}) {
     now,
   };
 
-  // 2. DECIDE — learning-weighted next actions.
-  const decided = selectNextActionsWithLearning(senseState, { now });
-
-  // 3. SCORE — autonomy scorecard for this cycle.
+  // 2. SCORE — autonomy scorecard for this cycle (detection).
   const scorecard = computeScorecard(senseState, { now });
 
-  // 4. RECORD — write proposed actions + rail state into the operating ledger.
+  // 3. SELF-REPAIR — turn detected broken rails into owned repair packets, so the
+  //    selector routes them and the ledger learns (broken → repaired / MTTR). The
+  //    generated packets are merged into the document the decide+record steps use.
+  const selfRepair = generateRepairPackets({ scorecard, document, now });
+  const documentForActions = selfRepair.new_packets.length
+    ? { ...document, repairPackets: [...asArray(document.repairPackets), ...selfRepair.new_packets] }
+    : document;
+
+  // 4. DECIDE — learning-weighted next actions (routes the repair packets too).
+  const decided = selectNextActionsWithLearning({ ...senseState, document: documentForActions }, { now });
+
+  // 5. RECORD — write proposed actions + rail state into the operating ledger.
   let recorded = { added: 0, total: ledger.entries.length };
   if (options.recordLedger !== false) {
     const events = [
       ...entriesFromNextActions(decided, { now }),
-      ...entriesFromRepairPackets(asArray(document.repairPackets), { now }),
+      ...entriesFromRepairPackets(asArray(documentForActions.repairPackets), { now }),
     ];
     recorded = await recordLedgerEvents(events, { ...options, now });
   }
@@ -132,6 +141,11 @@ export async function runOperatingCycle(options = {}) {
     next_actions: decided.actions,
     next_actions_by_priority: decided.by_priority,
     scorecard,
+    self_repair: {
+      generated: selfRepair.new_packets.length,
+      by_owner: selfRepair.summary.by_owner,
+      packets: selfRepair.new_packets.map((p) => ({ id: p.id, what_failed: p.what_failed, owner: p.owner, category: p.category, status: p.status })),
+    },
     sense: {
       document_source: loadedDoc.source?.kind || "none",
       leads: leadSignals.leads.length,
@@ -167,6 +181,7 @@ export async function runOperatingCycle(options = {}) {
       next_actions: decided.actions.length,
       top_action: decided.actions[0] ? { action_type: decided.actions[0].action_type, actor: decided.actions[0].actor, priority: decided.actions[0].priority } : null,
       blockers: scorecard.top_blockers.length,
+      self_repair_packets: selfRepair.new_packets.length,
       ledger_added: recorded.added,
       persisted: { local: local_written, supabase },
     },

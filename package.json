@@ -19,6 +19,7 @@
     "hermes:handoff": "node scripts/hermes-handoff.mjs",
     "hermes:build-packets": "node scripts/hermes-build-packets.mjs",
     "hermes:client-success": "node scripts/hermes-client-success.mjs",
+    "hermes:self-repair": "node scripts/hermes-self-repair.mjs",
     "hermes:safe-execute": "node scripts/hermes-safe-execute.mjs",
     "verify:ops": "node scripts/verify-call-import.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
