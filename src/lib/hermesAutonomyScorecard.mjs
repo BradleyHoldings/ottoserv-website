@@ -73,7 +73,11 @@ function executionHealth(document) {
 }
 
 // ─── Dimension: Jonathan bottleneck ───────────────────────────────────────────
-function bottleneckHealth(document, ledgerSummary) {
+// Normal policy-approved outbound is NOT a bottleneck: once the throughput layer
+// materializes it under standing policy it becomes an open execution task (counted
+// in open_items, NOT in pending). Only GATED proposals — exceptional/over-cap/
+// uncovered actions that still need Jonathan — raise the bottleneck.
+function bottleneckHealth(document, ledgerSummary, throughput) {
   const items = asArray(document?.approvalExecutionQueue?.items);
   const orders = asArray(document?.implementationWorkOrders?.orders);
   const openTasks = items.filter((i) => clean(i.lifecycle?.execution_status) !== "completed");
@@ -81,11 +85,13 @@ function bottleneckHealth(document, ledgerSummary) {
   const awaitingJonathan = openOrders.filter((o) => Boolean(o.approvalRequired) && lower(o.approvalStatus) !== "approved");
 
   const ledgerPending = Number(ledgerSummary?.approvals?.pending || 0);
-  const openItems = openTasks.length + openOrders.length;
-  const pending = awaitingJonathan.length + ledgerPending;
+  const gatedActions = asArray(throughput?.gated).length;
+  const openItems = openTasks.length + openOrders.length + gatedActions;
+  const pending = awaitingJonathan.length + ledgerPending + gatedActions;
   return {
     open_items: openItems,
     pending_approvals: pending,
+    gated_actions: gatedActions,
     work_orders_awaiting_approval: awaitingJonathan.map((o) => clean(o.id)).filter(Boolean),
     bottleneck_rate: openItems ? round(Math.min(1, pending / openItems)) : (pending > 0 ? 1 : 0),
   };
@@ -213,7 +219,7 @@ export function computeScorecard(state = {}, options = {}) {
   const ledgerSummary = state.ledgerSummary || (Array.isArray(state.ledger) ? summarizeLedger(state.ledger) : state.ledger?.actors ? state.ledger : summarizeLedger(ledgerEntries));
 
   const execution = executionHealth(document);
-  const bottleneck = bottleneckHealth(document, ledgerSummary);
+  const bottleneck = bottleneckHealth(document, ledgerSummary, state.throughput);
   const repair = repairHealth(document, ledgerEntries, now);
   const pipeline = pipelineHealth({ leads: state.leads, pipeline: state.pipeline, ingestReport: state.ingestReport, now });
   const callRail = detectCallRailState({ leads: state.leads, document, ledger: ledgerEntries, now });

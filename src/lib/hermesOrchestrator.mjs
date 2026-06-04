@@ -25,6 +25,7 @@ import { loadRevenueDocument } from "./actorEvidenceIntake.mjs";
 import { loadOperatingLedger, summarizeLedger, recordLedgerEvents, entriesFromNextActions, entriesFromRepairPackets } from "./hermesOperatingLedger.mjs";
 import { selectNextActionsWithLearning } from "./hermesLearningWeights.mjs";
 import { computeScorecard } from "./hermesAutonomyScorecard.mjs";
+import { materializeActorPackets, DEFAULT_STANDING_OUTBOUND_POLICY } from "./hermesApprovalThroughput.mjs";
 import { generateRepairPackets } from "./hermesSelfRepair.mjs";
 import { upsertRevenueState } from "./revenueEngineSupabaseStore.mjs";
 
@@ -106,19 +107,33 @@ export async function runOperatingCycle(options = {}) {
     now,
   };
 
-  // 2. SCORE — autonomy scorecard for this cycle (detection).
-  const scorecard = computeScorecard(senseState, { now });
+  // 2. SCORE (detection) — autonomy scorecard used to drive self-repair.
+  const detectionScore = computeScorecard(senseState, { now });
 
   // 3. SELF-REPAIR — turn detected broken rails into owned repair packets, so the
   //    selector routes them and the ledger learns (broken → repaired / MTTR). The
   //    generated packets are merged into the document the decide+record steps use.
-  const selfRepair = generateRepairPackets({ scorecard, document, now });
+  const selfRepair = generateRepairPackets({ scorecard: detectionScore, document, now });
   const documentForActions = selfRepair.new_packets.length
     ? { ...document, repairPackets: [...asArray(document.repairPackets), ...selfRepair.new_packets] }
     : document;
 
   // 4. DECIDE — learning-weighted next actions (routes the repair packets too).
   const decided = selectNextActionsWithLearning({ ...senseState, document: documentForActions }, { now });
+
+  // 4b. MATERIALIZE — turn proposals into actor-ready packets under standing policy.
+  //     NORMAL B-tier email under cap and NORMAL approved-policy calls materialize
+  //     WITHOUT a per-item approval; exceptional/over-cap/uncovered stay GATED and
+  //     missing-prerequisite actions are BLOCKED. Triggers nothing.
+  const throughput = materializeActorPackets(decided.actions, {
+    document: documentForActions,
+    now,
+    standingOutboundPolicy: DEFAULT_STANDING_OUTBOUND_POLICY,
+  });
+
+  // 4c. RE-SCORE — published scorecard counts only GATED proposals as the Jonathan
+  //     bottleneck, so normal standing-materialized outbound no longer drags it.
+  const scorecard = computeScorecard({ ...senseState, document: documentForActions, throughput }, { now });
 
   // 5. RECORD — write proposed actions + rail state into the operating ledger.
   let recorded = { added: 0, total: ledger.entries.length };
@@ -140,6 +155,13 @@ export async function runOperatingCycle(options = {}) {
     top_blockers: scorecard.top_blockers,
     next_actions: decided.actions,
     next_actions_by_priority: decided.by_priority,
+    throughput: {
+      summary: throughput.summary,
+      materialized: throughput.materialized.map((m) => ({ action_id: m.action_id, task_id: m.task_id, via: m.via, channel: m.channel, agent: m.taskPacket.assigned_agent })),
+      gated: throughput.gated.map((g) => ({ action_id: g.action_id, risk: g.risk, channel: g.channel, reason: g.reason })),
+      blocked: throughput.blocked,
+      outbound_counters: throughput.outbound_counters,
+    },
     scorecard,
     self_repair: {
       generated: selfRepair.new_packets.length,

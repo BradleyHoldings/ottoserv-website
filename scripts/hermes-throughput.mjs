@@ -12,7 +12,7 @@ import path from "node:path";
 
 import { loadRevenueDocument } from "../src/lib/actorEvidenceIntake.mjs";
 import { selectNextActions } from "../src/lib/hermesNextActionSelector.mjs";
-import { materializeActorPackets } from "../src/lib/hermesApprovalThroughput.mjs";
+import { materializeActorPackets, DEFAULT_STANDING_OUTBOUND_POLICY } from "../src/lib/hermesApprovalThroughput.mjs";
 
 const now = process.env.HERMES_NOW || new Date().toISOString();
 const full = process.argv.includes("--full");
@@ -34,7 +34,11 @@ async function main() {
   const ingestReport = await readJsonSafe(path.join(liDir, "ingest-report.json"));
 
   const selected = selectNextActions({ leads, document, pipeline, ingestReport, now }, { now });
-  const result = materializeActorPackets(selected.actions, { document, now });
+  const result = materializeActorPackets(selected.actions, {
+    document,
+    now,
+    standingOutboundPolicy: DEFAULT_STANDING_OUTBOUND_POLICY,
+  });
 
   const out = {
     mode: full ? "full" : "summary",
@@ -42,14 +46,16 @@ async function main() {
     document_source: loaded.source?.kind || "none",
     proposed_actions: selected.actions.length,
     throughput: result.summary,
+    outbound_counters: result.outbound_counters,
     materialized: full
       ? result.materialized
       : result.materialized.map((m) => ({ action_id: m.action_id, task_id: m.task_id, via: m.via, agent: m.taskPacket.assigned_agent })),
     gated: full
       ? result.gated
-      : result.gated.map((g) => ({ action_id: g.action_id, risk: g.risk, action_type: g.approval_packet.action_type })),
+      : result.gated.map((g) => ({ action_id: g.action_id, risk: g.risk, action_type: g.approval_packet.action_type, reason: g.reason })),
+    blocked: result.blocked,
     already_enqueued: result.already_enqueued,
-    note: "No outreach/calls/payments/deploys. Standing-policy actions are internal/research only; high-risk actions materialize only under a recorded approval or scoped standing grant, else returned GATED.",
+    note: "No outreach/calls/payments/deploys. NORMAL B-tier email under cap and NORMAL approved-policy calls materialize as send/call-ready packets under standing policy (no per-item approval); they still obey caps, DNC/blacklist, cooldowns, business hours, ICP/offer, and the outbound evidence contract. Exceptional/over-cap/off-segment/uncovered actions stay GATED; missing-prerequisite actions are BLOCKED, never sent.",
   };
   console.log(JSON.stringify(out, null, 2));
 }
