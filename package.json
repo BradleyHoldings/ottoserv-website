@@ -17,6 +17,7 @@
     "hermes:call-rail": "node scripts/hermes-call-rail.mjs",
     "hermes:throughput": "node scripts/hermes-throughput.mjs",
     "hermes:handoff": "node scripts/hermes-handoff.mjs",
+    "hermes:build-packets": "node scripts/hermes-build-packets.mjs",
     "hermes:safe-execute": "node scripts/hermes-safe-execute.mjs",
     "verify:ops": "node scripts/verify-call-import.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",

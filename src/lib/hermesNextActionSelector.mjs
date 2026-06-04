@@ -21,6 +21,7 @@ import { detectCallRailState, isCallTask } from "./hermesCallRail.mjs";
 import { buildLeadIntentResearchTasks } from "./leadIntentResearchTasks.mjs";
 import { RESEARCH_RESULTS_CONTRACT } from "./leadResearchContract.mjs";
 import { detectInterestedHandoffs } from "./hermesPaidClientHandoff.mjs";
+import { buildServiceDeliveryPacket } from "./hermesBuildPacket.mjs";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -388,7 +389,7 @@ function executionActions({ document }) {
 }
 
 // 8 + 9: implementation work orders → approval/client-input requests or build packets.
-function workOrderActions({ document }) {
+function workOrderActions({ document, now }) {
   const actions = [];
   const orders = asArray(document?.implementationWorkOrders?.orders);
   for (const wo of orders) {
@@ -415,15 +416,10 @@ function workOrderActions({ document }) {
         required_approval: false,
         forbidden_actions: ["Do NOT activate production n8n / deploy without a separate recorded approval.", "Do NOT send client-facing deliverables without approval."],
         next_step: "Build automations, verify with tests/build/route checks, attach Codex evidence, then advance the stage.",
-        suggested_prompt_or_packet: {
-          kind: "build_packet",
-          work_order_id: id,
-          automation_opportunities: asArray(wo.automation_opportunities),
-          success_criteria: asArray(wo.success_criteria),
-          required_evidence: asArray(wo.required_evidence),
-          gated_actions: asArray(wo.gated_actions),
-          test_plan: "Add/extend node:test coverage + build/route check per implemented automation.",
-        },
+        // Hand Codex the FULL buildable spec (integrations, client inputs, OttoServ
+        // steps, test plan, evidence gates, visual deliverable requirements) — not a
+        // stub — so service delivery is actor-ready straight from the cycle.
+        suggested_prompt_or_packet: buildServiceDeliveryPacket(wo, { now }),
       }));
       continue;
     }
@@ -521,7 +517,7 @@ export function selectNextActions(state = {}, options = {}) {
     ...callRailActions({ leads: state.leads, document, ledger: state.ledger, now }),
     ...paidClientHandoffActions({ leads: state.leads, document, now }),
     ...executionActions({ document }),
-    ...workOrderActions({ document }),
+    ...workOrderActions({ document, now }),
     ...tieredLeadActions({ leads: state.leads }),
   ];
 
