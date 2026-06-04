@@ -66,17 +66,148 @@ export const APPROVAL_GATED_ACTION_TYPES = new Set([
   "request_delivery_evidence",
 ]);
 
+// ─── Standing OUTBOUND policy (the bottleneck fix) ────────────────────────────
+// NORMAL outbound — approved-template B-tier cold email under the send cap, and
+// normal approved-policy calls under the call cap — is pre-authorized as a CLASS
+// by Jonathan. So Hermes materializes these into actor/send-ready packets WITHOUT
+// a per-item approval, provided each one is NORMAL (not exceptional), inside caps,
+// has a contact path, and carries the outbound evidence contract. Exceptional,
+// over-cap, off-segment, or guardrail-blocked actions are NEVER auto-sent.
+export const STANDING_OUTBOUND_ACTION_TYPES = new Set([
+  "recommend_approved_call",
+  "recommend_approved_email",
+]);
+
+// The approved standing outbound policy. Raising a cap, opening a new
+// campaign/segment, or any exceptional case below still requires Jonathan.
+export const DEFAULT_STANDING_OUTBOUND_POLICY = {
+  enabled: true,
+  approved_by: "Jonathan",
+  email: { enabled: true, daily_cap: 50, tiers: ["B-tier"] },
+  call: { enabled: true, daily_cap: 20, tiers: ["A-tier"] },
+};
+
+// Every EXECUTED outbound action must satisfy this evidence contract before it can
+// complete: a message/call id, a timestamp, a disposition/outcome, and a next
+// action. Completion stays gated on this by the execution bridge.
+export const OUTBOUND_EVIDENCE_CONTRACT = {
+  call: ["Outbound call evidence: call id, timestamp, disposition/outcome, and next action."],
+  email: ["Outbound email evidence: message id, timestamp, disposition/outcome, and next action."],
+};
+
+// Signals that force a NORMAL outbound action back under Jonathan approval even
+// inside the standing policy: limit increases, new campaigns/segments, custom
+// offers/pricing, payment links, client-facing sends, upset customers, negative
+// replies needing judgment, and high-emotion / legal / compliance-sensitive cases.
+const EXCEPTIONAL_OUTBOUND_FLAGS = [
+  "exceptional", "upset_customer", "negative_reply", "high_emotion", "sensitive",
+  "requires_judgment", "custom_offer", "custom_pricing", "payment_link",
+  "client_facing", "new_campaign", "new_segment", "new_audience", "limit_increase",
+];
+const EXCEPTIONAL_OUTBOUND_TEXT = [
+  /\bupset\b|\bangry\b|complaint|escalat|frustrat|unhappy|\birate\b/i,
+  /negative\s+repl|bad\s+repl|objection\s+needing\s+judgment/i,
+  /refund|chargeback|cancellation|\blegal\b|complian/i,
+  /custom\s+(pric|offer|quote|guarantee|discount)/i,
+  /payment\s+link|\bstripe\b|invoice\s+link/i,
+  /client[-\s]facing|\bproposal\b|\bcontract\b|deliverable/i,
+  /new\s+(campaign|segment|audience|list|icp)/i,
+  /(increase|raise|expand|lift)[^.]{0,24}(cap|limit|volume)/i,
+];
+
+function outboundChannel(action) {
+  const type = clean(action.action_type);
+  if (type === "recommend_approved_call") return "call";
+  if (type === "recommend_approved_email") return "email";
+  return "";
+}
+
+// Returns a non-empty reason when the action is EXCEPTIONAL (must stay gated).
+function detectExceptionalOutbound(action) {
+  for (const flag of EXCEPTIONAL_OUTBOUND_FLAGS) {
+    if (action && action[flag] === true) return flag;
+  }
+  const text = lower(`${action.action_type} ${action.reason} ${action.next_step}`);
+  for (const re of EXCEPTIONAL_OUTBOUND_TEXT) {
+    if (re.test(text)) return "sensitive_content";
+  }
+  return "";
+}
+
+// Returns a non-empty reason when the action CANNOT execute now (missing
+// prerequisite/guardrail) — this blocks execution; it is NOT an approval ask.
+function outboundExecutionBlock(action, channel) {
+  if (action.dnc === true || action.blacklisted === true) return "dnc_or_blacklist";
+  if (action.in_cooldown === true) return "cooldown_window";
+  if (action.outside_business_hours === true && channel === "call") return "outside_business_hours";
+  if (action.contact_path === false) return "missing_contact_path";
+  const packet = action.suggested_prompt_or_packet || {};
+  const hasContact = action.contact_path === true || Boolean(packet.lead_id || packet.email || packet.phone);
+  if (!hasContact) return "missing_contact_path";
+  if (!asArray(action.required_evidence).length) return "missing_evidence_requirement";
+  return "";
+}
+
+// Classify a normal-outbound action against the standing policy + running caps.
+function classifyOutboundAction(action, policy, counters) {
+  const channel = outboundChannel(action);
+  const ch = channel && policy ? policy[channel] : null;
+  if (!policy || policy.enabled === false || !ch || ch.enabled === false) {
+    return { disposition: "gated", channel, reason: "Standing outbound policy not in effect for this channel — approval required." };
+  }
+  const exceptional = detectExceptionalOutbound(action);
+  if (exceptional) {
+    return { disposition: "gated", channel, reason: `Exceptional/sensitive outbound (${exceptional}) — requires Jonathan approval.` };
+  }
+  const tier = clean(action.tier);
+  if (tier && asArray(ch.tiers).length && !ch.tiers.includes(tier)) {
+    return { disposition: "gated", channel, reason: `Tier "${tier}" is outside the approved ${channel} segment — new-segment approval required.` };
+  }
+  const block = outboundExecutionBlock(action, channel);
+  if (block) {
+    return { disposition: "blocked", channel, reason: block };
+  }
+  const cap = Number(ch.daily_cap);
+  const used = Number(counters?.[channel] || 0);
+  if (Number.isFinite(cap) && used >= cap) {
+    return { disposition: "gated", channel, reason: `Daily ${channel} cap (${cap}) reached — a limit increase requires Jonathan approval.` };
+  }
+  return { disposition: "standing", channel, reason: `Normal ${channel} inside approved standing policy (no per-item approval).` };
+}
+
 /**
  * Classify a proposed selector action for throughput. Pure.
- * @returns { disposition: 'standing' | 'gated', risk, reason }
+ * @param {object} action  selector action
+ * @param {object} options { standingOutboundPolicy?, outboundCounters? }
+ * @returns { disposition: 'standing' | 'gated' | 'blocked', risk, reason, channel? }
  */
-export function classifyProposedAction(action = {}) {
+export function classifyProposedAction(action = {}, options = {}) {
   const type = clean(action.action_type);
   const risk = clean(action.risk_level) || classifyActionRisk(`${type} ${action.reason || ""}`, action.risk_level);
+  // Normal outbound (call/email) under Jonathan's standing policy is autonomous.
+  if (STANDING_OUTBOUND_ACTION_TYPES.has(type) && options.standingOutboundPolicy) {
+    const out = classifyOutboundAction(action, options.standingOutboundPolicy, options.outboundCounters);
+    return { disposition: out.disposition, risk, reason: out.reason, channel: out.channel };
+  }
   if (!action.required_approval && STANDING_POLICY_ACTION_TYPES.has(type) && risk !== "high") {
     return { disposition: "standing", risk, reason: "Low-risk standing-policy action (no per-item approval required)." };
   }
   return { disposition: "gated", risk, reason: "Revenue-moving / high-risk action — requires a recorded approval or standing grant." };
+}
+
+// Seed per-channel outbound counters from outbound tasks already queued TODAY so
+// caps hold across runs, plus any explicit override. Pure.
+function seedOutboundCounters(document, now, override) {
+  const counters = { call: Number(override?.call || 0), email: Number(override?.email || 0) };
+  const day = clean(now).slice(0, 10);
+  for (const item of asArray(document?.approvalExecutionQueue?.items)) {
+    const rail = lower(item.taskPacket?.execution_rail);
+    const created = clean(item.taskPacket?.created_at).slice(0, 10);
+    if (created && day && created !== day) continue;
+    if (rail === "morgan") counters.call += 1;
+    else if (rail === "email") counters.email += 1;
+  }
+  return counters;
 }
 
 // Is there an active, scoped standing GRANT covering this action? A grant is a
@@ -113,7 +244,8 @@ function findRecordedApproval(action, decisions) {
 }
 
 // Build the actor-ready execution packet for an action via the existing bridge.
-function buildPacketForAction(action, { decidedBy, now }) {
+function buildPacketForAction(action, { decidedBy, now, requiredEvidence }) {
+  const evidence = asArray(requiredEvidence).length ? asArray(requiredEvidence) : asArray(action.required_evidence);
   const bridged = bridgeApprovalToExecution(
     {
       decision: "approved",
@@ -123,7 +255,7 @@ function buildPacketForAction(action, { decidedBy, now }) {
       assigned_agent: clean(action.actor),
       recommended_actor: clean(action.actor),
       risk_level: clean(action.risk_level),
-      required_evidence: asArray(action.required_evidence),
+      required_evidence: evidence,
       decided_by: decidedBy,
     },
     { now },
@@ -171,6 +303,7 @@ export function materializeActorPackets(nextActions = [], options = {}) {
   const document = options.document || {};
   const grants = options.standingApprovals || asArray(document.standingApprovals);
   const decisions = options.approvalDecisions || asArray(document.approvalDecisions);
+  const standingOutboundPolicy = options.standingOutboundPolicy ?? document.standingOutboundPolicy ?? null;
 
   // Existing execution task ids → idempotency (don't re-materialize / re-approve).
   const existing = new Set(
@@ -179,8 +312,12 @@ export function materializeActorPackets(nextActions = [], options = {}) {
       .filter(Boolean),
   );
 
+  // Running per-channel outbound counters → caps hold within AND across runs.
+  const counters = seedOutboundCounters(document, now, options.outboundCountsToday);
+
   const materialized = [];
   const gated = [];
+  const blocked = [];
   const already_enqueued = [];
 
   for (const action of asArray(nextActions)) {
@@ -190,13 +327,24 @@ export function materializeActorPackets(nextActions = [], options = {}) {
       continue;
     }
 
-    const { disposition, risk } = classifyProposedAction(action);
+    const { disposition, risk, channel } = classifyProposedAction(action, { standingOutboundPolicy, outboundCounters: counters });
+    const isOutbound = STANDING_OUTBOUND_ACTION_TYPES.has(clean(action.action_type));
+
+    // Blocked: a prerequisite/guardrail (DNC, cooldown, hours, contact path, or
+    // evidence requirement) is missing — execution cannot proceed. Not an approval.
+    if (disposition === "blocked") {
+      blocked.push({ action_id: clean(action.action_id), risk, channel, reason: clean(action.reason) || channel, block_reason: clean(classifyOutboundAction(action, standingOutboundPolicy, counters).reason) });
+      continue;
+    }
 
     if (disposition === "standing") {
-      const bridged = buildPacketForAction(action, { decidedBy: "standing_policy", now });
+      const requiredEvidence = isOutbound && channel ? OUTBOUND_EVIDENCE_CONTRACT[channel] : undefined;
+      const via = isOutbound ? "standing_outbound_policy" : "standing_policy";
+      const bridged = buildPacketForAction(action, { decidedBy: via, now, requiredEvidence });
       if (bridged.ok) {
-        materialized.push({ action_id: clean(action.action_id), task_id: bridged.taskPacket.task_id, via: "standing_policy", risk, taskPacket: bridged.taskPacket, lifecycle: bridged.lifecycle });
+        materialized.push({ action_id: clean(action.action_id), task_id: bridged.taskPacket.task_id, via, risk, channel, taskPacket: bridged.taskPacket, lifecycle: bridged.lifecycle });
         existing.add(bridged.taskPacket.task_id);
+        if (isOutbound && channel) counters[channel] = Number(counters[channel] || 0) + 1;
       }
       continue;
     }
@@ -206,7 +354,8 @@ export function materializeActorPackets(nextActions = [], options = {}) {
     const decision = findRecordedApproval(action, decisions);
     if (grant || decision) {
       const decidedBy = grant ? `standing_grant:${clean(grant.grant_id) || clean(grant.approved_by)}` : `recorded_approval:${clean(decision.decided_by) || "approved"}`;
-      const bridged = buildPacketForAction(action, { decidedBy, now });
+      const requiredEvidence = isOutbound && channel ? OUTBOUND_EVIDENCE_CONTRACT[channel] : undefined;
+      const bridged = buildPacketForAction(action, { decidedBy, now, requiredEvidence });
       if (bridged.ok) {
         materialized.push({
           action_id: clean(action.action_id),
@@ -214,28 +363,37 @@ export function materializeActorPackets(nextActions = [], options = {}) {
           via: grant ? "standing_grant" : "recorded_approval",
           grant_id: grant ? clean(grant.grant_id) : undefined,
           risk,
+          channel,
           taskPacket: bridged.taskPacket,
           lifecycle: bridged.lifecycle,
         });
         existing.add(bridged.taskPacket.task_id);
+        if (isOutbound && channel) counters[channel] = Number(counters[channel] || 0) + 1;
         continue;
       }
     }
-    gated.push({ action_id: clean(action.action_id), risk, approval_packet: buildApprovalPacket(action, { now }) });
+    const gateReason = isOutbound && standingOutboundPolicy
+      ? clean(classifyOutboundAction(action, standingOutboundPolicy, counters).reason)
+      : "Revenue-moving / high-risk action — requires a recorded approval or standing grant.";
+    gated.push({ action_id: clean(action.action_id), risk, channel, reason: gateReason, approval_packet: buildApprovalPacket(action, { now }) });
   }
 
   return {
     generated_at: now,
     materialized,
     gated,
+    blocked,
     already_enqueued,
+    outbound_counters: counters,
     summary: {
       proposed: asArray(nextActions).length,
       materialized: materialized.length,
       materialized_standing: materialized.filter((m) => m.via === "standing_policy").length,
+      materialized_standing_outbound: materialized.filter((m) => m.via === "standing_outbound_policy").length,
       materialized_via_grant: materialized.filter((m) => m.via === "standing_grant").length,
       materialized_via_approval: materialized.filter((m) => m.via === "recorded_approval").length,
       gated: gated.length,
+      blocked: blocked.length,
       already_enqueued: already_enqueued.length,
     },
   };
