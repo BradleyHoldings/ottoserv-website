@@ -27,6 +27,10 @@ import { selectNextActionsWithLearning } from "./hermesLearningWeights.mjs";
 import { computeScorecard } from "./hermesAutonomyScorecard.mjs";
 import { materializeActorPackets, reconcileNextActions, DEFAULT_STANDING_OUTBOUND_POLICY } from "./hermesApprovalThroughput.mjs";
 import { generateRepairPackets } from "./hermesSelfRepair.mjs";
+import { mergeMaterializedIntoQueue } from "./hermesActorQueue.mjs";
+import { executeSafeInternalActions } from "./hermesSafeExecutor.mjs";
+import { executeEmailQueue } from "./hermesEmailExecutor.mjs";
+import { executeCallQueue } from "./hermesCallExecutor.mjs";
 import { upsertRevenueState } from "./revenueEngineSupabaseStore.mjs";
 
 export const CYCLE_ROW_ID = "operating_cycle";
@@ -55,6 +59,17 @@ async function senseLeadSignals(options) {
     readJsonSafe(path.join(liDir, "ingest-report.json")),
   ]);
   return { leads: asArray(leadsRaw), pipeline, ingestReport };
+}
+
+// Resolve the actor availability descriptor (best-effort; absent → undefined so
+// self-repair behavior is unchanged). Lets temporary credit/window exhaustion be
+// queued-until-reset instead of misread as a broken rail.
+async function senseActorAvailability(options) {
+  const cwd = options.cwd || process.cwd();
+  const file = options.availabilityPath || process.env.HERMES_ACTOR_AVAILABILITY_PATH || path.join(cwd, "data", "actors", "availability.json");
+  const raw = await readJsonSafe(file);
+  if (raw && typeof raw === "object") return raw;
+  return undefined;
 }
 
 // Resolve the client-success signals (best-effort; absent → [], not fatal). Safe
@@ -92,6 +107,7 @@ export async function runOperatingCycle(options = {}) {
     : await senseLeadSignals(options);
 
   const clients = injected.clients !== undefined ? asArray(injected.clients) : await senseClientSignals(options);
+  const availability = injected.availability !== undefined ? injected.availability : await senseActorAvailability(options);
 
   const ledger = await loadOperatingLedger(options);
   const ledgerSummary = summarizeLedger(ledger.entries);
@@ -113,7 +129,7 @@ export async function runOperatingCycle(options = {}) {
   // 3. SELF-REPAIR — turn detected broken rails into owned repair packets, so the
   //    selector routes them and the ledger learns (broken → repaired / MTTR). The
   //    generated packets are merged into the document the decide+record steps use.
-  const selfRepair = generateRepairPackets({ scorecard: detectionScore, document, now });
+  const selfRepair = generateRepairPackets({ scorecard: detectionScore, document, now, availability });
   const documentForActions = selfRepair.new_packets.length
     ? { ...document, repairPackets: [...asArray(document.repairPackets), ...selfRepair.new_packets] }
     : document;
@@ -131,9 +147,46 @@ export async function runOperatingCycle(options = {}) {
     standingOutboundPolicy: DEFAULT_STANDING_OUTBOUND_POLICY,
   });
 
-  // 4c. RE-SCORE — published scorecard counts only GATED proposals as the Jonathan
-  //     bottleneck, so normal standing-materialized outbound no longer drags it.
-  const scorecard = computeScorecard({ ...senseState, document: documentForActions, throughput }, { now });
+  // 4b-ii. QUEUE — persist materialized outbound into the durable execution queue so
+  //     the execute phase (and the actor evidence intake) can act on real packets.
+  const queued = mergeMaterializedIntoQueue(documentForActions, decided.actions, throughput, {
+    now,
+    leads: leadSignals.leads,
+    mode: options.executionMode === "live" ? "live" : undefined,
+    policy: DEFAULT_STANDING_OUTBOUND_POLICY,
+  });
+
+  // 4b-iii. EXECUTE — close the loop inside the heartbeat. SAFE BY DEFAULT: internal
+  //     status auto-completion runs always (it only advances evidence-backed tasks);
+  //     email/call execution is no-send/no-dial unless options enable live mode AND a
+  //     transport is wired. Nothing is sent/dialed here without explicit, credentialed
+  //     opt-in, and evidence is never fabricated.
+  const internalExec = executeSafeInternalActions(queued.document, { now });
+  const emailExec = await executeEmailQueue(internalExec.document, {
+    now,
+    mode: options.emailMode || (options.executionMode === "live" ? "live" : "no_send"),
+    transport: options.emailTransport || null,
+    dnc: options.dnc, blacklist: options.blacklist, sentToday: options.sentToday,
+    lastContactedAt: options.lastContactedAt, cooldownDays: options.cooldownDays,
+  });
+  const callExec = await executeCallQueue(emailExec.document, {
+    now,
+    mode: options.callMode || (options.executionMode === "live" ? "live" : "no_dial"),
+    dialer: options.callTransport || null,
+    dnc: options.dnc, blacklist: options.blacklist, lastContactedAt: options.lastContactedAt,
+    cooldownDays: options.cooldownDays, attempts: options.attempts, maxAttempts: options.maxAttempts,
+    businessHours: options.businessHours, localHour: options.localHour,
+  });
+  const documentExecuted = callExec.document;
+  const executionLedgerEvents = [
+    ...asArray(emailExec.ledgerEvents),
+    ...asArray(callExec.ledgerEvents),
+  ];
+  const executionChanged = internalExec.executed.length > 0 || emailExec.summary.sent > 0 || emailExec.summary.failed > 0 || callExec.summary.dialed > 0 || callExec.summary.failed > 0 || queued.added > 0;
+
+  // 4c. RE-SCORE — score the EXECUTED document so closed/evidenced packets count for
+  //     loop-closure + evidence discipline. Bottleneck still counts only GATED proposals.
+  const scorecard = computeScorecard({ ...senseState, document: documentExecuted, throughput }, { now });
 
   // 4d. RECONCILE — annotate published next_actions with what throughput did, so a
   //     normal outbound action that materialized under standing policy is shown as
@@ -150,6 +203,7 @@ export async function runOperatingCycle(options = {}) {
     const events = [
       ...entriesFromNextActions({ ...decided, actions: reconciledActions }, { now }),
       ...entriesFromRepairPackets(asArray(documentForActions.repairPackets), { now }),
+      ...executionLedgerEvents,
     ];
     recorded = await recordLedgerEvents(events, { ...options, now });
   }
@@ -174,8 +228,20 @@ export async function runOperatingCycle(options = {}) {
     scorecard,
     self_repair: {
       generated: selfRepair.new_packets.length,
+      deferred_until_reset: asArray(selfRepair.deferred).length,
       by_owner: selfRepair.summary.by_owner,
       packets: selfRepair.new_packets.map((p) => ({ id: p.id, what_failed: p.what_failed, owner: p.owner, category: p.category, status: p.status })),
+      deferred: asArray(selfRepair.deferred),
+    },
+    // The execute phase: queued → execution → evidence → status, all in one cycle.
+    // SAFE BY DEFAULT (no_send/no_dial). Live sends/dials require an explicitly wired,
+    // credentialed transport via options; absent → prepare-only, nothing leaves.
+    execution: {
+      queue_added: queued.added,
+      internal_completed: internalExec.executed.length,
+      email: emailExec.summary,
+      call: callExec.summary,
+      changed: executionChanged,
     },
     sense: {
       document_source: loadedDoc.source?.kind || "none",
@@ -203,6 +269,22 @@ export async function runOperatingCycle(options = {}) {
     supabase = await upsertRevenueState(cycle, { id: CYCLE_ROW_ID });
   }
 
+  // When the execute phase actually changed the document (queued/sent/dialed/closed),
+  // persist the updated execution queue back to the SAME store the rest of the system
+  // reads (latest.json + best-effort default Supabase row) so progress is durable.
+  let document_persisted = false;
+  if (executionChanged && loadedDoc.source?.kind === "local_file" && loadedDoc.source.file && options.writeLocal !== false) {
+    try {
+      await fs.writeFile(loadedDoc.source.file, `${JSON.stringify(documentExecuted, null, 2)}\n`, "utf8");
+      document_persisted = true;
+    } catch {
+      // non-fatal
+    }
+  }
+  if (executionChanged && options.persistSupabase !== false) {
+    await upsertRevenueState(documentExecuted);
+  }
+
   return {
     ok: true,
     cycle,
@@ -214,8 +296,10 @@ export async function runOperatingCycle(options = {}) {
       top_action: reconciledActions[0] ? { action_type: reconciledActions[0].action_type, actor: reconciledActions[0].actor, priority: reconciledActions[0].priority, throughput_status: reconciledActions[0].throughput_status, required_approval: reconciledActions[0].required_approval } : null,
       blockers: scorecard.top_blockers.length,
       self_repair_packets: selfRepair.new_packets.length,
+      deferred_until_reset: asArray(selfRepair.deferred).length,
+      execution: { queue_added: queued.added, internal_completed: internalExec.executed.length, emails_sent: emailExec.summary.sent, calls_placed: callExec.summary.dialed },
       ledger_added: recorded.added,
-      persisted: { local: local_written, supabase },
+      persisted: { local: local_written, supabase, document: document_persisted },
     },
   };
 }
