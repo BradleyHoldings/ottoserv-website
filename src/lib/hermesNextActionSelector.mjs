@@ -22,6 +22,7 @@ import { buildLeadIntentResearchTasks } from "./leadIntentResearchTasks.mjs";
 import { RESEARCH_RESULTS_CONTRACT } from "./leadResearchContract.mjs";
 import { detectInterestedHandoffs } from "./hermesPaidClientHandoff.mjs";
 import { buildServiceDeliveryPacket } from "./hermesBuildPacket.mjs";
+import { detectClientOpportunities } from "./hermesClientSuccess.mjs";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -444,6 +445,28 @@ function workOrderActions({ document, now }) {
   return actions;
 }
 
+// 11: client success — delivered work / client signals → expansion / churn-risk /
+// optimization opportunities as next actions (client-facing moves stay approval-
+// gated; internal optimizations route to Codex and stay deploy-gated).
+function clientSuccessActions({ clients, document, now }) {
+  const detected = detectClientOpportunities({ clients, document, now }, { now });
+  return asArray(detected.opportunities).map((o) => makeAction({
+    action_id: clean(o.opportunity_id),
+    source_type: "client_success",
+    source_id: clean(o.opportunity_id),
+    priority: o.priority,
+    actor: o.actor,
+    action_type: o.action_type,
+    reason: o.reason,
+    required_approval: Boolean(o.required_approval),
+    required_evidence: asArray(o.required_evidence),
+    risk_level: o.risk_level,
+    forbidden_actions: asArray(o.forbidden_actions),
+    next_step: o.next_step,
+    suggested_prompt_or_packet: { kind: "client_success_opportunity", opportunity_type: o.type, client: o.client, signal: o.signal },
+  }));
+}
+
 // 10: repair packets / broken rails → route to the right actor or hold.
 function repairActions({ document }) {
   const actions = [];
@@ -519,6 +542,7 @@ export function selectNextActions(state = {}, options = {}) {
     ...executionActions({ document }),
     ...workOrderActions({ document, now }),
     ...tieredLeadActions({ leads: state.leads }),
+    ...clientSuccessActions({ clients: state.clients, document, now }),
   ];
 
   // Deterministic ordering: priority, then source_type, then action_id. Dedupe by id.

@@ -55,6 +55,17 @@ async function senseLeadSignals(options) {
   return { leads: asArray(leadsRaw), pipeline, ingestReport };
 }
 
+// Resolve the client-success signals (best-effort; absent → [], not fatal). Safe
+// fixture/store shape — business-name level, no PII required.
+async function senseClientSignals(options) {
+  const cwd = options.cwd || process.cwd();
+  const clientsPath = options.clientsPath || process.env.CLIENT_SUCCESS_PATH || path.join(cwd, "data", "client-success", "clients.json");
+  const raw = await readJsonSafe(clientsPath);
+  if (Array.isArray(raw)) return raw;
+  if (raw && Array.isArray(raw.clients)) return raw.clients;
+  return [];
+}
+
 /**
  * Run one operating cycle. Returns the full cycle result; also persists it.
  *
@@ -78,6 +89,8 @@ export async function runOperatingCycle(options = {}) {
     ? { leads: asArray(injected.leads), pipeline: injected.pipeline || null, ingestReport: injected.ingestReport || null }
     : await senseLeadSignals(options);
 
+  const clients = injected.clients !== undefined ? asArray(injected.clients) : await senseClientSignals(options);
+
   const ledger = await loadOperatingLedger(options);
   const ledgerSummary = summarizeLedger(ledger.entries);
 
@@ -86,6 +99,7 @@ export async function runOperatingCycle(options = {}) {
     leads: leadSignals.leads,
     pipeline: leadSignals.pipeline,
     ingestReport: leadSignals.ingestReport,
+    clients,
     ledger: ledger.entries,
     ledgerSummary,
     now,
@@ -121,6 +135,7 @@ export async function runOperatingCycle(options = {}) {
     sense: {
       document_source: loadedDoc.source?.kind || "none",
       leads: leadSignals.leads.length,
+      clients: clients.length,
       ledger_entries: ledger.entries.length,
     },
     ledger_recorded: { added: recorded.added, total: recorded.total },
