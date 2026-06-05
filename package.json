@@ -32,6 +32,7 @@
     "hermes:browser-status": "node scripts/hermes-browser-status.mjs",
     "hermes:browser-bridge": "node scripts/hermes-browser-bridge.mjs",
     "hermes:browser-research": "node scripts/hermes-browser-research.mjs",
+    "hermes:queue-dm": "node scripts/hermes-queue-dm.mjs",
     "hermes:send-dm": "node scripts/hermes-send-dm.mjs",
     "verify:ops": "node scripts/verify-call-import.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
