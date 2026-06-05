@@ -27,11 +27,11 @@ fi
 
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  xvfb x11vnc novnc websockify curl ca-certificates fonts-liberation
+  xvfb x11vnc novnc websockify curl ca-certificates fonts-liberation openssl
 
 cd "$REPO_DIR"
-npm install --no-save playwright-core
-npx playwright-core install --with-deps chromium
+npm install --no-save playwright
+npx playwright install --with-deps chromium
 
 install -d -o "$HERMES_USER" -g "$HERMES_USER" "$PROFILE_DIR" "$EVIDENCE_DIR"
 install -d -m 0750 "$ENV_DIR"
@@ -45,6 +45,7 @@ HERMES_BROWSER_BRIDGE_URL=http://127.0.0.1:$BRIDGE_PORT
 HERMES_BROWSER_BRIDGE_TOKEN=$BRIDGE_TOKEN
 HERMES_BROWSER_ADAPTER_MODULE=$REPO_DIR/runtime/hermes-browser-adapter.mjs
 HERMES_BROWSER_PROFILE_DIR=$PROFILE_DIR
+HERMES_EVIDENCE_DIR=$EVIDENCE_DIR
 HERMES_BROWSER_HEADLESS=false
 HERMES_BROWSER_LIVE_DM=false
 DISPLAY=:$DISPLAY_NUM
