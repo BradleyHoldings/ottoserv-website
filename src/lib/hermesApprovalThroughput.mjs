@@ -46,6 +46,7 @@ function lower(value) {
 export const STANDING_POLICY_ACTION_TYPES = new Set([
   "dispatch_lead_research",
   "redispatch_lead_research_with_gaps",
+  "enrich_lead_contact",
   "repair_call_rail",
   "create_build_packet",
   "request_actor_evidence",

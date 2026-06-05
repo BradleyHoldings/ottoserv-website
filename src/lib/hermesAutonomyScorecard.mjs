@@ -49,34 +49,73 @@ function evidencePresent(lifecycle) {
   return asArray(lifecycle.submitted_evidence).some((e) => clean(e.evidence_reference) || clean(e.evidence_summary));
 }
 
+// Lifecycle execution_status → live-attempt class. The key reconciliation rule:
+// loop-closure + evidence are scored ONLY over lifecycles where an ELIGIBLE LIVE
+// ATTEMPT occurred. A packet that was never attempted — queued, no_send, no_dial,
+// no_transport, waiting_for_actor, queued_until_reset — is WAITING, not a failure,
+// so it must not drag loop/evidence (those read n/a/waiting until a real attempt).
+const WAITING_STATUSES = new Set([
+  "queued", "assigned", "in_progress", "waiting_for_evidence",
+  "waiting_for_actor", "queued_until_reset", "deferred", "scheduled",
+]);
+const CLAIMED_STATUSES = new Set(["evidence_submitted", "hermes_reviewing"]);
+function attemptClass(status) {
+  const s = clean(status);
+  if (s === "completed") return "completed"; // live attempt succeeded + evidence gate passed
+  if (s === "failed") return "failed"; // live attempt made and failed → genuine penalty
+  if (CLAIMED_STATUSES.has(s)) return "claimed"; // execution claimed, evidence expected
+  if (s === "blocked" || s === "cancelled") return "blocked"; // surfaced, not a loop failure
+  if (WAITING_STATUSES.has(s)) return "waiting"; // NOT attempted → excluded from loop/evidence
+  return "waiting";
+}
+
 // ─── Dimension: execution loop closure + evidence discipline ──────────────────
 function executionHealth(document) {
   const items = asArray(document?.approvalExecutionQueue?.items);
   const lifecycles = items.map((i) => i.lifecycle || {});
   const total = lifecycles.length;
-  const completed = lifecycles.filter((l) => clean(l.execution_status) === "completed").length;
-  const requiresEvidence = lifecycles.filter((l) => asArray(l.required_evidence).length > 0);
+  const byClass = { completed: 0, failed: 0, claimed: 0, blocked: 0, waiting: 0 };
+  for (const l of lifecycles) byClass[attemptClass(l.execution_status)] += 1;
+
+  // Loop closure is measured ONLY over terminal live attempts (completed + failed).
+  // No terminal attempt yet → null (n/a) so the dimension is not weighted/penalized.
+  const terminalAttempts = byClass.completed + byClass.failed;
+
+  // Evidence discipline is measured ONLY where execution happened or was CLAIMED
+  // (completed / evidence_submitted / hermes_reviewing). A claimed-but-no-evidence
+  // lifecycle is the genuine "missing evidence after claimed execution" penalty.
+  const executedSet = lifecycles.filter((l) => {
+    const c = attemptClass(l.execution_status);
+    return c === "completed" || c === "claimed";
+  });
+  const requiresEvidence = executedSet.filter((l) => asArray(l.required_evidence).length > 0);
   const withEvidence = requiresEvidence.filter(evidencePresent).length;
-  const pendingEvidence = lifecycles.filter((l) =>
-    ["queued", "assigned", "in_progress", "waiting_for_evidence"].includes(clean(l.execution_status)),
-  ).length;
-  const blocked = lifecycles.filter((l) => ["blocked", "failed"].includes(clean(l.execution_status))).length;
 
   return {
     total_tasks: total,
-    completed,
-    pending_evidence: pendingEvidence,
-    blocked,
-    loop_closure_rate: total ? round(completed / total) : null,
+    completed: byClass.completed,
+    failed: byClass.failed,
+    claimed: byClass.claimed,
+    blocked: byClass.blocked,
+    waiting: byClass.waiting,
+    attempted: terminalAttempts + byClass.claimed,
+    pending_evidence: byClass.waiting + byClass.claimed,
+    loop_closure_rate: terminalAttempts ? round(byClass.completed / terminalAttempts) : null,
     evidence_rate: requiresEvidence.length ? round(withEvidence / requiresEvidence.length) : null,
   };
 }
 
 // ─── Dimension: Jonathan bottleneck ───────────────────────────────────────────
-// Normal policy-approved outbound is NOT a bottleneck: once the throughput layer
-// materializes it under standing policy it becomes an open execution task (counted
-// in open_items, NOT in pending). Only GATED proposals — exceptional/over-cap/
-// uncovered actions that still need Jonathan — raise the bottleneck.
+// Normal policy-approved outbound is NOT a bottleneck. Only TRULY-GATED actions
+// raise it: throughput-gated proposals (over-cap/sensitive/uncovered) and work
+// orders that genuinely require approval and are not yet approved.
+//
+// RECONCILIATION: the operating ledger is append-only, so its approvals.pending is
+// a LAGGING count — an approval that was later materialized under standing policy
+// (or otherwise resolved) is still "pending" in the log. Counting that stale figure
+// produced false "Jonathan approval required" blockers even when gated:0. We now
+// SUPERSEDE the stale ledger pending with CURRENT state: pending = gated + work
+// orders awaiting approval. The superseded figure is surfaced for transparency only.
 function bottleneckHealth(document, ledgerSummary, throughput) {
   const items = asArray(document?.approvalExecutionQueue?.items);
   const orders = asArray(document?.implementationWorkOrders?.orders);
@@ -87,11 +126,14 @@ function bottleneckHealth(document, ledgerSummary, throughput) {
   const ledgerPending = Number(ledgerSummary?.approvals?.pending || 0);
   const gatedActions = asArray(throughput?.gated).length;
   const openItems = openTasks.length + openOrders.length + gatedActions;
-  const pending = awaitingJonathan.length + ledgerPending + gatedActions;
+  // CURRENT truly-gated pending only — stale ledger pending is superseded, not counted.
+  const pending = awaitingJonathan.length + gatedActions;
+  const superseded = Math.max(0, ledgerPending - pending);
   return {
     open_items: openItems,
     pending_approvals: pending,
     gated_actions: gatedActions,
+    superseded_ledger_pending: superseded,
     work_orders_awaiting_approval: awaitingJonathan.map((o) => clean(o.id)).filter(Boolean),
     bottleneck_rate: openItems ? round(Math.min(1, pending / openItems)) : (pending > 0 ? 1 : 0),
   };
@@ -213,8 +255,12 @@ function topBlockers({ execution, bottleneck, repair, pipeline, callRail, servic
   }
   if (callRail?.status === "idle") blockers.push({ type: "call_rail_idle", id: "call_rail", priority: "high", detail: callRail.detail });
   else if (callRail?.status === "stale") blockers.push({ type: "call_rail_stale", id: "call_rail", priority: "medium", detail: callRail.detail });
-  if (bottleneck.pending_approvals > 0) blockers.push({ type: "jonathan_approval", id: "approval_queue", priority: "high", detail: `${bottleneck.pending_approvals} item(s) awaiting Jonathan.` });
-  if (execution.blocked > 0) blockers.push({ type: "blocked_tasks", id: "execution_queue", priority: "high", detail: `${execution.blocked} execution task(s) blocked/failed.` });
+  // Only TRULY-GATED actions raise a Jonathan blocker. Standing-policy queued work
+  // and superseded stale ledger pending never do.
+  if (bottleneck.pending_approvals > 0) blockers.push({ type: "jonathan_approval", id: "approval_queue", priority: "high", detail: `${bottleneck.pending_approvals} truly-gated item(s) awaiting Jonathan.` });
+  // Genuine failed live attempts are a real penalty; waiting/no-attempt packets are not.
+  if (execution.failed > 0) blockers.push({ type: "failed_execution", id: "execution_queue", priority: "high", detail: `${execution.failed} live execution attempt(s) failed — re-diagnose before retry.` });
+  if (execution.blocked > 0) blockers.push({ type: "blocked_tasks", id: "execution_queue", priority: "high", detail: `${execution.blocked} execution task(s) blocked (DNC/over-cap/sensitive) — need enrichment or approval.` });
   if (service.stalled_delivery > 0) blockers.push({ type: "stalled_delivery", id: "service_delivery", priority: "medium", detail: `${service.stalled_delivery} report(s) ready but undelivered.` });
   const rank = { critical: 0, high: 1, medium: 2, low: 3 };
   return blockers.sort((a, b) => (rank[a.priority] - rank[b.priority]) || (Number(b.age_days || 0) - Number(a.age_days || 0))).slice(0, 10);
@@ -245,9 +291,12 @@ export function computeScorecard(state = {}, options = {}) {
 
   const T = SCORECARD_THRESHOLDS;
   // Per-dimension pass/fail (null metric = not-applicable → not failing).
+  // loop/evidence read "waiting" (not "fail") when packets are queued but no eligible
+  // live attempt has happened yet, and "n/a" when there is no execution work at all.
+  const hasWaiting = execution.waiting > 0 || execution.claimed > 0;
   const grades = {
-    loop_closure: execution.loop_closure_rate === null ? "n/a" : execution.loop_closure_rate >= T.loop_closure_min ? "pass" : "fail",
-    evidence_discipline: execution.evidence_rate === null ? "n/a" : execution.evidence_rate >= T.evidence_rate_min ? "pass" : "fail",
+    loop_closure: execution.loop_closure_rate === null ? (hasWaiting ? "waiting" : "n/a") : execution.loop_closure_rate >= T.loop_closure_min ? "pass" : "fail",
+    evidence_discipline: execution.evidence_rate === null ? (hasWaiting ? "waiting" : "n/a") : execution.evidence_rate >= T.evidence_rate_min ? "pass" : "fail",
     jonathan_bottleneck: bottleneck.bottleneck_rate <= T.bottleneck_max ? "pass" : "fail",
     rail_reliability: repair.rail_reliability === null ? "n/a" : repair.rail_reliability >= T.rail_reliability_min ? "pass" : "fail",
     repair_aging: repair.aging_repairs === 0 ? "pass" : "fail",

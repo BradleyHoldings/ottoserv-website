@@ -42,15 +42,40 @@ test("healthy state → operating with passing grades", () => {
   assert.ok(sc.autonomy_score >= 70);
 });
 
-test("low loop closure + missing evidence → failing grades", () => {
+test("GENUINE failures fail loop/evidence — but only attempted work counts", () => {
+  // 2 live attempts FAILED + 1 completed → loop closure 1/3 over TERMINAL attempts.
+  // A claimed (evidence_submitted) task with NO evidence → missing-evidence penalty.
+  // Queued/never-attempted packets are excluded (waiting), not counted as failures.
   const document = {
-    approvalExecutionQueue: { items: [task("t1", "queued"), task("t2", "queued"), task("t3", "completed", { evidence: true })] },
+    approvalExecutionQueue: { items: [
+      task("t1", "failed"),
+      task("t2", "failed"),
+      task("t3", "completed", { evidence: true }),
+      task("t4", "evidence_submitted", { evidence: false }),
+      task("t5", "queued"), // waiting — must NOT drag the grade
+    ] },
   };
   const leads = [{ lead_id: "li", tier: "B-tier", created_at: NOW }];
   const sc = computeScorecard({ document, leads, now: NOW });
-  assert.ok(sc.dimensions.execution.loop_closure_rate < SCORECARD_THRESHOLDS.loop_closure_min);
+  assert.ok(sc.dimensions.execution.loop_closure_rate < SCORECARD_THRESHOLDS.loop_closure_min, "1 completed / 3 terminal attempts");
   assert.equal(sc.grades.loop_closure, "fail");
+  assert.ok(sc.dimensions.execution.evidence_rate < SCORECARD_THRESHOLDS.evidence_rate_min, "claimed-without-evidence penalty");
+  assert.equal(sc.grades.evidence_discipline, "fail");
   assert.ok(["degraded", "blocked"].includes(sc.autonomy_status));
+});
+
+test("RECONCILIATION: queued/no-attempt packets are waiting, not failures", () => {
+  // 3 queued packets that were never attempted (no_send/no_transport) → loop and
+  // evidence are WAITING/n-a, NOT fail. This is the core score/state fix.
+  const document = { approvalExecutionQueue: { items: [task("t1", "queued"), task("t2", "queued"), task("t3", "queued")] } };
+  const sc = computeScorecard({ document, leads: [{ lead_id: "li", tier: "B-tier", created_at: NOW }], now: NOW });
+  assert.equal(sc.dimensions.execution.loop_closure_rate, null, "no attempt → null");
+  assert.equal(sc.dimensions.execution.evidence_rate, null);
+  assert.equal(sc.grades.loop_closure, "waiting");
+  assert.equal(sc.grades.evidence_discipline, "waiting");
+  assert.equal(sc.dimensions.execution.waiting, 3);
+  // No false jonathan_approval blocker when nothing is truly gated.
+  assert.ok(!sc.top_blockers.some((b) => b.type === "jonathan_approval"));
 });
 
 test("pending Jonathan approvals raise the bottleneck rate and surface as a blocker", () => {
