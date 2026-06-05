@@ -1,0 +1,23 @@
+# Hermes execution watchdog (Phase 0). The installer replaces placeholders.
+
+[Unit]
+Description=Hermes execution-truth watchdog
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__SERVICE_USER__
+WorkingDirectory=__REPO_DIR__
+EnvironmentFile=/etc/hermes/phase0.env
+ExecStart=__NODE_BIN__ deploy/droplet/phase0/watchdog-notify.mjs
+TimeoutStartSec=120
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__STATE_ROOT__
+
+[Install]
+WantedBy=multi-user.target
