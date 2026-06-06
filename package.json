@@ -13,6 +13,7 @@
     "lead:intake": "node scripts/lead-intent-pipeline.mjs",
     "lead:research": "node scripts/hermes-lead-research.mjs",
     "lead:spreadsheet-import": "node scripts/lead-spreadsheet-import.mjs",
+    "lead:phase1-core": "node scripts/phase1-lead-core.mjs",
     "evidence:submit": "node scripts/actor-submit-evidence.mjs",
     "hermes:operate": "node scripts/hermes-operate.mjs",
     "ops:revenue-now": "node scripts/ops-revenue-now.mjs",
