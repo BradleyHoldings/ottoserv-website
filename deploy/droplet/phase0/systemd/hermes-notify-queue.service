@@ -1,0 +1,19 @@
+[Unit]
+Description=Deliver Hermes watchdog alerts to Telegram
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=hermes-agent
+Group=hermes-agent
+WorkingDirectory=/home/clawuser/ottoserv-website
+EnvironmentFile=/home/hermes-agent/.hermes/.env
+EnvironmentFile=/etc/hermes/phase0.env
+ExecStart=/usr/bin/node deploy/droplet/phase0/telegram-notify-queue.mjs
+TimeoutStartSec=60
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/hermes/revenue-engine/notify-queue
