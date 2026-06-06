@@ -1,22 +1,15 @@
 // ─── Phase 1 lead rail: dedupe + identity reconciliation ──────────────────────
-//
-// Deduplicates against (a) the current import, (b) existing Supabase records, and
-// (c) ALIASES — records whose phone/email/domain changed but that are still the
-// same lead by another shared durable key. A repeated import UPDATES/RECONCILES one
-// lead; it never creates a second. Includes STALE-IMPORT PROTECTION: a fresher
-// existing record is never overwritten by an older import. PURE.
+// PURE. Reconciles current identity keys plus durable alias matches while keeping
+// the original canonical lead_id stable.
 
 import { identityKeys, deriveLeadId } from "./identity.mjs";
 
-function clean(v) {
-  return String(v ?? "").trim();
-}
+function clean(v) { return String(v ?? "").trim(); }
 function freshness(rec) {
   const t = Date.parse(clean(rec.last_validated_at) || clean(rec.imported_at) || clean(rec.updated_at) || clean(rec.created_at));
   return Number.isNaN(t) ? 0 : t;
 }
 
-// Union-find over identity keys so any chain of shared keys forms one lead group.
 class UnionFind {
   constructor() { this.parent = new Map(); }
   find(x) {
@@ -30,57 +23,52 @@ class UnionFind {
 }
 
 function mergeAttributes(members) {
-  // Freshest-wins per field; never overwrite a present value with an empty one.
-  const ordered = [...members].sort((a, b) => freshness(a.record) - freshness(b.record)); // old → new
+  const ordered = [...members].sort((a, b) => freshness(a.record) - freshness(b.record));
   const merged = {};
   const FIELDS = ["company_name", "contact_name", "normalized_phone", "email", "website",
     "industry", "city", "state", "timezone", "source_url", "source_type", "source_evidence",
     "discovered_at", "imported_at", "score", "tier", "score_reasons", "scoring_version", "pipeline_stage",
     "eligibility", "next_action", "enrichment_status", "record_status", "contact_validation",
     "fit_validation", "quarantine_reasons", "external_outreach_allowed", "schema_version", "last_validated_at"];
-  for (const m of ordered) {
-    for (const f of FIELDS) {
-      const val = m.record[f];
-      if (val !== undefined && val !== null && val !== "" && !(Array.isArray(val) && val.length === 0)) {
-        merged[f] = val;
-      }
-    }
+  for (const m of ordered) for (const f of FIELDS) {
+    const val = m.record[f];
+    if (val !== undefined && val !== null && val !== "" && !(Array.isArray(val) && val.length === 0)) merged[f] = val;
   }
   return merged;
 }
 
 /**
- * Reconcile incoming canonical leads against existing canonical records.
- * Returns {
- *   upserts[],        // new + updated records to persist (canonical leads, version bumped)
- *   all[],            // full reconciled set (incl. unchanged existing)
- *   aliases[],        // { lead_id, changed:[{kind, from, to}] }
- *   stats: { incoming, new, updated, duplicates, stale_skipped, unchanged }
- * }
+ * options.aliasMatches: Map/object of identity key -> canonical lead_id, populated
+ * from hermes_lead_aliases. Existing records are anchored by lead_id so an old
+ * phone/email/domain can join the current canonical row without creating a copy.
  */
 export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
   const now = options.now || new Date().toISOString();
   const inc = Array.isArray(incoming) ? incoming : [];
   const exist = Array.isArray(existing) ? existing : [];
+  const aliasMatches = options.aliasMatches instanceof Map
+    ? options.aliasMatches
+    : new Map(Object.entries(options.aliasMatches || {}));
 
   const uf = new UnionFind();
-  const members = []; // { record, origin: 'existing'|'incoming', incomingIndex? }
-
+  const members = [];
   const addMember = (record, origin, incomingIndex) => {
     const keys = identityKeys(record);
     const idx = members.length;
     members.push({ record, origin, incomingIndex, keys });
-    // Anchor each record to its own node so a keyless record still forms a group.
     const selfNode = `m:${idx}`;
     uf.find(selfNode);
-    for (const k of keys) uf.union(selfNode, `k:${k}`);
+    for (const k of keys) {
+      uf.union(selfNode, `k:${k}`);
+      if (origin === "incoming" && aliasMatches.has(k)) uf.union(selfNode, `lead:${clean(aliasMatches.get(k))}`);
+    }
+    if (origin === "existing" && clean(record.lead_id)) uf.union(selfNode, `lead:${clean(record.lead_id)}`);
     members[idx].node = selfNode;
   };
 
   exist.forEach((r) => addMember(r, "existing"));
   inc.forEach((r, i) => addMember(r, "incoming", i));
 
-  // Group members by union root.
   const groups = new Map();
   members.forEach((m) => {
     const root = uf.find(m.node);
@@ -91,7 +79,7 @@ export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
   const upserts = [];
   const all = [];
   const aliases = [];
-  const stats = { incoming: inc.length, new: 0, updated: 0, duplicates: 0, stale_skipped: 0, unchanged: 0 };
+  const stats = { incoming: inc.length, new: 0, updated: 0, duplicates: 0, stale_skipped: 0, unchanged: 0, alias_matched: 0 };
 
   for (const group of groups.values()) {
     const existingMembers = group.filter((m) => m.origin === "existing");
@@ -99,11 +87,10 @@ export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
     const baseExisting = existingMembers[0]?.record || null;
 
     if (!baseExisting) {
-      // Brand-new lead. Collapse any within-file duplicates into one.
       const merged = mergeAttributes(incomingMembers);
       const baseShape = incomingMembers[0]?.record || {};
-      const lead_id = deriveLeadId(merged) || clean(incomingMembers[0].record.lead_id);
-      const record = { ...baseShape, ...merged, lead_id, version: 1, created_at: clean(incomingMembers[0].record.created_at) || now, updated_at: now };
+      const lead_id = deriveLeadId(merged) || clean(incomingMembers[0]?.record?.lead_id);
+      const record = { ...baseShape, ...merged, lead_id, version: 1, created_at: clean(incomingMembers[0]?.record?.created_at) || now, updated_at: now };
       upserts.push(record);
       all.push(record);
       stats.new += 1;
@@ -111,15 +98,15 @@ export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
       continue;
     }
 
-    // Existing lead in this group.
     if (incomingMembers.length === 0) {
       all.push(baseExisting);
       stats.unchanged += 1;
       continue;
     }
 
+    if (incomingMembers.some((m) => m.keys.some((k) => clean(aliasMatches.get(k)) === clean(baseExisting.lead_id)))) stats.alias_matched += 1;
+
     const freshestIncoming = [...incomingMembers].sort((a, b) => freshness(b.record) - freshness(a.record))[0].record;
-    // STALE PROTECTION: do not overwrite a fresher existing record with an older import.
     if (freshness(freshestIncoming) < freshness(baseExisting)) {
       all.push(baseExisting);
       stats.duplicates += incomingMembers.length;
@@ -127,7 +114,6 @@ export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
       continue;
     }
 
-    // Reconcile: keep the STABLE existing lead_id, merge freshest attributes, bump version.
     const merged = mergeAttributes([...existingMembers, ...incomingMembers]);
     const lead_id = clean(baseExisting.lead_id) || deriveLeadId(merged);
     const changed = detectAliasChanges(baseExisting, merged);
