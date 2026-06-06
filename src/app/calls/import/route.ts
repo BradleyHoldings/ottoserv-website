@@ -5,7 +5,7 @@ import {
   type NormalizedLead,
   parseCsv,
   parseJsonPayload,
-} from "@/lib/outreach/leadImport";
+} from "@/lib/outreach/leadImportV2";
 import {
   CALL_OUTCOMES_PATH,
   DAILY_METRICS_PATH,
@@ -44,6 +44,7 @@ export async function GET() {
       "Reject malformed US phone numbers.",
       "Reject 555, 000, and toll-free numbers for outbound call queue imports.",
       "Prevent duplicates by normalized phone, email, website, or normalized company name.",
+      "Use deterministic lead IDs that do not depend on CSV row order.",
       "A-tier leads receive local-business-hours call slots.",
     ],
   });
