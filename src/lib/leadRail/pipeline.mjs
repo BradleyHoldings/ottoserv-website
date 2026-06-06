@@ -13,8 +13,8 @@ import { identityKeys } from "./identity.mjs";
 import { dedupeAndReconcile } from "./dedupe.mjs";
 import { reconcileEnrichmentTasks, needsEnrichment, ENRICH_TASK_TYPE } from "./enrichment.mjs";
 import {
-  upsertLeads, readAllLeads, writeCache, writeQuarantine, PERSISTENCE,
-  persistAliases, persistEnrichmentTasks, lookupAliases,
+  upsertLeads, readAuthoritativeLeads, AUTHORITATIVE_READ, writeCache, writeQuarantine, PERSISTENCE,
+  aliasRowsForUpserts, persistAliasRows, persistEnrichmentTasks, lookupAliasesResult,
 } from "./store.mjs";
 
 export const LEAD_INTAKE_OPERATION = "lead_intake_enrichment";
@@ -84,10 +84,35 @@ export async function runLeadIntakeEnrichment(input = {}, options = {}) {
   });
 
   let existing = asArray(input.existingRecords);
-  if (!existing.length && !options.skipStoreRead) existing = await readAllLeads(options.store || {}).catch(() => []);
+  let authoritativeRead = { status: "provided", reason: existing.length ? "existing_records_provided" : "skipped" };
+  if (!existing.length && !options.skipStoreRead) {
+    authoritativeRead = await readAuthoritativeLeads(options.store || {});
+    if (authoritativeRead.ok) {
+      existing = authoritativeRead.rows;
+    } else if (authoritativeRead.status === AUTHORITATIVE_READ.READ_FAILED && mode === "internal") {
+      // Authoritative read FAILED in production. We must NOT proceed as though the
+      // database were empty (that would re-insert existing leads as new). Stop truthfully.
+      stageReceipt("dedupe", { authoritative_read: "failed", reason: authoritativeRead.reason });
+      task = await advance(task, "blocked", { now, reason: `authoritative_read_failed:${authoritativeRead.reason}`, next_action: "investigate Supabase authoritative read, then re-run (idempotent)." }, options);
+      return finalize(task, "blocked", receipts, { records: [], quarantined }, options, now, { reason: "authoritative_read_failed", authoritative_read: authoritativeRead });
+    }
+    // dry mode (or unconfigured): proceed with whatever we have, but record the state.
+  }
   const aliasKeys = [...new Set(accepted.flatMap((lead) => identityKeys(lead)))];
-  const aliasRows = options.skipStoreRead ? [] : await lookupAliases(aliasKeys, options.store || {}).catch(() => []);
-  const aliasMatches = new Map(aliasRows.map((row) => [clean(row.alias_key).toLowerCase(), clean(row.lead_id)]));
+  let aliasLookupRows = [];
+  if (!options.skipStoreRead && aliasKeys.length) {
+    const aliasLookup = await lookupAliasesResult(aliasKeys, options.store || {});
+    if (aliasLookup.ok) {
+      aliasLookupRows = aliasLookup.rows;
+    } else if (aliasLookup.status === "read_failed" && mode === "internal") {
+      // A failed alias read must NOT be treated as "no aliases" in production —
+      // that would split a renamed-contact lead into a duplicate. Stop truthfully.
+      stageReceipt("dedupe", { alias_lookup: "failed", reason: aliasLookup.reason });
+      task = await advance(task, "blocked", { now, reason: `alias_read_failed:${aliasLookup.reason}`, next_action: "investigate Supabase alias read, then re-run (idempotent)." }, options);
+      return finalize(task, "blocked", receipts, { records: [], quarantined }, options, now, { reason: "alias_read_failed", alias_lookup: aliasLookup });
+    }
+  }
+  const aliasMatches = new Map(aliasLookupRows.map((row) => [clean(row.alias_key).toLowerCase(), clean(row.lead_id)]));
   const dedupe = dedupeAndReconcile(accepted, existing, { now, aliasMatches });
   stageReceipt("dedupe", {
     new: dedupe.stats.new, updated: dedupe.stats.updated, duplicates: dedupe.stats.duplicates,
@@ -117,9 +142,12 @@ export async function runLeadIntakeEnrichment(input = {}, options = {}) {
 
   const leadPersistence = await upsertLeads(dedupe.upserts, { ...(options.store || {}), now });
   const leadsReady = leadPersistence.configured && leadPersistence.pending === 0 && leadPersistence.conflicts === 0 && leadPersistence.stale === 0;
+  // ALL canonical identity aliases for every persisted lead (first-insert + changed),
+  // written only after the parent lead rows are durably persisted (FK ordering).
+  const aliasRows = aliasRowsForUpserts(dedupe.upserts, dedupe.aliases, now);
   const aliasPersistence = leadsReady
-    ? await persistAliases(dedupe.aliases, { ...(options.store || {}), now }).catch((err) => ({ ok: false, configured: true, count: 0, reason: `alias_write_error:${clean(err?.message)}` }))
-    : { ok: dedupe.aliases.length === 0, configured: leadPersistence.configured, count: 0, reason: "parent_lead_persistence_failed" };
+    ? await persistAliasRows(aliasRows, { ...(options.store || {}), now }).catch((err) => ({ ok: false, configured: true, count: 0, reason: `alias_write_error:${clean(err?.message)}` }))
+    : { ok: aliasRows.length === 0, configured: leadPersistence.configured, count: 0, reason: "parent_lead_persistence_failed" };
   const enrichmentPersistence = leadsReady
     ? await persistEnrichmentTasks(enrich.tasks, { ...(options.store || {}), now }).catch((err) => ({ ok: false, configured: true, count: 0, reason: `enrichment_write_error:${clean(err?.message)}` }))
     : { ok: enrich.tasks.length === 0, configured: leadPersistence.configured, count: 0, reason: "parent_lead_persistence_failed" };
@@ -137,7 +165,7 @@ export async function runLeadIntakeEnrichment(input = {}, options = {}) {
     pending: persistence.pending,
     conflicts: persistence.conflicts || 0,
     stale: persistence.stale || 0,
-    aliases_attempted: dedupe.aliases.length,
+    aliases_attempted: aliasRows.length,
     aliases_persisted: aliasPersistence.count || 0,
     alias_persistence_ok: Boolean(aliasPersistence.ok),
     enrichment_tasks_attempted: enrich.tasks.length,
@@ -159,7 +187,7 @@ export async function runLeadIntakeEnrichment(input = {}, options = {}) {
 
   const allReceipts = REQUIRED_STAGES.every((s) => receipts[s]);
   const persistenceOk = persistence.configured && persistence.ok;
-  const nothingToPersist = dedupe.upserts.length === 0 && dedupe.aliases.length === 0 && enrich.tasks.length === 0;
+  const nothingToPersist = dedupe.upserts.length === 0 && aliasRows.length === 0 && enrich.tasks.length === 0;
   let finalState;
   let reason;
   if (!allReceipts) {

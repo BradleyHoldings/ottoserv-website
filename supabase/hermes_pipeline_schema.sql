@@ -1,5 +1,13 @@
 -- Phase 1 canonical lead persistence (additive, reversible, service-role only)
 -- Do not apply until the repository persistence suites and controlled-real gate pass.
+--
+-- IMPORTANT: `create table if not exists` does NOT upgrade an incompatible older
+-- table — if a prior `hermes_pipeline` / `hermes_lead_aliases` /
+-- `hermes_enrichment_tasks` exists with a different shape, this script silently
+-- skips it and the application will mismatch. ALWAYS run
+-- `supabase/hermes_pipeline_preflight.sql` first and only apply on a verified fresh
+-- install (or an explicitly compatible existing schema). Wrap the apply in a
+-- transaction (BEGIN; \i schema.sql; COMMIT;) so a mid-apply failure rolls back.
 
 create table if not exists public.hermes_pipeline (
   lead_id text primary key,
@@ -46,14 +54,16 @@ create index if not exists hermes_pipeline_created_at_idx on public.hermes_pipel
 create index if not exists hermes_pipeline_version_idx on public.hermes_pipeline (version);
 alter table public.hermes_pipeline enable row level security;
 
+-- Global alias ownership: one normalized alias_key belongs to EXACTLY one lead.
+-- alias_key is the PRIMARY KEY (globally unique), so a second lead cannot claim an
+-- alias already owned by another lead. Canonical key formats match identityKeys():
+--   domain:<domain>  phone:<10-digit>  email:<email>  company:<company>|<city>|<state>
 create table if not exists public.hermes_lead_aliases (
-  alias_key text not null,
+  alias_key text primary key,
   lead_id text not null references public.hermes_pipeline(lead_id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (alias_key, lead_id)
+  created_at timestamptz not null default now()
 );
 create index if not exists hermes_lead_aliases_lead_idx on public.hermes_lead_aliases (lead_id);
-create index if not exists hermes_lead_aliases_alias_idx on public.hermes_lead_aliases (alias_key);
 alter table public.hermes_lead_aliases enable row level security;
 
 create table if not exists public.hermes_enrichment_tasks (
@@ -123,6 +133,7 @@ begin
     if v_next.lead_id is distinct from p_lead_id then
       return jsonb_build_object('ok', false, 'status', 'conflict', 'reason', 'lead_id_mismatch');
     end if;
+    v_next.created_at := coalesce(v_next.created_at, now());
     insert into public.hermes_pipeline select v_next.*;
     return jsonb_build_object('ok', true, 'status', 'inserted', 'version', 1);
   end if;
@@ -185,6 +196,11 @@ begin
     return jsonb_build_object('ok', false, 'status', 'conflict', 'reason', 'compare_and_swap_failed');
   end if;
   return jsonb_build_object('ok', true, 'status', 'updated', 'version', v_target);
+exception
+  -- Two concurrent first-inserts race on the lead_id primary key: exactly one wins,
+  -- the loser surfaces a conflict (never a silent success, never a raised 500).
+  when unique_violation then
+    return jsonb_build_object('ok', false, 'status', 'conflict', 'reason', 'insert_unique_violation', 'current_version', 1);
 end;
 $$;
 
@@ -200,6 +216,9 @@ grant execute on function public.hermes_upsert_pipeline_cas(text, integer, jsonb
 --   and routine_name='hermes_upsert_pipeline_cas'; -- one row
 -- select count(*) from pg_policies where schemaname='public'
 --   and tablename in ('hermes_pipeline','hermes_lead_aliases','hermes_enrichment_tasks'); -- 0
+-- select constraint_type from information_schema.table_constraints
+--   where table_schema='public' and table_name='hermes_lead_aliases'
+--     and constraint_type='PRIMARY KEY'; -- alias_key PK ⇒ global alias ownership
 
 -- ROLLBACK (explicit authorization required; destroys data):
 -- BEGIN;

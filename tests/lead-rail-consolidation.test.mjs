@@ -23,20 +23,39 @@ async function tmpDirs() {
   return { tasksDir, dataDir };
 }
 
+// Full in-memory model: atomic CAS, alias ownership, durable enrichment tasks.
 function fakeClient(initial = []) {
-  const store = new Map((initial || []).map((lead) => [lead.lead_id, JSON.parse(JSON.stringify(lead))]));
+  const j = (v) => JSON.parse(JSON.stringify(v));
+  const store = new Map((initial || []).map((lead) => [lead.lead_id, j(lead)]));
+  const aliases = new Map();
+  const tasks = new Map();
   return {
-    store,
-    async read(id) {
-      return store.has(id) ? JSON.parse(JSON.stringify(store.get(id))) : null;
+    configured: true, store, aliases, tasks,
+    async read(id) { return store.has(id) ? j(store.get(id)) : null; },
+    async readAll() { return [...store.values()].map(j); },
+    async atomicWrite(row, expectedVersion) {
+      const id = row.lead_id;
+      const target = Number(row.version ?? 1);
+      const cur = store.get(id) || null;
+      if (!cur) {
+        if (expectedVersion !== 0 || target !== 1) return { ok: false, status: "conflict", reason: "first_insert_version_mismatch", current_version: 0 };
+        store.set(id, j(row.raw_payload));
+        return { ok: true, status: "inserted", version: 1 };
+      }
+      const curVersion = Number(cur.version ?? 1);
+      if (curVersion !== expectedVersion) return { ok: false, status: curVersion > target ? "stale" : "conflict", reason: "compare_and_swap_failed", current_version: curVersion };
+      if (target !== expectedVersion + 1) return { ok: false, status: "conflict", reason: "non_sequential_version", current_version: curVersion };
+      store.set(id, j(row.raw_payload));
+      return { ok: true, status: "updated", version: target };
     },
-    async write(row) {
-      store.set(row.raw_payload.lead_id, JSON.parse(JSON.stringify(row.raw_payload)));
-      return { ok: true };
+    async readBack(id) { return store.has(id) ? j(store.get(id)) : null; },
+    async writeAliases(rows) {
+      for (const r of rows) { const owner = aliases.get(r.alias_key); if (owner && owner !== r.lead_id) return { ok: false, status: "conflict", error: `alias_owner_conflict:${r.alias_key}` }; }
+      for (const r of rows) if (!aliases.has(r.alias_key)) aliases.set(r.alias_key, r.lead_id);
+      return { ok: true, count: rows.length };
     },
-    async readBack(id) {
-      return store.has(id) ? JSON.parse(JSON.stringify(store.get(id))) : null;
-    },
+    async readAliases(keys) { return (keys || []).filter((k) => aliases.has(k)).map((k) => ({ alias_key: k, lead_id: aliases.get(k) })); },
+    async writeEnrichmentTasks(rows) { for (const r of rows) tasks.set(r.task_id, j(r)); return { ok: true, count: rows.length }; },
   };
 }
 

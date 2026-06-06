@@ -30,25 +30,75 @@ async function tmpDirs() {
   return { tasksDir, dataDir };
 }
 
-// In-memory Supabase client implementing the store's read/write/readBack contract.
+// In-memory Supabase client that ACCURATELY models the authoritative store:
+//   - atomic compare-and-swap on (lead_id, version) — mirrors hermes_upsert_pipeline_cas
+//   - global alias ownership (one alias_key → one lead)
+//   - durable enrichment-task state
+//   - authoritative full read that THROWS on failure (never empty-as-failure)
+//   - injected read / write / read-back / concurrency failures via opts
+function jclone(v) { return JSON.parse(JSON.stringify(v)); }
+function fakeSamePayload(a, b) {
+  const strip = (v) => { const x = jclone(v || {}); delete x.updated_at; return x; };
+  return JSON.stringify(strip(a)) === JSON.stringify(strip(b));
+}
 function fakeClient(initial = [], opts = {}) {
-  const store = new Map((initial || []).map((l) => [l.lead_id, JSON.parse(JSON.stringify(l))]));
+  const store = new Map((initial || []).map((l) => [l.lead_id, jclone(l)]));
+  const aliases = new Map(Object.entries(opts.aliases || {}));
+  const tasks = new Map();
   return {
-    store,
-    async read(id) { return store.has(id) ? JSON.parse(JSON.stringify(store.get(id))) : null; },
-    async write(row) {
-      if (opts.failWrite) return { ok: false, error: "write_failed_500:boom" };
+    configured: true, store, aliases, tasks,
+    async read(id) {
+      if (opts.failRead) throw new Error("read_failed_500");
+      return store.has(id) ? jclone(store.get(id)) : null;
+    },
+    async readAll() {
+      if (opts.failReadAll || opts.failRead) throw new Error("read_all_failed_500");
+      return [...store.values()].map(jclone);
+    },
+    async atomicWrite(row, expectedVersion) {
+      if (opts.failWrite) return { ok: false, error: "cas_write_failed_500:boom" };
       if (opts.throwWrite) throw new Error("network down");
-      const lead = row.raw_payload;
-      store.set(lead.lead_id, JSON.parse(JSON.stringify(lead)));
-      return { ok: true };
+      // Simulate another writer committing between our read and our CAS write.
+      if (typeof opts.onBeforeWrite === "function") opts.onBeforeWrite(store, row);
+      const id = row.lead_id;
+      const target = Number(row.version ?? 1);
+      const cur = store.get(id) || null;
+      if (!cur) {
+        if (expectedVersion !== 0 || target !== 1) return { ok: false, status: "conflict", reason: "first_insert_version_mismatch", current_version: 0 };
+        store.set(id, jclone(row.raw_payload));
+        return { ok: true, status: "inserted", version: 1 };
+      }
+      const curVersion = Number(cur.version ?? 1);
+      if (curVersion !== expectedVersion) {
+        if (curVersion === target && fakeSamePayload(cur, row.raw_payload)) return { ok: true, status: "idempotent", version: curVersion };
+        return { ok: false, status: curVersion > target ? "stale" : "conflict", reason: "compare_and_swap_failed", current_version: curVersion };
+      }
+      if (target !== expectedVersion + 1) return { ok: false, status: "conflict", reason: "non_sequential_version", current_version: curVersion };
+      store.set(id, jclone(row.raw_payload));
+      return { ok: true, status: "updated", version: target };
     },
     async readBack(id) {
       if (opts.dropReadBack) return null;
       const l = store.get(id);
       if (!l) return null;
-      if (opts.mismatchVersion) return { ...l, version: Number(l.version || 1) + 99 };
-      return JSON.parse(JSON.stringify(l));
+      if (opts.mismatchVersion) return { ...jclone(l), version: Number(l.version || 1) + 99 };
+      if (opts.mismatchPayload) return { ...jclone(l), company_name: `MUT_${l.company_name || ""}` };
+      return jclone(l);
+    },
+    async writeAliases(rows) {
+      if (opts.failAliasWrite) return { ok: false, error: "alias_write_failed_500" };
+      for (const r of rows) { const owner = aliases.get(r.alias_key); if (owner && owner !== r.lead_id) return { ok: false, status: "conflict", error: `alias_owner_conflict:${r.alias_key}:owned_by_${owner}` }; }
+      for (const r of rows) if (!aliases.has(r.alias_key)) aliases.set(r.alias_key, r.lead_id);
+      return { ok: true, count: rows.length };
+    },
+    async readAliases(keys) {
+      if (opts.failAliasRead) throw new Error("alias_read_failed_500");
+      return (keys || []).filter((k) => aliases.has(k)).map((k) => ({ alias_key: k, lead_id: aliases.get(k) }));
+    },
+    async writeEnrichmentTasks(rows) {
+      if (opts.failTaskWrite) return { ok: false, error: "task_write_failed_500" };
+      for (const r of rows) tasks.set(r.task_id, jclone(r));
+      return { ok: true, count: rows.length };
     },
   };
 }

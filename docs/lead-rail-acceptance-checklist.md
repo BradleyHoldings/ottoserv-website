@@ -32,11 +32,25 @@
 - [ ] Migration validation queries are present and commented
 
 ### Test results
-- [ ] `lead-rail.test.mjs`: 24/24 pass
+- [ ] `lead-rail.test.mjs`: 31/31 pass
 - [ ] `lead-rail-consolidation.test.mjs`: 4/4 pass
 - [ ] `lead-rail-production-readiness.test.mjs`: 46/46 pass
-- [ ] Full suite: 442/444 pass (only 2 known pre-existing failures)
+- [ ] `lead-rail-persistence.test.mjs`: 31/31 pass (CAS, authoritative-read, alias ownership, enrichment lifecycle)
+- [ ] Full suite: 473/475 pass (only 2 known pre-existing failures: `command-center`, `work-orders`)
 - [ ] `npm run build`: passed
+
+### Persistence contract proofs (`tests/lead-rail-persistence.test.mjs`)
+- [ ] v1 insert · idempotent v1 replay · same-version-different-payload conflict
+- [ ] v1→v2 advance · skipped-version conflict · stale-version rejection
+- [ ] atomic concurrent conflict (exactly one winner) · CAS enforced at write, not prior read
+- [ ] read-after-write verifies lead_id + version + payload · failed write → pending
+- [ ] authoritative read four states (rows / empty / read_failed / unconfigured)
+- [ ] internal-mode run STOPS on authoritative-read failure (never proceeds as empty)
+- [ ] all identity aliases on first insert · old+new alias on contact change · lookup
+- [ ] alias same-owner idempotent · different-owner hard conflict · read fails truthfully
+- [ ] alias write failure prevents completion
+- [ ] enrichment durable create/retry/blocked/stalled · verified write-back at version+1
+- [ ] enrichment conflict if lead changed while Cowork worked · no completion without task receipt
 
 ---
 

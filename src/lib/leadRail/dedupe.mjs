@@ -132,10 +132,13 @@ export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
 }
 
 function detectAliasChanges(existing, merged) {
+  // The change object describes the canonical FIELD that changed (normalized_phone,
+  // email, website) with already-normalized from/to values. The persistence layer
+  // translates these into canonical stored alias keys (phone:/email:/domain:).
   const specs = [
-    { kind: "phone", field: "normalized_phone", normalize: normalizePhone },
+    { kind: "normalized_phone", field: "normalized_phone", normalize: normalizePhone },
     { kind: "email", field: "email", normalize: normalizeEmail },
-    { kind: "domain", field: "website", normalize: normalizeDomain },
+    { kind: "website", field: "website", normalize: normalizeDomain },
   ];
   const changed = [];
   for (const spec of specs) {

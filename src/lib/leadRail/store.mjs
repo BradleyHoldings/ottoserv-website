@@ -4,6 +4,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getSupabaseConfig } from "../socialSupabaseStore.mjs";
+import { identityKeys } from "./identity.mjs";
 
 export const HERMES_PIPELINE_TABLE = process.env.HERMES_PIPELINE_TABLE || "hermes_pipeline";
 export const HERMES_ALIAS_TABLE = process.env.HERMES_ALIAS_TABLE || "hermes_lead_aliases";
@@ -16,6 +17,11 @@ export const PERSISTENCE = {
   VERSION_CONFLICT: "version_conflict",
   STALE: "stale_skipped",
 };
+
+// dedupe change-object kinds → canonical stored alias-key prefix. The change object
+// may describe `normalized_phone`/`email`/`website`; the persisted key is
+// `phone:`/`email:`/`domain:` to match identityKeys().
+const ALIAS_KIND_PREFIX = { normalized_phone: "phone", phone: "phone", email: "email", website: "domain", domain: "domain", company: "company" };
 
 const TIMESTAMP_FIELDS = new Set(["discovered_at", "imported_at", "last_validated_at", "created_at", "updated_at"]);
 const JSON_FIELDS = new Set(["contact_validation", "fit_validation", "score_reasons", "quarantine_reasons"]);
@@ -85,6 +91,15 @@ export function makeSupabaseClient(options = {}) {
     return Array.isArray(rows) && rows[0] ? rowToLead(rows[0]) : null;
   }
 
+  // Authoritative full read. THROWS on a failed fetch so the caller can distinguish
+  // a real read failure from a genuinely empty table (never collapses both to []).
+  async function readAll() {
+    const res = await fetchImpl(`${table}?select=raw_payload,version`, { headers: headers(cfg.key), cache: "no-store" });
+    if (!res.ok) throw new Error(`read_all_failed_${res.status}`);
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows.map(rowToLead).filter(Boolean) : [];
+  }
+
   async function atomicWrite(row, expectedVersion) {
     const res = await fetchImpl(`${root}/rest/v1/rpc/${HERMES_CAS_RPC}`, {
       method: "POST", headers: headers(cfg.key), cache: "no-store",
@@ -111,16 +126,42 @@ export function makeSupabaseClient(options = {}) {
 
   async function readAliases(aliasKeys) {
     if (!aliasKeys.length) return [];
-    const encoded = aliasKeys.map((x) => `"${x.replaceAll('"', '\\"')}"`).join(",");
+    // PostgREST in.() list: quote each value (doubling embedded quotes) and let the
+    // transport percent-encode separators. THROWS on failure (no silent empty).
+    const encoded = aliasKeys.map((x) => `"${String(x).replaceAll('"', '""')}"`).join(",");
     const res = await fetchImpl(`${root}/rest/v1/${HERMES_ALIAS_TABLE}?alias_key=in.(${encodeURIComponent(encoded)})&select=alias_key,lead_id`, { headers: headers(cfg.key), cache: "no-store" });
     if (!res.ok) throw new Error(`alias_read_failed_${res.status}`);
     return res.json();
   }
 
+  // Global alias ownership: one alias_key belongs to exactly one lead. We
+  // insert-or-IGNORE on alias_key (never overwrite an existing owner), then read
+  // back and verify every key is owned by the expected lead. A key already owned by
+  // a different lead survives the ignore and fails verification → hard conflict.
+  async function writeAliases(rows) {
+    if (!rows.length) return { ok: true, count: 0 };
+    const res = await fetchImpl(`${root}/rest/v1/${HERMES_ALIAS_TABLE}?on_conflict=alias_key`, {
+      method: "POST", headers: { ...headers(cfg.key), Prefer: "resolution=ignore-duplicates,return=minimal" },
+      cache: "no-store", body: JSON.stringify(rows),
+    });
+    if (!res.ok) return { ok: false, error: `alias_write_failed_${res.status}:${(await res.text().catch(() => "")).slice(0, 200)}` };
+    let owners;
+    try { owners = await readAliases([...new Set(rows.map((r) => r.alias_key))]); }
+    catch (err) { return { ok: false, error: `alias_verify_failed:${clean(err?.message)}` }; }
+    const ownerOf = new Map((owners || []).map((o) => [clean(o.alias_key).toLowerCase(), clean(o.lead_id)]));
+    for (const r of rows) {
+      const actual = ownerOf.get(clean(r.alias_key).toLowerCase());
+      if (actual && actual !== clean(r.lead_id)) {
+        return { ok: false, status: "conflict", error: `alias_owner_conflict:${r.alias_key}:owned_by_${actual}` };
+      }
+      if (!actual) return { ok: false, error: `alias_not_persisted:${r.alias_key}` };
+    }
+    return { ok: true, count: rows.length };
+  }
+
   return {
-    configured: true, read, readBack: read, atomicWrite,
-    writeAliases: (rows) => upsertRows(HERMES_ALIAS_TABLE, rows, "alias_key,lead_id"),
-    readAliases,
+    configured: true, read, readBack: read, readAll, atomicWrite,
+    writeAliases, readAliases,
     writeEnrichmentTasks: (rows) => upsertRows(HERMES_ENRICHMENT_TABLE, rows, "task_id"),
   };
 }
@@ -160,7 +201,18 @@ async function upsertOne(client, rec) {
 
   const currentVersion = current ? Number(current.version ?? 1) : 0;
   if (current) {
-    if (targetVersion < currentVersion) return { lead_id, status: PERSISTENCE.STALE, reason: "stored_version_is_newer", current_version: currentVersion, attempted_version: targetVersion };
+    if (targetVersion < currentVersion) {
+      // A lower-version write is based on an outdated read. If the stored row is
+      // strictly fresher, the incoming import is STALE (drop it). If freshness is
+      // equal/unknown or the incoming is fresher, it is a CONFLICT that must be
+      // rebased — never silently dropped.
+      const curFresh = Date.parse(clean(current.last_validated_at) || clean(current.updated_at));
+      const recFresh = Date.parse(clean(rec.last_validated_at) || clean(rec.updated_at));
+      if (!Number.isNaN(curFresh) && !Number.isNaN(recFresh) && curFresh > recFresh) {
+        return { lead_id, status: PERSISTENCE.STALE, reason: "stored_version_is_newer", current_version: currentVersion, attempted_version: targetVersion };
+      }
+      return { lead_id, status: PERSISTENCE.VERSION_CONFLICT, reason: "stale_version_needs_rebase", current_version: currentVersion, attempted_version: targetVersion };
+    }
     if (targetVersion === currentVersion) {
       if (samePayload(current, rec)) return { lead_id, status: PERSISTENCE.PERSISTED, idempotent: true, read_back_id: lead_id, version: targetVersion };
       return { lead_id, status: PERSISTENCE.VERSION_CONFLICT, reason: "same_version_different_payload", current_version: currentVersion, attempted_version: targetVersion };
@@ -192,28 +244,84 @@ async function upsertOne(client, rec) {
   return { lead_id, status: PERSISTENCE.PERSISTED, read_back_id: lead_id, version: targetVersion };
 }
 
-export function aliasRowsFromReconciliation(aliases = [], now = new Date().toISOString()) {
+// Canonical alias key for a dedupe change entry. The change object describes a
+// FIELD (normalized_phone/email/website); the stored key uses the canonical prefix.
+function changeAliasKey(kind, value) {
+  const prefix = ALIAS_KIND_PREFIX[kind] || kind;
+  return `${prefix}:${clean(value).toLowerCase()}`;
+}
+
+/**
+ * Build the full set of alias rows to persist. On EVERY insert/update we write ALL
+ * of the lead's current canonical identity keys (so first-insert aliases exist), and
+ * on a contact change we additionally write the OLD key (so the previous contact path
+ * still resolves to the stable lead_id). One alias_key is owned by exactly one lead.
+ */
+export function aliasRowsForUpserts(upserts = [], aliasChanges = [], now = new Date().toISOString()) {
   const rows = [];
-  for (const item of aliases || []) for (const c of item.changed || []) {
-    for (const value of [c.from, c.to]) if (clean(value)) rows.push({ alias_key: `${c.kind}:${clean(value).toLowerCase()}`, lead_id: item.lead_id, created_at: now });
+  for (const lead of upserts || []) {
+    const lead_id = clean(lead.lead_id);
+    if (!lead_id) continue;
+    for (const key of identityKeys(lead)) if (clean(key)) rows.push({ alias_key: clean(key).toLowerCase(), lead_id, created_at: now });
+  }
+  for (const item of aliasChanges || []) {
+    const lead_id = clean(item.lead_id);
+    if (!lead_id) continue;
+    for (const c of item.changed || []) {
+      for (const value of [c.from, c.to]) if (clean(value)) rows.push({ alias_key: changeAliasKey(c.kind, value), lead_id, created_at: now });
+    }
   }
   return [...new Map(rows.map((r) => [`${r.alias_key}|${r.lead_id}`, r])).values()];
 }
 
-export async function persistAliases(aliases = [], options = {}) {
+// Back-compat: build alias rows from reconciliation change sets only.
+export function aliasRowsFromReconciliation(aliases = [], now = new Date().toISOString()) {
+  return aliasRowsForUpserts([], aliases, now);
+}
+
+/** Persist already-built alias rows with global-ownership enforcement. */
+export async function persistAliasRows(rows = [], options = {}) {
   const client = options.client || makeSupabaseClient(options);
-  const rows = aliasRowsFromReconciliation(aliases, options.now);
   if (!client) return { ok: false, configured: false, count: 0, reason: "supabase_not_configured" };
   if (!rows.length) return { ok: true, configured: true, count: 0 };
   if (typeof client.writeAliases !== "function") return { ok: false, configured: true, count: 0, reason: "alias_writer_unavailable" };
   const result = await client.writeAliases(rows);
-  return { configured: true, count: result?.ok ? rows.length : 0, ...result };
+  if (result?.ok) return { ok: true, configured: true, count: rows.length };
+  return { ok: false, configured: true, count: 0, status: result?.status, reason: result?.error || result?.reason || "alias_write_failed" };
+}
+
+/** Persist aliases derived from full upserts + change sets. */
+export async function persistAliases(upserts = [], aliasChanges = [], options = {}) {
+  const rows = aliasRowsForUpserts(upserts, aliasChanges, options.now);
+  return persistAliasRows(rows, options);
 }
 
 export async function lookupAliases(aliasKeys = [], options = {}) {
   const client = options.client || makeSupabaseClient(options);
   if (!client || typeof client.readAliases !== "function") return [];
   return client.readAliases(aliasKeys.map((x) => clean(x).toLowerCase()).filter(Boolean));
+}
+
+/**
+ * Structured alias lookup with an explicit failure contract so a failed alias read
+ * is never silently treated as "no aliases":
+ *   { ok, configured, status, rows, reason }
+ *   - status=ok ok=true              (rows, possibly empty)
+ *   - status=unsupported ok=true     (injected client without alias reads — proceed)
+ *   - status=read_failed ok=false    (the read failed — caller must decide)
+ *   - status=unconfigured ok=false   (no Supabase)
+ */
+export async function lookupAliasesResult(aliasKeys = [], options = {}) {
+  const client = options.client || makeSupabaseClient(options);
+  const keys = (aliasKeys || []).map((x) => clean(x).toLowerCase()).filter(Boolean);
+  if (!client) return { ok: false, configured: false, status: "unconfigured", rows: [], reason: "supabase_not_configured" };
+  if (typeof client.readAliases !== "function") return { ok: true, configured: true, status: "unsupported", rows: [], reason: "alias_reader_unavailable" };
+  try {
+    const rows = await client.readAliases(keys);
+    return { ok: true, configured: true, status: "ok", rows: Array.isArray(rows) ? rows : [], reason: "read_ok" };
+  } catch (err) {
+    return { ok: false, configured: true, status: "read_failed", rows: [], reason: `alias_read_failed:${clean(err?.message)}` };
+  }
 }
 
 export async function persistEnrichmentTasks(tasks = [], options = {}) {
@@ -231,16 +339,65 @@ export async function persistEnrichmentTasks(tasks = [], options = {}) {
   return { configured: true, count: result?.ok ? rows.length : 0, ...result };
 }
 
-export async function readAllLeads(options = {}) {
-  const cfg = options.config || getSupabaseConfig();
-  if (!cfg) return [];
-  const fetchImpl = options.fetchImpl || globalThis.fetch;
+export const AUTHORITATIVE_READ = {
+  ROWS: "rows",                 // successful read, ≥1 record
+  EMPTY: "empty",               // successful read, zero rows (table genuinely empty)
+  READ_FAILED: "read_failed",   // the authoritative read itself failed
+  UNCONFIGURED: "unconfigured", // no Supabase configured
+};
+
+/**
+ * Authoritative read with an EXPLICIT four-state contract. NEVER collapses a failed
+ * fetch and an empty table into the same []:
+ *   { ok, configured, status, rows, reason }
+ *   - status=rows   ok=true  configured=true  (≥1 record)
+ *   - status=empty  ok=true  configured=true  (zero rows — table is genuinely empty)
+ *   - status=read_failed ok=false configured=true (the read failed — do NOT treat as empty)
+ *   - status=unconfigured ok=false configured=false (no Supabase)
+ */
+export async function readAuthoritativeLeads(options = {}) {
+  const client = options.client || makeSupabaseClient(options);
+  if (!client) return { ok: false, configured: false, status: AUTHORITATIVE_READ.UNCONFIGURED, rows: [], reason: "supabase_not_configured" };
+  if (typeof client.readAll !== "function") {
+    return { ok: false, configured: true, status: AUTHORITATIVE_READ.READ_FAILED, rows: [], reason: "authoritative_reader_unavailable" };
+  }
   try {
-    const res = await fetchImpl(`${cfg.url.replace(/\/$/, "")}/rest/v1/${HERMES_PIPELINE_TABLE}?select=raw_payload,version`, { headers: headers(cfg.key), cache: "no-store" });
-    if (!res.ok) return [];
-    const rows = await res.json();
-    return Array.isArray(rows) ? rows.map(rowToLead).filter(Boolean) : [];
-  } catch { return []; }
+    const rows = await client.readAll();
+    const list = Array.isArray(rows) ? rows : [];
+    return { ok: true, configured: true, status: list.length ? AUTHORITATIVE_READ.ROWS : AUTHORITATIVE_READ.EMPTY, rows: list, reason: list.length ? "read_ok" : "empty_table" };
+  } catch (err) {
+    return { ok: false, configured: true, status: AUTHORITATIVE_READ.READ_FAILED, rows: [], reason: `authoritative_read_failed:${clean(err?.message)}` };
+  }
+}
+
+/**
+ * Back-compat array reader. Returns rows on a successful read, [] when unconfigured
+ * or empty. THROWS on an authoritative read failure so callers cannot silently treat
+ * a failed read as an empty database.
+ */
+export async function readAllLeads(options = {}) {
+  const res = await readAuthoritativeLeads(options);
+  if (res.status === AUTHORITATIVE_READ.READ_FAILED) throw new Error(res.reason);
+  return res.rows;
+}
+
+/**
+ * Persist a Cowork-enriched lead with SEQUENTIAL version advancement + CAS conflict
+ * handling, then persist the completed task. The version is advanced to base+1; if
+ * the lead changed while Cowork was working, the CAS write returns a conflict/stale
+ * (it is never silently overwritten). Returns { ok, status, lead, task, lead_persistence, task_persistence }.
+ */
+export async function persistEnrichmentWriteBack(enrichedLead, task, options = {}) {
+  const now = options.now || new Date().toISOString();
+  const baseVersion = Number(options.baseVersion ?? enrichedLead.version ?? 1);
+  const next = { ...enrichedLead, version: baseVersion + 1, updated_at: now };
+  const leadPersistence = await upsertLeads([next], { ...options, now });
+  const result = leadPersistence.results[0] || { status: PERSISTENCE.PENDING, reason: "no_result" };
+  if (result.status !== PERSISTENCE.PERSISTED) {
+    return { ok: false, status: result.status, reason: result.reason, lead: next, task, lead_persistence: leadPersistence };
+  }
+  const taskPersistence = await persistEnrichmentTasks([task], { ...options, now });
+  return { ok: taskPersistence.ok !== false, status: "persisted", lead: next, task, lead_persistence: leadPersistence, task_persistence: taskPersistence };
 }
 
 export function leadRailDataDir(options = {}) { return options.dataDir || process.env.LEAD_RAIL_DATA_DIR || path.join(process.cwd(), "data", "lead-rail"); }

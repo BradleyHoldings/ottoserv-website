@@ -17,6 +17,7 @@
 
 import { reconcileEnrichmentTasks, ingestEnrichmentResult, detectStalledEnrichment, ENRICH_STALL_MINUTES, ENRICH_MAX_ATTEMPTS } from "./enrichment.mjs";
 import { ENRICHMENT_STATUS } from "./eligibility.mjs";
+import { persistEnrichmentWriteBack, persistEnrichmentTasks } from "./store.mjs";
 
 export const HANDOFF_SCHEMA_VERSION = "cowork.v1";
 export const COWORK_TIMEOUT_MINUTES = ENRICH_STALL_MINUTES; // 24h for manual actor
@@ -179,6 +180,37 @@ export function ingestCoworkResult(lead, task, result, options = {}) {
   }
 
   return ingestEnrichmentResult(lead, task, result, { now });
+}
+
+/**
+ * Ingest a Cowork result AND durably persist the outcome:
+ *   - revalidates the contact through the canonical validator (no shortcut);
+ *   - on a verified result, advances the lead version sequentially (base+1) and
+ *     writes it back via CAS — if the lead changed while Cowork worked, the write
+ *     returns a conflict/stale and is NOT silently overwritten;
+ *   - on a blocked/incomplete result, persists the durable task state (blocked /
+ *     in_progress) so the queue reflects truth.
+ *
+ * Returns { ok, reason?, status?, lead, task, persistence? }. A completion is only
+ * reported when both the enriched lead and the completed task are durably persisted.
+ */
+export async function applyEnrichmentResult(lead, task, result, options = {}) {
+  const now = options.now || new Date().toISOString();
+  const ingested = ingestCoworkResult(lead, task, result, { now });
+
+  if (!ingested.ok) {
+    // Persist the non-completed task state so blocked/in-progress is durable truth.
+    const taskPersistence = await persistEnrichmentTasks([ingested.task], { ...(options.store || {}), now })
+      .catch((err) => ({ ok: false, configured: true, count: 0, reason: clean(err?.message) }));
+    return { ok: false, reason: ingested.reason, lead: ingested.lead || lead, task: ingested.task, persisted: false, task_persistence: taskPersistence };
+  }
+
+  const baseVersion = Number(options.baseVersion ?? lead.version ?? ingested.lead.version ?? 1);
+  const persistence = await persistEnrichmentWriteBack(ingested.lead, ingested.task, { ...(options.store || {}), now, baseVersion });
+  if (!persistence.ok) {
+    return { ok: false, reason: persistence.reason || `writeback_${persistence.status}`, status: persistence.status, lead: persistence.lead, task: ingested.task, persisted: false, persistence };
+  }
+  return { ok: true, lead: persistence.lead, task: ingested.task, persisted: true, persistence };
 }
 
 /**

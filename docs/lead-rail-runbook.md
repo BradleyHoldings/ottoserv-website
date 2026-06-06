@@ -26,26 +26,35 @@ Verify:
 - Three new tables: `hermes_pipeline`, `hermes_lead_aliases`, `hermes_enrichment_tasks`
 - All three have `enable row level security` with NO policies (service-key only)
 - `hermes_pipeline.lead_id` is the primary key (deterministic `lid_v1_*`)
-- `hermes_pipeline.version` is `NOT NULL DEFAULT 1` (optimistic concurrency)
+- `hermes_pipeline.version` is `NOT NULL DEFAULT 1 CHECK (version >= 1)` (optimistic concurrency)
 - `hermes_pipeline.raw_payload` is `NOT NULL` (lossless round-trip)
-- `hermes_lead_aliases` has FK to `hermes_pipeline(lead_id) ON DELETE CASCADE`
+- `hermes_lead_aliases.alias_key` is the **PRIMARY KEY** (global alias ownership — one
+  alias key belongs to exactly one lead) with FK `lead_id → hermes_pipeline(lead_id) ON DELETE CASCADE`
+- `hermes_upsert_pipeline_cas(text, integer, jsonb)` exists, is `SECURITY DEFINER`, and
+  EXECUTE is granted to `service_role` only (revoked from public/anon/authenticated)
 - Rollback block is present and correct
 - No `ALTER TABLE`, `DROP TABLE`, or `DROP COLUMN` on existing tables
 
+The application writes canonical leads ONLY through the `hermes_upsert_pipeline_cas`
+RPC (atomic compare-and-swap). There is no unconditional `on_conflict=lead_id` upsert
+for the canonical lead table.
+
 ---
 
-## Step 2 — Inspect current Supabase state (read-only)
+## Step 2 — Migration preflight (read-only, REQUIRED)
 
-Before applying the migration, confirm the tables do not already exist:
+`create table if not exists` does NOT upgrade an incompatible older table. Run the
+read-only preflight first and read its FINAL DETERMINATION:
 
-```sql
-SELECT tablename FROM pg_tables
-WHERE schemaname='public'
-  AND tablename IN ('hermes_pipeline','hermes_lead_aliases','hermes_enrichment_tasks');
--- Expected: 0 rows (tables do not exist yet)
+```bash
+psql "$DATABASE_URL" -f supabase/hermes_pipeline_preflight.sql
 ```
 
-If any row is returned, check whether the schema matches and whether data exists before proceeding.
+It reports table existence, columns/types, PKs, FKs, unique/check constraints,
+indexes, RLS state, policies, the CAS function + its grants, and flags an
+incompatible prior alias schema (composite PK). Apply the migration only when the
+determination is **SAFE TO APPLY (fresh install)** or a confirmed compatible
+existing schema. The preflight prints no secrets or row data.
 
 ---
 
