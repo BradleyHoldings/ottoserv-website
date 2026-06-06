@@ -9,11 +9,12 @@ import { validateLead, RECORD_STATUS } from "./validate.mjs";
 import { scoreLead, SCORING_VERSION } from "./score.mjs";
 import { classifyEligibility, ELIGIBILITY, ENRICHMENT_STATUS } from "./eligibility.mjs";
 import { buildCanonicalLead, LEAD_SCHEMA_VERSION } from "./schema.mjs";
+import { identityKeys } from "./identity.mjs";
 import { dedupeAndReconcile } from "./dedupe.mjs";
 import { reconcileEnrichmentTasks, needsEnrichment, ENRICH_TASK_TYPE } from "./enrichment.mjs";
 import {
   upsertLeads, readAllLeads, writeCache, writeQuarantine, PERSISTENCE,
-  persistAliases, persistEnrichmentTasks,
+  persistAliases, persistEnrichmentTasks, lookupAliases,
 } from "./store.mjs";
 
 export const LEAD_INTAKE_OPERATION = "lead_intake_enrichment";
@@ -84,10 +85,14 @@ export async function runLeadIntakeEnrichment(input = {}, options = {}) {
 
   let existing = asArray(input.existingRecords);
   if (!existing.length && !options.skipStoreRead) existing = await readAllLeads(options.store || {}).catch(() => []);
-  const dedupe = dedupeAndReconcile(accepted, existing, { now });
+  const aliasKeys = [...new Set(accepted.flatMap((lead) => identityKeys(lead)))];
+  const aliasRows = options.skipStoreRead ? [] : await lookupAliases(aliasKeys, options.store || {}).catch(() => []);
+  const aliasMatches = new Map(aliasRows.map((row) => [clean(row.alias_key).toLowerCase(), clean(row.lead_id)]));
+  const dedupe = dedupeAndReconcile(accepted, existing, { now, aliasMatches });
   stageReceipt("dedupe", {
     new: dedupe.stats.new, updated: dedupe.stats.updated, duplicates: dedupe.stats.duplicates,
     stale_skipped: dedupe.stats.stale_skipped, aliases: dedupe.aliases.length,
+    alias_lookup_keys: aliasKeys.length, alias_matches: dedupe.stats.alias_matched || 0,
   });
 
   stageReceipt("scoring", { scored: dedupe.upserts.length, scoring_version: SCORING_VERSION, by_tier: countBy(dedupe.upserts, "tier") });
@@ -110,7 +115,6 @@ export async function runLeadIntakeEnrichment(input = {}, options = {}) {
 
   task = await driveToRunning(task, { now, file_hash, correlation_id }, options);
 
-  // Parent leads must exist before FK-backed aliases and enrichment tasks.
   const leadPersistence = await upsertLeads(dedupe.upserts, { ...(options.store || {}), now });
   const leadsReady = leadPersistence.configured && leadPersistence.pending === 0 && leadPersistence.conflicts === 0 && leadPersistence.stale === 0;
   const aliasPersistence = leadsReady
