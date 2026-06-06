@@ -195,7 +195,7 @@ export function scoreAndNormalizeLead(input: RawLeadInput, row: number, slotInde
 
   return {
     lead: {
-      lead_id: stableLeadId(company, phoneCheck.normalized || email || website, row),
+      lead_id: stableLeadId(company, phoneCheck.normalized || email || website),
       company,
       contact_name: contactName,
       phone: rawPhone,
@@ -311,9 +311,14 @@ function normalizeUrl(url: string): string {
   return `https://${trimmed}`;
 }
 
-function stableLeadId(company: string, contactKey: string, row: number): string {
-  const base = `${company}-${contactKey}-${row}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return `lead_${base.slice(0, 80) || row}`;
+// Deterministic, ROW-INDEPENDENT id (Phase 1 requirement #3). The same business +
+// contact always hashes to the same id regardless of spreadsheet row order, so a
+// re-import reconciles one lead instead of minting a new one. The authoritative
+// rail uses src/lib/leadRail/identity.mjs (versioned sha256); this legacy website
+// importer mirrors that intent without a crypto dep.
+function stableLeadId(company: string, contactKey: string): string {
+  const base = `${company}-${contactKey}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `lead_${base.slice(0, 80) || "unknown"}`;
 }
 
 function scheduledLocalBusinessTime(timezone: string, slotIndex: number): string {
