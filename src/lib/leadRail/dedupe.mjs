@@ -2,7 +2,7 @@
 // PURE. Reconciles current identity keys plus durable alias matches while keeping
 // the original canonical lead_id stable.
 
-import { identityKeys, deriveLeadId } from "./identity.mjs";
+import { identityKeys, deriveLeadId, normalizeDomain, normalizePhone, normalizeEmail } from "./identity.mjs";
 
 function clean(v) { return String(v ?? "").trim(); }
 function freshness(rec) {
@@ -37,11 +37,6 @@ function mergeAttributes(members) {
   return merged;
 }
 
-/**
- * options.aliasMatches: Map/object of identity key -> canonical lead_id, populated
- * from hermes_lead_aliases. Existing records are anchored by lead_id so an old
- * phone/email/domain can join the current canonical row without creating a copy.
- */
 export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
   const now = options.now || new Date().toISOString();
   const inc = Array.isArray(incoming) ? incoming : [];
@@ -137,11 +132,16 @@ export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
 }
 
 function detectAliasChanges(existing, merged) {
+  const specs = [
+    { kind: "phone", field: "normalized_phone", normalize: normalizePhone },
+    { kind: "email", field: "email", normalize: normalizeEmail },
+    { kind: "domain", field: "website", normalize: normalizeDomain },
+  ];
   const changed = [];
-  for (const kind of ["normalized_phone", "email", "website"]) {
-    const from = clean(existing[kind]);
-    const to = clean(merged[kind]);
-    if (from && to && from !== to) changed.push({ kind, from, to });
+  for (const spec of specs) {
+    const from = spec.normalize(existing[spec.field]);
+    const to = spec.normalize(merged[spec.field]);
+    if (from && to && from !== to) changed.push({ kind: spec.kind, from, to });
   }
   return changed;
 }
