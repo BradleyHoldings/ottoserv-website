@@ -86,7 +86,44 @@ Cowork is unavailable/out of credits, the task is reported `blocked` (truthful),
 - Persistence honesty: a write that cannot be confirmed reports
   `persistence_pending` / `version_conflict` / `stale_skipped` — never success.
 
-## 7. Rollback
+## 7. PR #25 consolidation notes
+
+Current canonical implementation: `src/lib/leadRail/`.
+
+For this consolidation branch, do not apply the Supabase migration and do not
+enable email, Retell calling, DMs, social posting, Stripe changes, or Droplet
+runtime changes.
+
+Machine-readable contracts:
+
+- `docs/contracts/canonical-lead.schema.json`
+- `docs/contracts/enrichment-result.schema.json`
+
+Compatibility adapter:
+
+- `src/lib/outreach/leadImport.ts` preserves the TypeScript import/type surface.
+- `src/lib/outreach/leadImport.mjs` preserves legacy route response shapes while
+  delegating identity, normalization, validation, scoring, and dedupe to
+  `src/lib/leadRail/`.
+
+Routes covered by this adapter:
+
+- `/calls/import`
+- `/calls/outcomes`
+- `/calls/jarvis-packets`
+- `/api/leads/capture`
+- `/api/audit/request`
+
+Superseded draft-PR paths:
+
+- `src/lib/leads/canonicalLeadCore.mjs`
+- `src/lib/leads/canonicalLeadCore.d.ts`
+- `src/lib/outreach/leadImportV2.ts`
+- `scripts/phase1-lead-core.mjs`
+- `docs/adr/ADR-001-phase1-canonical-lead-core.md`
+- `docs/runbooks/PHASE1A_CANONICAL_LEAD_CORE.md`
+
+## 8. Rollback
 
 The rail is additive and side-effect-free outside `hermes_pipeline` and the
 gitignored cache. To roll back: stop running `lead:rail`. To clear test data:

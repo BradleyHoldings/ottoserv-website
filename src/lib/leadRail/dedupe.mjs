@@ -35,9 +35,9 @@ function mergeAttributes(members) {
   const merged = {};
   const FIELDS = ["company_name", "contact_name", "normalized_phone", "email", "website",
     "industry", "city", "state", "timezone", "source_url", "source_type", "source_evidence",
-    "discovered_at", "score", "tier", "score_reasons", "scoring_version", "pipeline_stage",
+    "discovered_at", "imported_at", "score", "tier", "score_reasons", "scoring_version", "pipeline_stage",
     "eligibility", "next_action", "enrichment_status", "record_status", "contact_validation",
-    "fit_validation", "quarantine_reasons", "schema_version", "last_validated_at"];
+    "fit_validation", "quarantine_reasons", "external_outreach_allowed", "schema_version", "last_validated_at"];
   for (const m of ordered) {
     for (const f of FIELDS) {
       const val = m.record[f];
@@ -101,8 +101,9 @@ export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
     if (!baseExisting) {
       // Brand-new lead. Collapse any within-file duplicates into one.
       const merged = mergeAttributes(incomingMembers);
+      const baseShape = incomingMembers[0]?.record || {};
       const lead_id = deriveLeadId(merged) || clean(incomingMembers[0].record.lead_id);
-      const record = { ...merged, lead_id, version: 1, created_at: clean(incomingMembers[0].record.created_at) || now, updated_at: now };
+      const record = { ...baseShape, ...merged, lead_id, version: 1, created_at: clean(incomingMembers[0].record.created_at) || now, updated_at: now };
       upserts.push(record);
       all.push(record);
       stats.new += 1;
@@ -131,6 +132,7 @@ export function dedupeAndReconcile(incoming = [], existing = [], options = {}) {
     const lead_id = clean(baseExisting.lead_id) || deriveLeadId(merged);
     const changed = detectAliasChanges(baseExisting, merged);
     const record = {
+      ...baseExisting,
       ...merged,
       lead_id,
       version: Number(baseExisting.version || 1) + 1,

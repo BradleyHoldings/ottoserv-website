@@ -95,6 +95,27 @@ The Python scripts are represented by repo-owned, versioned, tested modules:
 `supabase/hermes_pipeline_schema.sql`. The `validated_*`/`rejected_*`/audit JSON
 artifacts become outputs of the rail (cache + quarantine + receipts), not inputs.
 
+## Consolidation update - PR #25
+
+PR #25's useful machine-readable contract work was consolidated into the existing
+rail instead of merging its alternate `src/lib/leads/canonicalLeadCore.mjs`
+implementation.
+
+- Canonical lead contract: `docs/contracts/canonical-lead.schema.json`, tested
+  against real `src/lib/leadRail/schema.mjs` output.
+- Enrichment result contract: `docs/contracts/enrichment-result.schema.json`,
+  tested against `src/lib/leadRail/enrichment.mjs` ingestion output.
+- Both contracts use `lid_v1_<16hex>`, `schema_version: "phase1.v1"`, canonical
+  rail field names/statuses, and `external_outreach_allowed: false`.
+- `src/lib/outreach/leadImport.ts` is now a compatibility shim. Its runtime
+  implementation is `src/lib/outreach/leadImport.mjs`, which delegates identity,
+  normalization, validation, scoring, and dedupe to `src/lib/leadRail/`.
+- Superseded draft paths must not be restored as parallel systems:
+  `src/lib/leads/canonicalLeadCore.mjs`, `src/lib/leads/canonicalLeadCore.d.ts`,
+  `src/lib/outreach/leadImportV2.ts`, `scripts/phase1-lead-core.mjs`,
+  `docs/adr/ADR-001-phase1-canonical-lead-core.md`, and
+  `docs/runbooks/PHASE1A_CANONICAL_LEAD_CORE.md`.
+
 ## Consequences
 
 - `leadImport.ts` stays for the 5 website routes but is **legacy/frozen**; new lead

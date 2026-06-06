@@ -85,6 +85,7 @@ export function buildCanonicalLead(parts = {}) {
     eligibility,
     next_action: clean(p.next_action) || "none",
     enrichment_status: clean(p.enrichment_status) || ENRICHMENT_STATUS.NOT_REQUIRED,
+    external_outreach_allowed: false,
     record_status,
     quarantine_reasons: record_status === RECORD_STATUS.ACCEPTED ? [] : (Array.isArray(v.reasons) ? v.reasons : []),
     schema_version: LEAD_SCHEMA_VERSION,
