@@ -1,0 +1,5 @@
+name: telegram-goal-draft-hook
+version: 1.0.0
+description: Narrow Telegram hook that routes explicit Jonathan goal/work-order draft requests to the safe internal draft handler.
+hooks:
+  - pre_gateway_dispatch
