@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ottoserv.com/schemas/canonical-lead-1.0.0.json",
+  "title": "OttoServ Canonical Lead",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "lead_id",
+    "identity_aliases",
+    "company_name",
+    "normalized_phone",
+    "email",
+    "website",
+    "source_url",
+    "contact_validation",
+    "fit_validation",
+    "pipeline_stage",
+    "eligibility",
+    "enrichment_status",
+    "record_status",
+    "schema_version",
+    "imported_at",
+    "last_validated_at",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "lead_id": { "type": "string", "pattern": "^lead_v1_[a-f0-9]{24}$" },
+    "identity_aliases": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 3 }
+    },
+    "company_name": { "type": "string" },
+    "contact_name": { "type": "string" },
+    "normalized_phone": { "type": "string", "pattern": "^$|^[0-9]{10}$" },
+    "email": { "type": "string" },
+    "website": { "type": "string" },
+    "industry": { "type": "string" },
+    "city": { "type": "string" },
+    "state": { "type": "string" },
+    "timezone": { "type": "string" },
+    "source_url": { "type": "string" },
+    "source_type": { "type": "string" },
+    "source_evidence": {},
+    "discovered_at": { "type": "string" },
+    "imported_at": { "type": "string", "format": "date-time" },
+    "last_validated_at": { "type": "string", "format": "date-time" },
+    "contact_validation": {
+      "type": "object",
+      "required": ["phone", "email"],
+      "properties": {
+        "phone": { "enum": ["verified_format", "invalid", "missing"] },
+        "email": { "enum": ["verified_format", "invalid", "missing"] }
+      }
+    },
+    "fit_validation": {
+      "type": "object",
+      "required": ["public_evidence_verified", "rejection_reasons", "quarantine_reasons"],
+      "properties": {
+        "public_evidence_verified": { "type": "boolean" },
+        "rejection_reasons": { "type": "array", "items": { "type": "string" } },
+        "quarantine_reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "tier": { "type": "string" },
+    "score_reasons": { "type": "array", "items": { "type": "string" } },
+    "pipeline_stage": { "type": "string" },
+    "eligibility": {
+      "enum": ["enrich", "email_eligible", "call_eligible", "manual_review", "gated", "rejected"]
+    },
+    "next_action": { "type": "string" },
+    "enrichment_status": { "enum": ["not_required", "queued_required", "queued", "completed", "blocked"] },
+    "record_status": { "enum": ["active", "quarantined", "rejected"] },
+    "schema_version": { "const": "1.0.0" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}
