@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildProviderTransport, emailProviderName } from "../src/lib/emailRail/transport.mjs";
+import { buildProviderTransport, emailProviderName, normalizeGmailWebhookResult } from "../src/lib/emailRail/transport.mjs";
 
 test("transport: no provider configured -> not ok, no credentials leaked", () => {
   const r = buildProviderTransport({});
@@ -42,6 +42,42 @@ test("transport: injected Gmail/Workspace handoff returns the approved transport
   assert.equal(out.message_id, "gmail_msg_abc123");
   assert.equal(out.thread_id, "gmail_thr_abc123");
   assert.equal(sent[0].from, "jonathan@ottoservco.com");
+});
+
+test("transport: configured n8n Gmail webhook becomes the approved transport", async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      ok: true,
+      status: 200,
+      async text() {
+        return JSON.stringify({ messageId: "gmail_msg_live_1", threadId: "gmail_thr_live_1", status: "accepted" });
+      },
+    };
+  };
+  const r = buildProviderTransport({
+    HERMES_N8N_EMAIL_SEND_WEBHOOK: "https://n8n.ottoserv.com/webhook/agent-email-send",
+    HERMES_N8N_EMAIL_WEBHOOK_TOKEN: "secret-token",
+  }, { fetchImpl });
+  assert.equal(r.ok, true);
+  const out = await r.transport({ from: "jonathan@ottoservco.com", to: "controlled@example.com", subject: "s", body: "b", idempotency_key: "idem_1" });
+  assert.equal(out.message_id, "gmail_msg_live_1");
+  assert.equal(out.thread_id, "gmail_thr_live_1");
+  assert.equal(calls[0].url, "https://n8n.ottoserv.com/webhook/agent-email-send");
+  assert.equal(JSON.parse(calls[0].init.body).provider, "gmail_workspace");
+  assert.ok(!JSON.stringify(r).includes("secret-token"));
+});
+
+test("transport: n8n Gmail response normalization accepts common provider shapes", () => {
+  assert.equal(normalizeGmailWebhookResult([{ id: "m1", threadId: "t1" }]).message_id, "m1");
+  assert.equal(normalizeGmailWebhookResult({ result: { gmailMessageId: "m2", gmailThreadId: "t2" } }).thread_id, "t2");
+});
+
+test("transport: configured Gmail webhook must be HTTPS unless explicitly allowed", () => {
+  assert.throws(() => buildProviderTransport({
+    HERMES_N8N_EMAIL_SEND_WEBHOOK: "http://localhost:5678/webhook/agent-email-send",
+  }), /gmail_webhook_must_be_https/);
 });
 
 test("transport: resolver never returns credential-shaped values", () => {

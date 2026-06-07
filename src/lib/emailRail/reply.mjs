@@ -22,6 +22,7 @@ export const REPLY_CLASS = {
 
 // Classes where the sequence must be stopped immediately (no further follow-ups).
 export const SEQUENCE_STOPPING_CLASSES = new Set([
+  REPLY_CLASS.POSITIVE_INTEREST, REPLY_CLASS.MEETING_REQUESTED,
   REPLY_CLASS.UNSUBSCRIBE, REPLY_CLASS.NOT_INTERESTED, REPLY_CLASS.WRONG_PERSON,
   REPLY_CLASS.BOUNCE,
 ]);

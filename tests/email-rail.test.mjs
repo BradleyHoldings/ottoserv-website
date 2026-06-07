@@ -405,7 +405,7 @@ test("reply: second reply with same provider_event_id is deduped", async () => {
 });
 
 // ─── 31. Future follow-up cancellation on sequence stop ──────────────────────
-test("scheduler: unsubscribe cancels pending follow-up intents", () => {
+test("scheduler: positive and unsubscribe replies cancel pending generic follow-up intents", () => {
   const pending = [
     { execution_id: "e1", state: "scheduled" },
     { execution_id: "e2", state: "completed" },
@@ -413,7 +413,7 @@ test("scheduler: unsubscribe cancels pending follow-up intents", () => {
   ];
   const toCancel = selectIntentsToCancel(pending, REPLY_CLASS.UNSUBSCRIBE);
   assert.deepEqual(toCancel.sort(), ["e1", "e3"]);
-  assert.deepEqual(selectIntentsToCancel(pending, REPLY_CLASS.POSITIVE_INTEREST), []);
+  assert.deepEqual(selectIntentsToCancel(pending, REPLY_CLASS.POSITIVE_INTEREST).sort(), ["e1", "e3"]);
 });
 
 // ─── 32. Follow-up scheduling: spacing + max attempts + determinism ──────────
@@ -423,6 +423,7 @@ test("scheduler: deterministic next slot, max attempts caps, reply stops", () =>
   assert.equal(s1, deriveNextScheduledAt({ attempt_number: 1, first_sent_at: first })); // deterministic
   assert.equal(deriveNextScheduledAt({ attempt_number: 4, first_sent_at: first }), null); // exhausted
   assert.equal(evaluateFollowUp({ attempt_number: 1, first_sent_at: first, reply_classification: REPLY_CLASS.UNSUBSCRIBE }).should_schedule, false);
+  assert.equal(evaluateFollowUp({ attempt_number: 1, first_sent_at: first, reply_classification: REPLY_CLASS.POSITIVE_INTEREST }).should_schedule, false);
   assert.equal(evaluateFollowUp({ attempt_number: 1, first_sent_at: first }).should_schedule, true);
 });
 

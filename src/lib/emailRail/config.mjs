@@ -26,9 +26,14 @@ function clean(v) { return String(v ?? "").trim(); }
 
 function providerPresent(env) {
   const provider = clean(env.HERMES_EMAIL_PROVIDER || (env.HERMES_GMAIL_TRANSPORT_READY || env.GOOGLE_WORKSPACE_EMAIL_READY ? "gmail_workspace" : "")).toLowerCase();
+  const webhookReady = Boolean(
+    clean(env.HERMES_N8N_EMAIL_SEND_WEBHOOK)
+    || clean(env.HERMES_GMAIL_SEND_WEBHOOK)
+    || clean(env.N8N_AGENT_EMAIL_SEND_WEBHOOK_URL),
+  );
   return {
-    provider,
-    transport_ready: Boolean(env.HERMES_GMAIL_TRANSPORT_READY || env.GOOGLE_WORKSPACE_EMAIL_READY),
+    provider: provider || (webhookReady ? "gmail_workspace" : ""),
+    transport_ready: Boolean(env.HERMES_GMAIL_TRANSPORT_READY || env.GOOGLE_WORKSPACE_EMAIL_READY || webhookReady),
     sender: clean(env.HERMES_EMAIL_SENDER) || APPROVED_CONTROLLED_SENDER,
   };
 }

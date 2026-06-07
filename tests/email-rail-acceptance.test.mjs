@@ -106,10 +106,10 @@ test("ACCEPTANCE: controlled send → evidence → lead advance → reply → ca
   const dup = await processReply(inbound, result.intent, { client, now: NOW, updateLead: false });
   assert.equal(dup.deduped, true);
 
-  // Gate 13 (future follow-up adjusted): a positive reply does NOT stop the sequence
-  // but an unsubscribe would. Prove cancellation logic on a sequence-stopping reply.
+  // Gate 13 (future follow-up adjusted): a positive reply stops generic sequence
+  // pressure while the canonical lead gets a specific next action.
   const pending = [{ execution_id: "followup_1", state: "scheduled" }];
-  assert.deepEqual(selectIntentsToCancel(pending, REPLY_CLASS.POSITIVE_INTEREST), []);
+  assert.deepEqual(selectIntentsToCancel(pending, REPLY_CLASS.POSITIVE_INTEREST), ["followup_1"]);
   assert.deepEqual(selectIntentsToCancel(pending, REPLY_CLASS.UNSUBSCRIBE), ["followup_1"]);
 
   // Gate 14 (restart does not duplicate execution): a completed intent re-materialized
