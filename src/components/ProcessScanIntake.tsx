@@ -118,8 +118,12 @@ export default function ProcessScanIntake() {
   const [otherGapText, setOtherGapText] = useState("");
   const [clarificationAnswers, setClarificationAnswers] = useState<Record<string, string>>({});
   const [showWrittenForm, setShowWrittenForm] = useState(false);
+  const [uploadConsent, setUploadConsent] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "preparing_upload" | "uploading" | "verifying" | "completed" | "failed">("idle");
+  const [uploadMessage, setUploadMessage] = useState("");
 
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const blobRef = useRef<Blob | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -216,6 +220,7 @@ export default function ProcessScanIntake() {
         const blob = new Blob(chunksRef.current, { type: "video/webm" });
         setRecordingSize(blob.size);
         if (blob.size > 0) {
+          blobRef.current = blob;
           setRecordingUrl(URL.createObjectURL(blob));
         }
         stopTracks();
@@ -309,6 +314,33 @@ export default function ProcessScanIntake() {
       if (!res.ok) throw new Error(body.error || "Form submission failed.");
       const id = body.scan?.id || "";
       const slug = body.scan?.public_report_slug || "";
+
+      // Durable recording upload (only with explicit consent + a captured blob).
+      // Truthful: the scan stays recorded_upload_pending unless the server verifies
+      // the object. A failed/interrupted upload never reports completed.
+      if (id && blobRef.current && uploadConsent) {
+        try {
+          const { uploadRecording } = await import("@/lib/recordingStorage/uploadClient");
+          setUploadStatus("preparing_upload");
+          const result = await uploadRecording({
+            scanId: id,
+            blob: blobRef.current,
+            audioIncluded: audioStatus === "enabled",
+            consent: { recording: true, upload: true, consented_at: new Date().toISOString() },
+            onProgress: (s) => setUploadStatus(s),
+          });
+          setUploadStatus(result.state);
+          setUploadMessage(
+            result.ok
+              ? "Recording uploaded and verified in secure storage."
+              : `Recording was not durably stored (${result.reason || "pending"}). Your scan was submitted; an admin can request a retry.`,
+          );
+        } catch {
+          setUploadStatus("failed");
+          setUploadMessage("Recording upload could not start. Your scan was submitted without durable recording storage.");
+        }
+      }
+
       router.push(`/front-office-leak-check/thank-you?scan=${encodeURIComponent(id)}&report=${encodeURIComponent(slug)}`);
     } catch (err) {
       setSubmitState("error");
@@ -422,9 +454,31 @@ export default function ProcessScanIntake() {
                   </p>
                 )}
                 {recordingUrl && (
-                  <p className="mt-3 rounded border border-yellow-900 bg-yellow-950/30 p-3 text-xs leading-relaxed text-yellow-200">
-                    {LOCAL_RECORDING_NOTICE}
-                  </p>
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-start gap-2 rounded border border-blue-900 bg-blue-950/30 p-3 text-xs leading-relaxed text-blue-100">
+                      <input
+                        type="checkbox"
+                        checked={uploadConsent}
+                        onChange={(e) => setUploadConsent(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        I consent to securely uploading this screen{audioStatus === "enabled" ? "/audio" : ""} recording to OttoServ&apos;s
+                        private storage for admin review. It is stored in a private bucket, never made public, and can be deleted on request.
+                      </span>
+                    </label>
+                    {!uploadConsent && (
+                      <p className="rounded border border-yellow-900 bg-yellow-950/30 p-3 text-xs leading-relaxed text-yellow-200">
+                        {LOCAL_RECORDING_NOTICE}
+                      </p>
+                    )}
+                    {uploadStatus !== "idle" && (
+                      <p className="rounded border border-gray-800 bg-[#0d0d0d] p-3 text-xs leading-relaxed text-gray-300">
+                        Upload status: <span className="font-semibold">{uploadStatus.replaceAll("_", " ")}</span>
+                        {uploadMessage ? ` — ${uploadMessage}` : ""}
+                      </p>
+                    )}
+                  </div>
                 )}
                 {recordingError && <p className="mt-3 text-sm text-yellow-300">{recordingError}</p>}
               </div>

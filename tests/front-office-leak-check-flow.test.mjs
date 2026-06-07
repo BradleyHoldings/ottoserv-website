@@ -44,5 +44,10 @@ test("pilot start path persists conversion details and admin detail surfaces the
   assert.match(startPilot, /Full Process Audit/);
   assert.match(adminDetail, /Pilot Start Requests/);
   assert.match(adminDetail, /api\/process-scans\/start-pilot/);
-  assert.match(adminDetail, /recorded_upload_pending means/);
+  // Durable-recording admin surface: the detail page now mounts the recording panel
+  // which truthfully distinguishes pending (not durable evidence) from verified.
+  assert.match(adminDetail, /RecordingAdminPanel/);
+  const recordingPanel = readFileSync(join(root, "src", "components", "RecordingAdminPanel.tsx"), "utf8");
+  assert.match(recordingPanel, /not be treated as durable evidence|not treat this as durable evidence/);
+  assert.match(recordingPanel, /signed URL/);
 });
