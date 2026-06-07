@@ -123,7 +123,7 @@ export default async function LeakCheckReportPage({
             </div>
             {scan.recording_status === "recorded_upload_pending" && (
               <p className="mt-4 rounded border border-yellow-900 bg-yellow-950/30 p-3 text-sm text-yellow-200">
-                Recording storage note: the browser captured a local preview, but the video file was not uploaded or stored durably. This report uses the submitted status, gap tags, and user-provided context; durable recording upload remains a follow-up storage task.
+                Recording storage note: a recording was captured or attempted, but OttoServ has not verified a durable stored video for this scan yet. This report uses the submitted status, gap tags, and user-provided context until a verified upload is available.
               </p>
             )}
           </ReportSection>

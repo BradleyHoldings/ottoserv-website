@@ -49,6 +49,7 @@ export interface ProcessScanInput {
 export interface ProcessScan extends ProcessScanInput {
   id: string;
   recording_url: string | null;
+  active_recording_id: string | null;
   audio_status: AudioStatus;
   audio_included: boolean;
   gap_tags_json: unknown;
@@ -168,6 +169,7 @@ export function buildProcessScan(input: ProcessScanInput, origin?: string): Proc
     monthly_lead_volume: clean(input.monthly_lead_volume),
     best_time_to_contact: clean(input.best_time_to_contact),
     recording_url: null,
+    active_recording_id: null,
     recording_status: input.recording_status || "not_provided",
     audio_status: input.audio_status || "unknown",
     audio_included: input.audio_status === "enabled",

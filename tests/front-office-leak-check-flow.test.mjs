@@ -27,7 +27,7 @@ test("report renders structured diagnostics and no longer links pilot CTA to fro
   assert.match(report, /Recommended Future-State Flowchart/);
   assert.match(report, /Revenue Risks/);
   assert.match(report, /Priority Ranking/);
-  assert.match(report, /not uploaded or stored durably/);
+  assert.match(report, /not verified a durable stored video/);
   assert.match(report, /Full Process Audit/);
   assert.match(report, /front-office-leak-check\/start-pilot/);
   assert.doesNotMatch(report, /href="\/front-desk-ai"/);
@@ -44,5 +44,10 @@ test("pilot start path persists conversion details and admin detail surfaces the
   assert.match(startPilot, /Full Process Audit/);
   assert.match(adminDetail, /Pilot Start Requests/);
   assert.match(adminDetail, /api\/process-scans\/start-pilot/);
-  assert.match(adminDetail, /recorded_upload_pending means/);
+  // Durable-recording admin surface: the detail page now mounts the recording panel
+  // which truthfully distinguishes pending (not durable evidence) from verified.
+  assert.match(adminDetail, /RecordingAdminPanel/);
+  const recordingPanel = readFileSync(join(root, "src", "components", "RecordingAdminPanel.tsx"), "utf8");
+  assert.match(recordingPanel, /not be treated as durable evidence|not treat this as durable evidence/);
+  assert.match(recordingPanel, /signed URL/);
 });

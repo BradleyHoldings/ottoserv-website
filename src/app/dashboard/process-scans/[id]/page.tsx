@@ -5,6 +5,7 @@ import Link from "next/link";
 import { canAccessAdmin } from "@/lib/userAuth";
 import type { ProcessScan } from "@/lib/processScans";
 import type { PilotStartConversion } from "@/lib/processScanConversions";
+import RecordingAdminPanel from "@/components/RecordingAdminPanel";
 
 const ADMIN_TOKEN_KEY = "ottoserv_admin_api_token";
 
@@ -183,13 +184,14 @@ export default function ProcessScanDetailPage({ params }: { params: Promise<{ id
           </Panel>
 
           <Panel title="Recording">
-            {scan.recording_url ? (
-              <video controls src={scan.recording_url} className="aspect-video w-full rounded bg-black" />
-            ) : (
-              <p className="text-gray-400">
-                No recording URL yet. recorded_upload_pending means the browser captured a local preview only; the video file was not uploaded or stored durably, so admins should not treat this as durable recording evidence.
-              </p>
-            )}
+            <RecordingAdminPanel
+              scanId={id}
+              token={token}
+              recordingStatus={scan.recording_status || "not_provided"}
+              audioIncluded={scan.audio_included}
+              audioStatus={scan.audio_status || "unknown"}
+              activeRecordingId={(scan as ProcessScan & { active_recording_id?: string | null }).active_recording_id || null}
+            />
           </Panel>
 
           <Panel title="Report Draft">
