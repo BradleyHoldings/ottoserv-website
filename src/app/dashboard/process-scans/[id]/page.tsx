@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { canAccessAdmin } from "@/lib/userAuth";
 import type { ProcessScan } from "@/lib/processScans";
+import type { PilotStartConversion } from "@/lib/processScanConversions";
 
 const ADMIN_TOKEN_KEY = "ottoserv_admin_api_token";
 
@@ -12,9 +13,26 @@ export default function ProcessScanDetailPage({ params }: { params: Promise<{ id
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [token, setToken] = useState("");
   const [scan, setScan] = useState<ProcessScan | null>(null);
+  const [pilotStarts, setPilotStarts] = useState<PilotStartConversion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  const loadPilotStarts = useCallback(async (scanId: string) => {
+    if (!scanId || !token) return;
+    try {
+      const res = await fetch("/api/process-scans/start-pilot", {
+        headers: { "x-admin-token": token },
+        cache: "no-store",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      setPilotStarts(rows.filter((row: PilotStartConversion) => row.scan_id === scanId));
+    } catch {
+      setPilotStarts([]);
+    }
+  }, [token]);
 
   const loadScan = useCallback(async () => {
     setLoading(true);
@@ -27,12 +45,13 @@ export default function ProcessScanDetailPage({ params }: { params: Promise<{ id
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
       setScan(body.scan);
+      void loadPilotStarts(body.scan?.id || "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load process scan.");
     } finally {
       setLoading(false);
     }
-  }, [id, token]);
+  }, [id, token, loadPilotStarts]);
 
   useEffect(() => {
     // Hydration-safe localStorage/auth read after mount.
@@ -96,6 +115,9 @@ export default function ProcessScanDetailPage({ params }: { params: Promise<{ id
   const reportHref = `/front-office-leak-check/report/${scan.public_report_slug}`;
   const leaks = asStringArray(scan.leaks_detected_json);
   const opportunities = asStringArray(scan.automation_opportunities_json);
+  const risks = asObjectArray<{ title?: string; impact?: string; severity?: string }>(scan.revenue_risks_json);
+  const priorities = asObjectArray<{ priority?: string; title?: string; action?: string; severity?: string }>(scan.priority_ranking_json);
+  const nextActions = asStringArray(scan.practical_next_actions_json);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -131,6 +153,7 @@ export default function ProcessScanDetailPage({ params }: { params: Promise<{ id
         </Stat>
         <Stat label="Status">{scan.status.replaceAll("_", " ")}</Stat>
         <Stat label="Recording">{(scan.recording_status || "not_provided").replaceAll("_", " ")}</Stat>
+        <Stat label="Audio">{scan.audio_included ? "Narration captured" : (scan.audio_status || "unknown").replaceAll("_", " ")}</Stat>
         <Stat label="Report">{scan.report_status}</Stat>
       </div>
 
@@ -176,11 +199,38 @@ export default function ProcessScanDetailPage({ params }: { params: Promise<{ id
             <Detail label="Current SOP" value={scan.current_sop_markdown || "Pending"} block />
             <Detail label="Recommended SOP" value={scan.recommended_sop_markdown || "Pending"} block />
           </Panel>
+
+          <Panel title="Pilot Start Requests">
+            {pilotStarts.length ? (
+              <div className="space-y-3">
+                {pilotStarts.map((event) => (
+                  <div key={event.id} className="rounded border border-gray-800 bg-[#0d0d0d] p-3 text-sm text-gray-300">
+                    <div className="font-semibold text-white">{event.name} at {event.company}</div>
+                    <div className="mt-1 text-xs text-gray-500">{event.email}{event.phone ? ` | ${event.phone}` : ""}</div>
+                    <div className="mt-2">Workflow: {event.workflow}</div>
+                    <div className="text-xs text-gray-500">Consent: {event.consent_to_contact ? "yes" : "no"} | {new Date(event.created_at).toLocaleString()}</div>
+                    {event.notes && <div className="mt-2 whitespace-pre-wrap text-xs text-gray-400">{event.notes}</div>}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No pilot start conversion events recorded for this scan yet.</p>
+            )}
+          </Panel>
         </div>
 
         <div className="space-y-6">
           <Panel title="Detected Leaks">
             <SmallList items={leaks} />
+          </Panel>
+          <Panel title="Revenue Risks">
+            <ObjectList items={risks.map((risk) => `${risk.severity || "risk"}: ${risk.title || "Untitled"} - ${risk.impact || ""}`)} />
+          </Panel>
+          <Panel title="Priority Ranking">
+            <ObjectList items={priorities.map((item) => `${item.priority || "P"}: ${item.title || "Untitled"} - ${item.action || ""}`)} />
+          </Panel>
+          <Panel title="Practical Next Actions">
+            <SmallList items={nextActions} />
           </Panel>
           <Panel title="Automation Opportunities">
             <SmallList items={opportunities} />
@@ -241,6 +291,14 @@ function SmallList({ items }: { items: string[] }) {
   );
 }
 
+function ObjectList({ items }: { items: string[] }) {
+  return <SmallList items={items.filter(Boolean)} />;
+}
+
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+}
+
+function asObjectArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value.filter((item): item is T => Boolean(item && typeof item === "object")) : [];
 }

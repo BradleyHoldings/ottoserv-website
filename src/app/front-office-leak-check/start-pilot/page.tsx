@@ -3,7 +3,7 @@ import Link from "next/link";
 export default async function StartPilotPage({
   searchParams,
 }: {
-  searchParams: Promise<{ scan?: string; workflow?: string }>;
+  searchParams: Promise<{ scan?: string; workflow?: string; error?: string }>;
 }) {
   const params = await searchParams;
   const workflow = params.workflow || "recommended AI employee";
@@ -24,9 +24,13 @@ export default async function StartPilotPage({
           </p>
         </div>
 
-        <form className="space-y-5 rounded-xl border border-gray-800 bg-[#111827] p-6 md:p-8" action="/contact">
-          <input type="hidden" name="topic" value="30-day-pilot" />
-          {params.scan && <input type="hidden" name="scan" value={params.scan} />}
+        <form className="space-y-5 rounded-xl border border-gray-800 bg-[#111827] p-6 md:p-8" action="/api/process-scans/start-pilot" method="post">
+          {params.error && (
+            <p className="rounded border border-red-900 bg-red-950/40 p-3 text-sm text-red-300">
+              {params.error}
+            </p>
+          )}
+          {params.scan && <input type="hidden" name="scan_id" value={params.scan} />}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field label="Name" name="name" required />
             <Field label="Email" name="email" type="email" required />
@@ -44,12 +48,18 @@ export default async function StartPilotPage({
               className="w-full rounded-md border border-gray-700 bg-[#0d0d0d] p-3 text-sm text-gray-100 outline-none transition-colors placeholder:text-gray-600 focus:border-blue-500"
             />
           </label>
+          <label className="flex items-start gap-3 rounded-lg border border-gray-800 bg-[#0d0d0d] p-3 text-sm text-gray-300">
+            <input name="consent_to_contact" type="checkbox" required className="mt-1" />
+            <span>
+              I consent to OttoServ contacting me about this pilot request and understand this does not start implementation until scope and payment are confirmed.
+            </span>
+          </label>
           <div className="flex flex-col gap-3 sm:flex-row">
             <button type="submit" className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700">
               Send Pilot Start Request
             </button>
-            <Link href="/contact?topic=leak-check-review" className="rounded-md border border-gray-700 px-6 py-3 text-center text-sm font-semibold text-gray-200 hover:border-gray-500 hover:text-white">
-              Book a Review Call Instead
+            <Link href={`/process-audit?source=leak-check-pilot${params.scan ? `&scan=${encodeURIComponent(params.scan)}` : ""}`} className="rounded-md border border-green-800 bg-green-950/20 px-6 py-3 text-center text-sm font-semibold text-green-200 hover:border-green-500">
+              Full Process Audit
             </Link>
           </div>
         </form>

@@ -64,6 +64,9 @@ export interface ProcessScan extends ProcessScanInput {
   current_state_workflow_map_json: unknown;
   future_state_workflow_map_json: unknown;
   ai_recommendation_json: unknown;
+  revenue_risks_json: unknown;
+  priority_ranking_json: unknown;
+  practical_next_actions_json: unknown;
   analysis_status: string;
   transcript: string | null;
   process_summary: string | null;
@@ -145,6 +148,7 @@ export function buildProcessScan(input: ProcessScanInput, origin?: string): Proc
   const futureSteps = deriveFutureSteps(input);
   const recommendation = deriveRecommendation(input.main_leak);
   const diagnostics = createWorkflowDiagnostics(input);
+  const reportConfidence = asReportConfidence(diagnostics.reportConfidence.level);
 
   return {
     id,
@@ -170,7 +174,7 @@ export function buildProcessScan(input: ProcessScanInput, origin?: string): Proc
     gap_tags_json: input.gap_tags || [],
     other_gap_text: clean(input.other_gap_text),
     clarification_answers_json: input.clarification_answers || {},
-    report_confidence: diagnostics.reportConfidence.level,
+    report_confidence: reportConfidence,
     report_confidence_reason: diagnostics.reportConfidence.reason,
     observed_from_recording_json: diagnostics.observed,
     reported_by_user_json: diagnostics.reported,
@@ -180,13 +184,16 @@ export function buildProcessScan(input: ProcessScanInput, origin?: string): Proc
     current_state_workflow_map_json: diagnostics.currentStateMap,
     future_state_workflow_map_json: diagnostics.futureStateMap,
     ai_recommendation_json: diagnostics.aiRecommendation,
+    revenue_risks_json: diagnostics.revenueRisks,
+    priority_ranking_json: diagnostics.priorityRanking,
+    practical_next_actions_json: diagnostics.nextActions,
     analysis_status: "pending",
     transcript: null,
     process_summary: `Submitted workflow: ${clean(input.process_name)}. Main leak to inspect: ${mainLeakLabel}.`,
     sop_markdown: currentSteps.map((step, idx) => `${idx + 1}. ${step}`).join("\n"),
     flowchart_json: currentSteps,
     bottlenecks_json: diagnostics.topWorkflowLeaks.length ? diagnostics.topWorkflowLeaks : leaks,
-    automation_opportunities_json: deriveOpportunities(input),
+    automation_opportunities_json: diagnostics.automationOpportunities.length ? diagnostics.automationOpportunities : deriveOpportunities(input),
     ai_employee_recommendation: recommendation,
     recommended_next_step: "Review the leak check report, then scope a focused 30-day pilot.",
     source_page: input.source_page || "front_office_leak_check",
@@ -196,9 +203,9 @@ export function buildProcessScan(input: ProcessScanInput, origin?: string): Proc
     report_ready_at: now,
     executive_summary: buildExecutiveSummary(input, mainLeakLabel),
     current_state_flowchart_json: currentSteps,
-    current_state_flowchart_mermaid: toMermaid(currentSteps),
+    current_state_flowchart_mermaid: toMermaidFromMap(diagnostics.currentStateMap),
     future_state_flowchart_json: futureSteps,
-    future_state_flowchart_mermaid: toMermaid(futureSteps),
+    future_state_flowchart_mermaid: toMermaidFromMap(diagnostics.futureStateMap),
     leaks_detected_json: diagnostics.topWorkflowLeaks.length ? diagnostics.topWorkflowLeaks : leaks,
     current_sop_markdown: currentSteps.map((step, idx) => `${idx + 1}. ${step}`).join("\n"),
     recommended_sop_markdown: futureSteps.map((step, idx) => `${idx + 1}. ${step}`).join("\n"),
@@ -460,4 +467,28 @@ function toMermaid(steps: string[]) {
     }
   });
   return lines.join("\n");
+}
+
+function asReportConfidence(value: string): ReportConfidenceLevel {
+  return value === "High" || value === "Medium" || value === "Low" ? value : "Low";
+}
+
+function toMermaidFromMap(map: unknown) {
+  if (!map || typeof map !== "object") return "";
+  const typed = map as { nodes?: Array<{ id: string; label: string; type?: string }>; edges?: Array<{ from: string; to: string; label?: string }> };
+  if (!Array.isArray(typed.nodes) || !Array.isArray(typed.edges)) return "";
+  const lines = ["flowchart TD"];
+  for (const node of typed.nodes) {
+    const shape = node.type === "decision" ? "{%LABEL%}" : node.type === "leak" ? "[[%LABEL%]]" : "[\"%LABEL%\"]";
+    lines.push(`  ${safeMermaidId(node.id)}${shape.replace("%LABEL%", String(node.label || "").replace(/"/g, "'"))}`);
+  }
+  for (const edge of typed.edges) {
+    const label = edge.label ? `|${String(edge.label).replace(/\|/g, "/")}|` : "";
+    lines.push(`  ${safeMermaidId(edge.from)} -->${label} ${safeMermaidId(edge.to)}`);
+  }
+  return lines.join("\n");
+}
+
+function safeMermaidId(value: string) {
+  return String(value || "node").replace(/[^A-Za-z0-9_]/g, "_");
 }
