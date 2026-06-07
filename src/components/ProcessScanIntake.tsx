@@ -314,6 +314,7 @@ export default function ProcessScanIntake() {
       if (!res.ok) throw new Error(body.error || "Form submission failed.");
       const id = body.scan?.id || "";
       const slug = body.scan?.public_report_slug || "";
+      const uploadCapability = typeof body.upload_capability === "string" ? body.upload_capability : "";
 
       // Durable recording upload (only with explicit consent + a captured blob).
       // Truthful: the scan stays recorded_upload_pending unless the server verifies
@@ -324,6 +325,7 @@ export default function ProcessScanIntake() {
           setUploadStatus("preparing_upload");
           const result = await uploadRecording({
             scanId: id,
+            uploadCapability,
             blob: blobRef.current,
             audioIncluded: audioStatus === "enabled",
             consent: { recording: true, upload: true, consented_at: new Date().toISOString() },

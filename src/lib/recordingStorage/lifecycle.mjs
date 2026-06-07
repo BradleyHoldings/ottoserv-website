@@ -141,7 +141,7 @@ export function transitionRecording(record, to, ctx = {}) {
     updated_at: now,
     history: [...(Array.isArray(record.history) ? record.history : []), rec],
   };
-  for (const k of ["object_path", "verified_at", "size_bytes", "checksum_sha256", "deleted_at", "fail_reason"]) {
+  for (const k of ["object_path", "verified_at", "size_bytes", "checksum_sha256", "deleted_at", "fail_reason", "verification"]) {
     if (ctx[k] !== undefined) next[k] = ctx[k];
   }
   return { ok: true, record: next, transition: rec };

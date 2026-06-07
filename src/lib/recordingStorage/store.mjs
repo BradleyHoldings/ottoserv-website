@@ -31,13 +31,18 @@ export function makeRecordingStore(options = {}) {
   const table = `${root}/rest/v1/${RECORDING_TABLE}`;
 
   // Upsert on recording_id (deterministic) → idempotent; never duplicates a row.
-  async function upsert(record) {
-    const res = await fetchImpl(`${table}?on_conflict=recording_id`, {
+  async function upsertCas(record, expectedVersion) {
+    const res = await fetchImpl(`${root}/rest/v1/rpc/process_scan_recording_upsert_cas`, {
       method: "POST",
-      headers: headers(cfg.key, { Prefer: "resolution=merge-duplicates,return=representation" }),
-      cache: "no-store", body: JSON.stringify([toRow(record)]),
+      headers: headers(cfg.key, { Prefer: "return=representation" }),
+      cache: "no-store",
+      body: JSON.stringify({ p_record: toRow(record), p_expected_version: Number(expectedVersion || 0) }),
     });
-    if (!res.ok) return { ok: false, error: `recording_upsert_failed_${res.status}:${(await res.text().catch(() => "")).slice(0, 200)}` };
+    if (res.status === 409) {
+      const body = await res.json().catch(() => ({}));
+      return { ok: false, status: PERSISTENCE.CONFLICT, error: body?.message || "version_conflict" };
+    }
+    if (!res.ok) return { ok: false, error: `recording_cas_failed_${res.status}:${(await res.text().catch(() => "")).slice(0, 200)}` };
     const rows = await res.json().catch(() => []);
     return { ok: true, row: Array.isArray(rows) ? rows[0] : rows };
   }
@@ -56,7 +61,7 @@ export function makeRecordingStore(options = {}) {
     return Array.isArray(rows) ? rows.map(fromRow) : [];
   }
 
-  return { configured: true, upsert, readById, listByScan };
+  return { configured: true, upsertCas, readById, listByScan };
 }
 
 const COLUMN_FIELDS = [
@@ -76,6 +81,7 @@ function toRow(record) {
   }
   row.consent_json = record.consent || null;
   row.history_json = Array.isArray(record.history) ? record.history : [];
+  row.verification_json = record.verification || {};
   return row;
 }
 function fromRow(row) {
@@ -83,6 +89,7 @@ function fromRow(row) {
   for (const f of COLUMN_FIELDS) rec[f] = row[f];
   rec.consent = row.consent_json || null;
   rec.history = Array.isArray(row.history_json) ? row.history_json : [];
+  rec.verification = row.verification_json || {};
   return rec;
 }
 
@@ -96,8 +103,18 @@ export async function persistRecording(record, options = {}) {
   const id = clean(record.recording_id);
   if (!id) return { ok: false, status: PERSISTENCE.PENDING, reason: "missing_recording_id" };
 
-  const wrote = await store.upsert(record);
-  if (!wrote?.ok) return { ok: false, status: PERSISTENCE.PENDING, reason: wrote?.error || "upsert_failed" };
+  if (typeof store.upsertCas !== "function") {
+    return { ok: false, status: PERSISTENCE.PENDING, reason: "cas_store_not_configured" };
+  }
+
+  const expectedVersion = Number.isFinite(Number(options.expectedVersion))
+    ? Number(options.expectedVersion)
+    : Math.max(0, Number(record.version || 1) - 1);
+  const wrote = await store.upsertCas(record, expectedVersion);
+  if (!wrote?.ok) {
+    const status = wrote?.status === PERSISTENCE.CONFLICT ? PERSISTENCE.CONFLICT : PERSISTENCE.PENDING;
+    return { ok: false, status, reason: wrote?.error || wrote?.reason || "cas_write_failed" };
+  }
 
   let readBack;
   try { readBack = await store.readById(id); }
@@ -105,6 +122,9 @@ export async function persistRecording(record, options = {}) {
   if (!readBack || clean(readBack.recording_id) !== id) return { ok: false, status: PERSISTENCE.PENDING, reason: "read_after_write_missing" };
   if (clean(readBack.upload_state) !== clean(record.upload_state)) {
     return { ok: false, status: PERSISTENCE.CONFLICT, reason: `state_mismatch:${readBack.upload_state}!=${record.upload_state}` };
+  }
+  if (Number(readBack.version || 0) !== Number(record.version || 0)) {
+    return { ok: false, status: PERSISTENCE.CONFLICT, reason: `version_mismatch:${readBack.version}!=${record.version}` };
   }
   return { ok: true, status: PERSISTENCE.PERSISTED, recording_id: id, upload_state: clean(readBack.upload_state) };
 }

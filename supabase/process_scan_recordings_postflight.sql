@@ -35,10 +35,23 @@ SELECT EXISTS (SELECT 1 FROM information_schema.columns
   AS link_column_present;
 -- Expected: true
 
+-- 6b. Foreign keys enforce recording <-> scan integrity.
+SELECT conname, convalidated
+FROM pg_constraint
+WHERE conname IN ('process_scan_recordings_scan_id_fkey','process_scans_active_recording_id_fkey');
+-- Expected: both rows present and convalidated = true
+
 -- 7. updated_at trigger present.
 SELECT trigger_name FROM information_schema.triggers
 WHERE event_object_schema='public' AND event_object_table='process_scan_recordings';
 -- Expected: process_scan_recordings_updated_at
+
+-- 7b. CAS RPC exists and service_role can execute it.
+SELECT proname, pg_get_function_arguments(p.oid) AS args
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'process_scan_recording_upsert_cas';
+-- Expected: process_scan_recording_upsert_cas(p_record jsonb, p_expected_version integer)
 
 -- 8. No new public object URLs exist (bucket private confirmed in #2) and no
 --    process_scans column leaks a recording URL on the public path.

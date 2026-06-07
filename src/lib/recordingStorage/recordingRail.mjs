@@ -11,8 +11,14 @@ import {
   transitionRecording, recordingObjectPath, deriveRecordingIdempotencyKey,
   validateRecordingMeta, isSafeScanId,
 } from "./lifecycle.mjs";
+import { persistRecording } from "./store.mjs";
 
 function clean(v) { return String(v ?? "").trim(); }
+function expectedForFirstPersist(record) {
+  const version = Number(record?.version || 1);
+  const state = clean(record?.upload_state);
+  return version <= 1 && state === UPLOAD_STATE.NOT_STARTED ? 0 : version;
+}
 
 // A consent record must be explicit, scoped to recording+upload, and timestamped.
 export function validateConsent(consent = {}) {
@@ -38,6 +44,7 @@ export function createRecordingRecord(input = {}, options = {}) {
     mime_type: clean(input.mime_type) || "video/webm",
     size_bytes: Number(input.size_bytes ?? 0),
     checksum_sha256: clean(input.checksum_sha256) || "",
+    verification: { method: "pending", checksum: clean(input.checksum_sha256) ? "pending" : "not_provided" },
     audio_included: Boolean(input.audio_included),
     consent: input.consent || null,
     upload_state: UPLOAD_STATE.NOT_STARTED,
@@ -90,6 +97,52 @@ export async function prepareUpload(record, storage, options = {}) {
   };
 }
 
+export async function createSignedUploadIntent(record, options = {}) {
+  const now = options.now || new Date().toISOString();
+  const storage = options.storage;
+  const store = options.store;
+  const persist = options.persist || persistRecording;
+  if (!store) return { ok: false, reason: "recording_store_not_configured" };
+
+  const consent = validateConsent(record.consent || options.consent || {});
+  if (!consent.ok) return { ok: false, reason: consent.reason };
+  const metaCheck = validateRecordingMeta(record);
+  if (!metaCheck.ok) return { ok: false, reason: metaCheck.reason };
+  if (!storage) return { ok: false, reason: "storage_not_configured" };
+
+  let objectPath;
+  try { objectPath = recordingObjectPath(record); }
+  catch (err) { return { ok: false, reason: clean(err.message) }; }
+
+  const preparing = transitionRecording(record, UPLOAD_STATE.PREPARING_UPLOAD, { now, object_path: objectPath, reason: "preparing_upload" });
+  if (!preparing.ok) return { ok: false, reason: preparing.error };
+
+  const pendingPersist = await persist(preparing.record, { store, expectedVersion: expectedForFirstPersist(record) });
+  if (!pendingPersist.ok) return { ok: false, reason: pendingPersist.reason, record: preparing.record };
+
+  let signed;
+  try { signed = await storage.signUpload(objectPath); }
+  catch (err) {
+    const failed = transitionRecording(preparing.record, UPLOAD_STATE.RETRY_WAITING, { now, fail_reason: clean(err.message), reason: "sign_upload_failed" });
+    if (failed.ok) {
+      try { await persist(failed.record, { store, expectedVersion: Number(preparing.record.version || 1) }); }
+      catch {}
+    }
+    return { ok: false, reason: clean(err.message), record: failed.ok ? failed.record : preparing.record };
+  }
+
+  const uploading = transitionRecording(preparing.record, UPLOAD_STATE.UPLOADING, { now, reason: "signed_upload_issued" });
+  if (!uploading.ok) return { ok: false, reason: uploading.error, record: preparing.record };
+  const uploadPersist = await persist(uploading.record, { store, expectedVersion: Number(preparing.record.version || 1) });
+  if (!uploadPersist.ok) return { ok: false, reason: uploadPersist.reason, record: uploading.record };
+
+  return {
+    ok: true,
+    record: uploading.record,
+    upload: { url: signed.url, token: signed.token, object_path: objectPath, expires_in: signed.expires_in },
+  };
+}
+
 /**
  * Mark that the browser reported a finished PUT (uploaded but UNVERIFIED). This is
  * NOT completion — verification still must pass. Pure.
@@ -121,12 +174,25 @@ export async function verifyAndComplete(record, storage, options = {}) {
     return { ok: false, reason: "object_absent", record: failed.ok ? failed.record : record };
   }
 
-  // Size must match what the client declared (when declared).
+  // Size/type must match what the client declared when Storage returns them.
   if (Number(record.size_bytes) > 0 && Number(info.size_bytes) > 0 && Number(info.size_bytes) !== Number(record.size_bytes)) {
     const failed = transitionRecording(record, UPLOAD_STATE.FAILED, { now, fail_reason: `size_mismatch:${info.size_bytes}!=${record.size_bytes}`, reason: "verify_size_mismatch" });
     return { ok: false, reason: "size_mismatch", record: failed.ok ? failed.record : record };
   }
-  // Checksum must match when both sides have one.
+  if (clean(record.mime_type) && clean(info.mime_type) && clean(info.mime_type) !== clean(record.mime_type)) {
+    const failed = transitionRecording(record, UPLOAD_STATE.FAILED, { now, fail_reason: `mime_mismatch:${info.mime_type}!=${record.mime_type}`, reason: "verify_mime_mismatch" });
+    return { ok: false, reason: "mime_mismatch", record: failed.ok ? failed.record : record };
+  }
+
+  let verification = { method: "size_type", checksum: "not_provided" };
+  if (clean(record.checksum_sha256) && clean(info.checksum_sha256)) {
+    verification = { method: "size_type_checksum", checksum: "verified" };
+  } else if (clean(record.checksum_sha256) && !clean(info.checksum_sha256)) {
+    verification = { method: "size_type", checksum: "not_available" };
+  }
+  // Checksum must match when both sides have one. Supabase Storage signed uploads
+  // do not reliably expose browser-supplied custom checksum metadata through the
+  // object-info endpoint, so missing storage checksum is reported truthfully above.
   if (clean(record.checksum_sha256) && clean(info.checksum_sha256) && clean(info.checksum_sha256) !== clean(record.checksum_sha256)) {
     const failed = transitionRecording(record, UPLOAD_STATE.FAILED, { now, fail_reason: "checksum_mismatch", reason: "verify_checksum_mismatch" });
     return { ok: false, reason: "checksum_mismatch", record: failed.ok ? failed.record : record };
@@ -136,17 +202,48 @@ export async function verifyAndComplete(record, storage, options = {}) {
     now, verified_at: now,
     size_bytes: Number(info.size_bytes) || Number(record.size_bytes),
     object_path: objectPath,
+    verification,
     reason: "object_verified",
   });
   if (!completed.ok) return { ok: false, reason: completed.error, record };
   return { ok: true, record: completed.record, object: info };
 }
 
+export async function finalizeVerifiedUpload(record, options = {}) {
+  const now = options.now || new Date().toISOString();
+  const store = options.store;
+  const persist = options.persist || persistRecording;
+  if (!store) return { ok: false, reason: "recording_store_not_configured", record };
+
+  const unverified = markUploadedUnverified(record, { now }).record;
+  const unverifiedPersist = await persist(unverified, { store, expectedVersion: Number(record.version || 1) });
+  if (!unverifiedPersist.ok) return { ok: false, reason: unverifiedPersist.reason, record: unverified };
+
+  const done = await verifyAndComplete(unverified, options.storage, { now });
+  const candidate = done.record || unverified;
+  const donePersist = await persist(candidate, { store, expectedVersion: Number(unverified.version || 1) });
+  if (!donePersist.ok) return { ok: false, reason: donePersist.reason, record: candidate };
+  if (!done.ok) return { ...done, record: candidate };
+
+  if (typeof options.updateScan !== "function" || typeof options.readScan !== "function") {
+    return { ok: false, reason: "process_scan_update_not_configured", record: done.record };
+  }
+  await options.updateScan(clean(done.record.scan_id), {
+    recording_status: "uploaded",
+    active_recording_id: clean(done.record.recording_id),
+  });
+  const readBack = await options.readScan(clean(done.record.scan_id));
+  if (!readBack || clean(readBack.recording_status) !== "uploaded" || clean(readBack.active_recording_id) !== clean(done.record.recording_id)) {
+    return { ok: false, reason: "process_scan_read_back_failed", record: done.record };
+  }
+  return { ok: true, record: done.record, scan: readBack, object: done.object };
+}
+
 /**
  * Issue a short-lived signed playback URL for an admin. Only valid for a COMPLETED,
  * non-deleted recording. Returns { ok, url, expires_at }.
  */
-export async function issuePlaybackUrl(record, storage, options = {}) {
+export async function issuePlaybackUrl(record, storage) {
   if (!storage) return { ok: false, reason: "storage_not_configured" };
   if (clean(record.deleted_at) || clean(record.upload_state) === UPLOAD_STATE.DELETED) return { ok: false, reason: "recording_deleted" };
   if (clean(record.upload_state) !== UPLOAD_STATE.COMPLETED) return { ok: false, reason: `not_playable_state:${record.upload_state}` };

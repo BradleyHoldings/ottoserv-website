@@ -9,7 +9,7 @@ import test from "node:test";
 
 import {
   UPLOAD_STATE, RECORDING_STATUS_FOR_STATE, RECORDING_TRUTH,
-  canTransition, transitionRecording, recordingObjectPath,
+  canTransition, recordingObjectPath,
   deriveRecordingIdempotencyKey, validateRecordingMeta, isSafeScanId,
 } from "../src/lib/recordingStorage/lifecycle.mjs";
 import {
@@ -223,8 +223,14 @@ test("truth: pending/unverified states are never durable evidence", () => {
 test("persist: read-after-write confirms state, fake store", async () => {
   const rows = new Map();
   const store = {
-    async upsert(r) { rows.set(r.recording_id, { ...r }); return { ok: true, row: r }; },
-    async readById(id) { const r = rows.get(id); return r ? { ...r, consent: r.consent_json, history: r.history_json || [] } : null; },
+    async upsertCas(r, expectedVersion) {
+      const current = rows.get(r.recording_id);
+      const currentVersion = current ? Number(current.version || 0) : 0;
+      if (currentVersion !== Number(expectedVersion || 0)) return { ok: false, status: PERSISTENCE.CONFLICT, error: "version_conflict" };
+      rows.set(r.recording_id, { ...r });
+      return { ok: true, row: r };
+    },
+    async readById(id) { const r = rows.get(id); return r ? { ...r } : null; },
   };
   const r = rec();
   const result = await persistRecording(r, { store });

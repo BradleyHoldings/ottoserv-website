@@ -38,10 +38,27 @@ SELECT EXISTS (SELECT 1 FROM information_schema.columns
   AS active_recording_id_already_present;
 -- Expected: false (fresh). If true, the additive `add column if not exists` is a no-op.
 
+-- 6. Existing active_recording_id values that would violate the FK.
+SELECT count(*) AS active_recording_id_without_recording
+FROM public.process_scans ps
+WHERE ps.active_recording_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM public.process_scan_recordings r
+    WHERE r.recording_id = ps.active_recording_id
+  );
+-- Expected: 0. The migration nulls these before adding/validating the FK.
+
+-- 7. Existing CAS RPC, if any.
+SELECT proname, pg_get_function_arguments(p.oid) AS args
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'process_scan_recording_upsert_cas';
+
 -- =============================================================================
 -- DETERMINATION — SAFE TO APPLY when:
 --   [ ] 0: process_scans_present = true
 --   [ ] 1: recordings_table_present = false (or section 2 confirms compatible shape)
 --   [ ] 3: bucket absent or already private
 --   [ ] 4: no anon/authenticated policy grants access to this bucket
+--   [ ] 6: no FK-blocking active_recording_id values, or nulling them is accepted
 -- =============================================================================

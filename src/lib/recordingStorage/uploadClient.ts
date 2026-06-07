@@ -37,19 +37,21 @@ async function sha256Hex(blob: Blob): Promise<string> {
  */
 export async function uploadRecording(params: {
   scanId: string;
+  uploadCapability: string;
   blob: Blob;
   audioIncluded: boolean;
   consent: { recording: boolean; upload: boolean; consented_at: string };
   attempt?: number;
   onProgress?: (state: UploadProgress) => void;
 }): Promise<UploadResult> {
-  const { scanId, blob, audioIncluded, consent, onProgress } = params;
+  const { scanId, uploadCapability, blob, audioIncluded, consent, onProgress } = params;
   const report = (s: UploadProgress) => onProgress?.(s);
 
   if (!consent?.recording || !consent?.upload) {
     return { ok: false, state: "failed", reason: "consent_required" };
   }
   if (!blob || blob.size === 0) return { ok: false, state: "failed", reason: "empty_recording" };
+  if (!uploadCapability) return { ok: false, state: "failed", reason: "capability_required" };
 
   report("preparing_upload");
   const checksum = await sha256Hex(blob);
@@ -60,7 +62,7 @@ export async function uploadRecording(params: {
   try {
     const res = await fetch(`/api/process-scans/${encodeURIComponent(scanId)}/recording`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-process-scan-upload-token": uploadCapability },
       body: JSON.stringify({ attempt: params.attempt ?? 0, mime_type: mime, size_bytes: blob.size, checksum_sha256: checksum, audio_included: audioIncluded, consent }),
     });
     prep = await res.json().catch(() => ({}));
@@ -88,7 +90,7 @@ export async function uploadRecording(params: {
   try {
     const res = await fetch(`/api/process-scans/${encodeURIComponent(scanId)}/recording`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-process-scan-upload-token": uploadCapability },
       body: JSON.stringify({ recording_id: prep.recording_id }),
     });
     const body = await res.json().catch(() => ({}));

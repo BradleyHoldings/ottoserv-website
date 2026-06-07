@@ -7,6 +7,7 @@ import {
   validateProcessScanInput,
   type ProcessScanInput,
 } from "@/lib/processScans";
+import { issueProcessScanCapability } from "@/lib/processScanCapability.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
       storage: saved.storage,
       scan: saved.scan,
       report_url: saved.scan.public_report_url,
+      upload_capability: issueProcessScanCapability(saved.scan.id),
     });
   } catch (err) {
     console.error("Process scan create failed:", err);

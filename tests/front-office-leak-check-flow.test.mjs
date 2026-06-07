@@ -27,7 +27,7 @@ test("report renders structured diagnostics and no longer links pilot CTA to fro
   assert.match(report, /Recommended Future-State Flowchart/);
   assert.match(report, /Revenue Risks/);
   assert.match(report, /Priority Ranking/);
-  assert.match(report, /not uploaded or stored durably/);
+  assert.match(report, /not verified a durable stored video/);
   assert.match(report, /Full Process Audit/);
   assert.match(report, /front-office-leak-check\/start-pilot/);
   assert.doesNotMatch(report, /href="\/front-desk-ai"/);

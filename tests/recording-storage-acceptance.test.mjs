@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  createRecordingRecord, prepareUpload, markUploadedUnverified, verifyAndComplete,
+  createRecordingRecord, createSignedUploadIntent, finalizeVerifiedUpload,
   issuePlaybackUrl, deleteRecording,
 } from "../src/lib/recordingStorage/recordingRail.mjs";
 import { persistRecording } from "../src/lib/recordingStorage/store.mjs";
@@ -41,8 +41,14 @@ function fakeStore() {
   const rows = new Map();
   return {
     rows,
-    async upsert(r) { rows.set(r.recording_id, { ...r, consent_json: r.consent, history_json: r.history }); return { ok: true, row: r }; },
-    async readById(id) { const r = rows.get(id); return r ? { ...r, consent: r.consent_json, history: r.history_json || [] } : null; },
+    async upsertCas(r, expectedVersion) {
+      const current = rows.get(r.recording_id);
+      const currentVersion = current ? Number(current.version || 0) : 0;
+      if (currentVersion !== Number(expectedVersion || 0)) return { ok: false, status: "version_conflict", error: "version_conflict" };
+      rows.set(r.recording_id, { ...r });
+      return { ok: true, row: r };
+    },
+    async readById(id) { const r = rows.get(id); return r ? { ...r } : null; },
     async listByScan(sid) { return [...rows.values()].filter((r) => r.scan_id === sid); },
   };
 }
@@ -61,9 +67,8 @@ test("ACCEPTANCE: consent → upload → verify → read-back → admin signed U
 
   // 1. Consented capture + prepare upload (private signed URL).
   const record = createRecordingRecord({ ...REC_META, consent: CONSENT }, { now: NOW });
-  const prep = await prepareUpload(record, storage, { now: NOW });
+  const prep = await createSignedUploadIntent(record, { storage, store, now: NOW });
   assert.equal(prep.ok, true);
-  await persistRecording(prep.record, { store });
   assert.ok(prep.upload.url.includes("/object/upload/signed/"));
   assert.ok(!prep.upload.url.includes("/object/public/"), "never public");
 
@@ -71,11 +76,15 @@ test("ACCEPTANCE: consent → upload → verify → read-back → admin signed U
   storage._put(prep.upload.object_path, { size_bytes: 4096, mime_type: "video/webm", checksum_sha256: "abc123checksum" });
 
   // 3. Finalize: object exists + metadata matches → completed (read-after-write).
-  const unverified = markUploadedUnverified(prep.record, { now: NOW }).record;
-  const done = await verifyAndComplete(unverified, storage, { now: NOW });
+  const done = await finalizeVerifiedUpload(prep.record, {
+    storage,
+    store,
+    now: NOW,
+    updateScan: async (_id, patch) => Object.assign(scan, patch),
+    readScan: async () => ({ ...scan }),
+  });
   assert.equal(done.ok, true);
   assert.equal(done.record.upload_state, UPLOAD_STATE.COMPLETED);
-  await persistRecording(done.record, { store });
 
   // 4. Process Scan read-back references the object.
   scan.recording_status = "uploaded";
@@ -98,10 +107,12 @@ test("ACCEPTANCE: consent → upload → verify → read-back → admin signed U
 
   // 7. Refresh/retry creates no duplicate (same deterministic path + recording_id).
   const retryRecord = createRecordingRecord({ ...REC_META, consent: CONSENT }, { now: NOW });
-  const retryPrep = await prepareUpload(retryRecord, storage, { now: NOW });
-  assert.equal(retryPrep.upload.object_path, prep.upload.object_path, "same object path");
+  const retryPrep = await createSignedUploadIntent(retryRecord, { storage, store, now: NOW });
+  assert.equal(retryPrep.ok, false, "CAS prevents a duplicate in-progress retry over completed metadata");
+  assert.match(retryPrep.reason, /version_conflict|state_mismatch/);
+  const retryObjectPath = `recordings/${SCAN.id}/attempt-0/${retryRecord.idempotency_key}.webm`;
+  assert.equal(retryObjectPath, prep.upload.object_path, "same object path");
   assert.equal(retryRecord.recording_id, record.recording_id, "same recording id");
-  await persistRecording(retryPrep.record, { store });
   assert.equal(store.rows.size, 1, "no duplicate metadata row");
   assert.equal(storage.objects.size, 1, "no duplicate object");
 

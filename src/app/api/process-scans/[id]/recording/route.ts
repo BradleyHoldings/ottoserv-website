@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProcessScan, updateProcessScan } from "@/lib/processScans";
 import {
-  createRecordingRecord, prepareUpload, markUploadedUnverified, verifyAndComplete, deleteRecording,
+  createRecordingRecord, createSignedUploadIntent, finalizeVerifiedUpload, deleteRecording,
 } from "@/lib/recordingStorage/recordingRail.mjs";
 import { makeStorageClient } from "@/lib/recordingStorage/storage.mjs";
 import { makeRecordingStore, persistRecording } from "@/lib/recordingStorage/store.mjs";
 import { isSafeScanId } from "@/lib/recordingStorage/lifecycle.mjs";
+import { verifyProcessScanCapability } from "@/lib/processScanCapability.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,10 @@ function isAdmin(req: NextRequest): boolean {
   const token = req.headers.get("x-admin-token") || "";
   const expected = process.env.ADMIN_API_TOKEN || "";
   return Boolean(expected && token && token === expected);
+}
+
+function getUploadCapability(req: NextRequest, body: Record<string, unknown>): string {
+  return req.headers.get("x-process-scan-upload-token") || String(body.upload_capability || "");
 }
 
 // POST — issue a short-lived signed upload target for a consenting submitter.
@@ -29,8 +34,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
 
+  const capability = verifyProcessScanCapability(getUploadCapability(request, body), id);
+  if (!capability.ok) return NextResponse.json({ error: capability.reason }, { status: 401 });
+
   const storage = makeStorageClient();
-  if (!storage) return NextResponse.json({ error: "storage_not_configured" }, { status: 503 });
+  const store = makeRecordingStore();
+  if (!storage || !store) return NextResponse.json({ error: "storage_not_configured" }, { status: 503 });
 
   const record = createRecordingRecord({
     scan_id: id,
@@ -43,13 +52,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   });
   if (!record) return NextResponse.json({ error: "invalid_record" }, { status: 400 });
 
-  const prep = await prepareUpload(record, storage);
+  const prep = await createSignedUploadIntent(record, { storage, store, persist: persistRecording });
   if (!prep.ok) return NextResponse.json({ error: prep.reason }, { status: 400 });
-
-  // Persist the durable record (pending). Failure here is non-fatal for issuing the
-  // URL but reported so the client can decide.
-  const store = makeRecordingStore();
-  if (store) await persistRecording(prep.record, { store });
 
   return NextResponse.json({
     recording_id: prep.record.recording_id,
@@ -70,6 +74,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  const capability = verifyProcessScanCapability(getUploadCapability(request, body), id);
+  if (!capability.ok) return NextResponse.json({ error: capability.reason }, { status: 401 });
   const recordingId = String(body.recording_id ?? "");
   if (!recordingId) return NextResponse.json({ error: "missing_recording_id" }, { status: 400 });
 
@@ -80,15 +86,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const record = await store.readById(recordingId);
   if (!record || record.scan_id !== id) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const unverified = markUploadedUnverified(record).record;
-  const done = await verifyAndComplete(unverified, storage);
-  await persistRecording(done.record || unverified, { store });
+  const done = await finalizeVerifiedUpload(record, {
+    storage,
+    store,
+    persist: persistRecording,
+    updateScan: (scanId: string, patch: Record<string, unknown>) => updateProcessScan(scanId, patch as never),
+    readScan: getProcessScan,
+  });
 
   if (!done.ok) {
-    return NextResponse.json({ ok: false, upload_state: (done.record || unverified).upload_state, reason: done.reason }, { status: 202 });
+    return NextResponse.json({ ok: false, upload_state: done.record?.upload_state, reason: done.reason }, { status: 202 });
   }
-  // Link the verified recording to the canonical Process Scan + flip its status.
-  await updateProcessScan(id, { recording_status: "uploaded", active_recording_id: recordingId } as never);
   return NextResponse.json({ ok: true, upload_state: done.record.upload_state, recording_status: "uploaded" });
 }
 
