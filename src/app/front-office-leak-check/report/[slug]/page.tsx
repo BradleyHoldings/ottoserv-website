@@ -39,6 +39,19 @@ type AiRecommendation = {
   basedOn?: string;
 };
 
+type RevenueRisk = {
+  title: string;
+  impact: string;
+  severity: "low" | "medium" | "high";
+};
+
+type PriorityItem = {
+  priority: "P1" | "P2" | "P3";
+  title: string;
+  action: string;
+  severity: "low" | "medium" | "high";
+};
+
 export async function generateMetadata({
   params,
 }: {
@@ -73,6 +86,10 @@ export default async function LeakCheckReportPage({
   const observed = asStringArray(scan.observed_from_recording_json);
   const reported = asStringArray(scan.reported_by_user_json);
   const couldNotConfirm = asStringArray(scan.could_not_confirm_json);
+  const revenueRisks = asObjectArray<RevenueRisk>(scan.revenue_risks_json);
+  const priorityRanking = asObjectArray<PriorityItem>(scan.priority_ranking_json);
+  const practicalNextActions = asStringArray(scan.practical_next_actions_json);
+  const automationOpportunities = asStringArray(scan.automation_opportunities_json);
   const pilotHref = `/front-office-leak-check/start-pilot?scan=${encodeURIComponent(scan.id)}&workflow=${encodeURIComponent(aiRecommendation.name || scan.ai_employee_recommendation || scan.process_name)}`;
 
   return (
@@ -104,6 +121,11 @@ export default async function LeakCheckReportPage({
               <Insight label="Recording" value={(scan.recording_status || "not provided").replaceAll("_", " ")} />
               <Insight label="Narration" value={scan.audio_included ? "Captured" : "Not captured"} />
             </div>
+            {scan.recording_status === "recorded_upload_pending" && (
+              <p className="mt-4 rounded border border-yellow-900 bg-yellow-950/30 p-3 text-sm text-yellow-200">
+                Recording storage note: the browser captured a local preview, but the video file was not uploaded or stored durably. This report uses the submitted status, gap tags, and user-provided context; durable recording upload remains a follow-up storage task.
+              </p>
+            )}
           </ReportSection>
 
           <ReportSection title="2. Report Confidence">
@@ -132,11 +154,35 @@ export default async function LeakCheckReportPage({
             <Bullets items={leaks} fallback="No leaks have been finalized yet. OttoServ will add reviewed findings here." />
           </ReportSection>
 
-          <ReportSection title="5. Information Gaps / What We Could Not Confirm">
+          <ReportSection title="5. Revenue Risks">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {revenueRisks.length ? revenueRisks.map((risk) => (
+                <RiskCard key={risk.title} risk={risk} />
+              )) : <p className="text-sm text-gray-400">Revenue risk ranking will appear after review.</p>}
+            </div>
+          </ReportSection>
+
+          <ReportSection title="6. Priority Ranking">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {priorityRanking.length ? priorityRanking.map((item) => (
+                <PriorityCard key={`${item.priority}-${item.title}`} item={item} />
+              )) : <p className="text-sm text-gray-400">Priority ranking will appear after review.</p>}
+            </div>
+          </ReportSection>
+
+          <ReportSection title="7. Automation Opportunities">
+            <Bullets items={automationOpportunities} fallback="Automation opportunities will appear after review." />
+          </ReportSection>
+
+          <ReportSection title="8. Practical Next Actions">
+            <Bullets items={practicalNextActions} fallback="Next actions will appear after review." />
+          </ReportSection>
+
+          <ReportSection title="9. Information Gaps / What We Could Not Confirm">
             <Bullets items={informationGaps} fallback="No major information gaps were flagged by the intake." />
           </ReportSection>
 
-          <ReportSection title="6. Observed / Reported / Could Not Confirm">
+          <ReportSection title="10. Observed / Reported / Could Not Confirm">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <EvidenceColumn title="Observed from recording" items={observed} fallback="No recording observations were available." />
               <EvidenceColumn title="Reported by user" items={reported} fallback="No user-reported details were provided." />
@@ -144,15 +190,15 @@ export default async function LeakCheckReportPage({
             </div>
           </ReportSection>
 
-          <ReportSection title="7. Current-State SOP">
+          <ReportSection title="11. Current-State SOP">
             <MarkdownList markdown={scan.current_sop_markdown} />
           </ReportSection>
 
-          <ReportSection title="8. Recommended Future-State Workflow">
+          <ReportSection title="12. Recommended Future-State Workflow">
             <MarkdownList markdown={scan.recommended_sop_markdown} />
           </ReportSection>
 
-          <ReportSection title="9. AI Employee Recommendation">
+          <ReportSection title="13. AI Employee Recommendation">
             <div className="rounded-lg border border-blue-900 bg-blue-950/20 p-5">
               <p className="text-sm font-semibold uppercase tracking-widest text-blue-300">
                 Recommended First AI Employee
@@ -172,12 +218,12 @@ export default async function LeakCheckReportPage({
             </div>
           </ReportSection>
 
-          <ReportSection title="10. Suggested 30-Day Pilot Plan">
+          <ReportSection title="14. Suggested 30-Day Pilot Plan">
             <p className="text-gray-300 leading-relaxed">{scan.pilot_recommendation}</p>
             <p className="mt-4 text-gray-400">{scan.estimated_value_summary}</p>
           </ReportSection>
 
-          <ReportSection title="11. Direct Next Step">
+          <ReportSection title="15. Direct Next Step">
             <div className="rounded-lg border border-blue-900 bg-blue-950/20 p-5">
               <h2 className="text-2xl font-bold text-white">Ready to test this on one workflow?</h2>
               <p className="mt-3 text-gray-300">
@@ -189,11 +235,11 @@ export default async function LeakCheckReportPage({
                 <Link href={pilotHref} className="rounded-md bg-blue-600 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-blue-700">
                   Start the 30-Day Pilot
                 </Link>
+                <Link href={`/process-audit?source=leak-check-report&scan=${encodeURIComponent(scan.id)}`} className="rounded-md border border-green-800 bg-green-950/20 px-5 py-3 text-center text-sm font-semibold text-green-200 hover:border-green-500">
+                  Full Process Audit
+                </Link>
                 <Link href={`/contact?topic=leak-check-review&scan=${encodeURIComponent(scan.id)}`} className="rounded-md border border-blue-800 bg-[#0d0d0d] px-5 py-3 text-center text-sm font-semibold text-blue-200 hover:border-blue-500">
                   Book a Review Call
-                </Link>
-                <Link href="/contact" className="rounded-md border border-gray-700 px-5 py-3 text-center text-sm font-semibold text-gray-200 hover:border-gray-500 hover:text-white">
-                  Contact OttoServ
                 </Link>
               </div>
             </div>
@@ -312,6 +358,26 @@ function Insight({ label, value }: { label: string; value: string }) {
   );
 }
 
+function RiskCard({ risk }: { risk: RevenueRisk }) {
+  return (
+    <div className={`rounded-lg border p-4 ${risk.severity === "high" ? "border-red-800 bg-red-950/30" : risk.severity === "medium" ? "border-yellow-800 bg-yellow-950/25" : "border-gray-800 bg-[#0d0d0d]"}`}>
+      <div className="mb-2 text-xs uppercase tracking-wider text-gray-500">Revenue risk | {risk.severity}</div>
+      <h3 className="font-semibold text-white">{risk.title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-gray-300">{risk.impact}</p>
+    </div>
+  );
+}
+
+function PriorityCard({ item }: { item: PriorityItem }) {
+  return (
+    <div className="rounded-lg border border-gray-800 bg-[#0d0d0d] p-4">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-300">{item.priority} | {item.severity}</div>
+      <h3 className="font-semibold text-white">{item.title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-gray-300">{item.action}</p>
+    </div>
+  );
+}
+
 function EvidenceColumn({ title, items, fallback }: { title: string; items: string[]; fallback: string }) {
   return (
     <div className="rounded-lg border border-gray-800 bg-[#0d0d0d] p-4">
@@ -362,4 +428,8 @@ function asWorkflowMap(value: unknown): WorkflowMap | null {
 function asAiRecommendation(value: unknown): AiRecommendation {
   if (!value || typeof value !== "object") return {};
   return value as AiRecommendation;
+}
+
+function asObjectArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value.filter((item): item is T => Boolean(item && typeof item === "object")) : [];
 }

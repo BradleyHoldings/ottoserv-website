@@ -211,6 +211,10 @@ export function createWorkflowDiagnostics(input = {}) {
   const futureStateMap = buildFutureStateMap(input, config, confidence.level);
   const leaks = buildLeaks(input, tags, answers, couldNotConfirm);
   const observed = buildObserved(input, config, audioStatus);
+  const revenueRisks = buildRevenueRisks(input, tags, answers, config);
+  const automationOpportunities = buildAutomationOpportunities(input, tags, answers, config);
+  const priorityRanking = buildPriorityRanking(input, tags, answers, couldNotConfirm);
+  const nextActions = buildNextActions(input, tags, answers);
 
   return {
     reportConfidence: confidence,
@@ -220,6 +224,10 @@ export function createWorkflowDiagnostics(input = {}) {
     currentStateMap,
     futureStateMap,
     topWorkflowLeaks: leaks,
+    revenueRisks,
+    automationOpportunities,
+    priorityRanking,
+    nextActions,
     informationGaps: couldNotConfirm,
     aiRecommendation: buildRecommendation(input, config, tags),
   };
@@ -303,8 +311,8 @@ function buildCurrentStateMap(input, config, tags, answers, unknowns, confidence
     node("start", "trigger", config.trigger, `Workflow type: ${config.name}`, "inferred", "confirmed"),
     node("channel", "manual_step", `Request enters ${config.channel}`, "Based on selected workflow type and intake context.", "inferred", "confirmed"),
     node("action", "manual_step", config.action, clean(input.current_process_description) || "Detailed team action was not fully described.", clean(input.current_process_description) ? "reported" : "inferred", "confirmed"),
-    node("owner_decision", "decision", "Is owner assigned?", ownerKnown ? `Reported owner: ${ownerKnown}` : "Owner assignment was not confirmed.", ownerKnown ? "reported" : "unknown", ownerGap ? "gap" : "confirmed"),
-    node("owner_leak", ownerGap ? "leak" : "system_step", ownerGap ? "Leak: accountability gap" : "Owner confirmed", ownerGap ? "No clear owner means the next step can stall." : ownerKnown, ownerGap ? "unknown" : "reported", ownerGap ? "gap" : "confirmed", ownerGap ? "high" : undefined, ownerGap ? "Confirm and automate owner assignment." : undefined),
+    node("owner_decision", "decision", ownerKnown ? `Is owner assigned? ${ownerKnown}` : "Is owner assigned?", ownerKnown ? `Reported owner: ${ownerKnown}` : "Owner assignment was not confirmed.", ownerKnown ? "reported" : "unknown", ownerGap ? "gap" : "confirmed"),
+    node("owner_leak", ownerGap ? "leak" : "system_step", ownerGap ? "Leak: accountability gap" : `Owner confirmed: ${ownerKnown}`, ownerGap ? "No clear owner means the next step can stall." : ownerKnown, ownerGap ? "reported" : "reported", ownerGap ? "gap" : "confirmed", ownerGap ? "high" : undefined, ownerGap ? "Confirm and automate owner assignment." : undefined),
     node("reminder_decision", "decision", "Is follow-up scheduled?", remindersKnown ? `Reported reminders: ${remindersKnown}` : "Reminder system was not confirmed.", remindersKnown ? "reported" : "unknown", reminderGap ? "gap" : "confirmed"),
     node("reminder_leak", reminderGap ? "leak" : "system_step", reminderGap ? "Leak: memory-based follow-up" : "Reminder path confirmed", reminderGap ? "Follow-up appears to depend on a person remembering the next step." : remindersKnown, reminderGap ? "reported" : "reported", reminderGap ? "gap" : "confirmed", reminderGap ? "high" : undefined, reminderGap ? "Automate reminders and escalation." : undefined),
     node("status_decision", "decision", "Is status updated?", statusKnown ? `Reported tracking: ${clean(input.software_used) || clean(answers.status_tracking)}` : "CRM/admin status update was not confirmed.", statusKnown ? "reported" : "unknown", visibilityGap ? "gap" : "confirmed"),
@@ -367,6 +375,77 @@ function buildLeaks(input, tags, answers, unknowns) {
   return Array.from(new Set(leaks)).slice(0, 8);
 }
 
+function buildRevenueRisks(input, tags, answers, config) {
+  const risks = [];
+  const volume = clean(input.monthly_lead_volume);
+  if (tags.includes("slow_response") || clean(answers.follow_up)) {
+    risks.push(risk("Slow response can turn warm demand cold", volume ? `Roughly ${volume} monthly opportunities may be exposed when first response or follow-up waits on a person.` : "Lead value is exposed when first response or follow-up waits on a person.", "high"));
+  }
+  if (tags.includes("no_clear_owner") || !clean(answers.owner)) {
+    risks.push(risk("Unclear ownership creates dropped handoffs", "When the next owner is unclear, the workflow can stall between intake, qualification, scheduling, and close.", "high"));
+  }
+  if (tags.includes("status_not_updated") || !clean(input.software_used || answers.status_tracking)) {
+    risks.push(risk("Status visibility is weak", "If the CRM/admin status is late or missing, managers cannot see which opportunities are open, overdue, or lost.", "medium"));
+  }
+  if (tags.includes("lost_opportunities_unknown")) {
+    risks.push(risk("Lost revenue is not measured", "The team may know work feels leaky without knowing how many calls, leads, estimates, or payments are actually recovered.", "medium"));
+  }
+  if (risks.length === 0) {
+    risks.push(risk(`${config.name} still needs measurement`, "No severe leak tag was selected, so the main revenue risk is lack of before/after measurement.", "low"));
+  }
+  return risks;
+}
+
+function buildAutomationOpportunities(input, tags, answers, config) {
+  const tracking = clean(input.software_used) || clean(answers.status_tracking) || "the CRM/admin system";
+  const opportunities = [
+    `Capture ${config.name.toLowerCase()} details at the first touch and write a structured summary to ${tracking}.`,
+    "Assign owner, urgency, and next action immediately instead of relying on whoever sees the request first.",
+  ];
+  if (tags.includes("follow_up_depends_on_memory") || tags.includes("slow_response") || clean(answers.follow_up)) {
+    opportunities.push("Trigger follow-up reminders and escalation when no action happens inside the agreed response window.");
+  }
+  if (tags.includes("status_not_updated") || clean(tracking)) {
+    opportunities.push(`Update ${tracking} with status, source, owner, and unresolved handoff notes.`);
+  }
+  opportunities.push("Track recovered opportunities, overdue handoffs, and remaining manual exceptions during the 30-day pilot.");
+  return Array.from(new Set(opportunities));
+}
+
+function buildPriorityRanking(input, tags, answers, unknowns) {
+  const items = [];
+  if (tags.includes("no_clear_owner") || !clean(answers.owner)) {
+    items.push(priority("P1", "Owner assignment", "Define the first accountable owner and automate assignment at intake.", "high"));
+  }
+  if (tags.includes("slow_response") || tags.includes("follow_up_depends_on_memory") || !clean(answers.follow_up)) {
+    items.push(priority("P1", "Follow-up timing", "Set a response SLA, reminder, and escalation path for stalled requests.", "high"));
+  }
+  if (tags.includes("status_not_updated") || unknowns.some((item) => /CRM|status/i.test(item))) {
+    items.push(priority("P2", "Status visibility", "Write status and next action to the system of record.", "medium"));
+  }
+  if (!clean(answers.customer_confirmation)) {
+    items.push(priority("P2", "Customer confirmation", "Send a confirmation so the customer knows the request was captured.", "medium"));
+  }
+  if (items.length === 0) {
+    items.push(priority("P3", "Pilot measurement", "Baseline response time, follow-up completion, and unresolved handoffs.", "low"));
+  }
+  return items;
+}
+
+function buildNextActions(input, tags, answers) {
+  const actions = [];
+  actions.push(`Assign a named owner for ${clean(input.process_name) || "this workflow"} at the moment the request arrives.`);
+  if (tags.includes("slow_response") || tags.includes("follow_up_depends_on_memory") || clean(answers.follow_up)) {
+    actions.push("Set the first response SLA and create an escalation rule for anything still untouched after the SLA.");
+  }
+  actions.push(`Confirm the source of truth for status updates: ${clean(input.software_used) || clean(answers.status_tracking) || "CRM, inbox, spreadsheet, or admin system"}.`);
+  if (!clean(answers.customer_confirmation)) {
+    actions.push("Decide what customer confirmation should be sent automatically after intake.");
+  }
+  actions.push("Use the 30-day pilot to measure response speed, completed follow-ups, recovered opportunities, and unresolved handoffs.");
+  return Array.from(new Set(actions)).slice(0, 6);
+}
+
 function buildRecommendation(input, config, tags) {
   return {
     name: config.recommendation,
@@ -402,6 +481,14 @@ function node(id, type, label, description, source, status, severity, recommenda
 
 function edge(from, to, label) {
   return { from, to, ...(label ? { label } : {}) };
+}
+
+function risk(title, impact, severity) {
+  return { title, impact, severity };
+}
+
+function priority(priority, title, action, severity) {
+  return { priority, title, action, severity };
 }
 
 function normalizeArray(value) {
