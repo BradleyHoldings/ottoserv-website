@@ -142,7 +142,7 @@ WHERE schemaname = 'public'
 
 -- 1k. Row count + synthetic row in old table
 SELECT count(*) AS total_rows FROM public.hermes_pipeline;
-SELECT lead_id, company_name, status, created_at
+SELECT lead_id, company, status, created_at
 FROM public.hermes_pipeline
 LIMIT 5;
 -- Expected: 1 row, lead_id='supabase_live_pipeline_sync_001', company='Supabase Live Pipeline Sync Co'
