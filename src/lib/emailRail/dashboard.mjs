@@ -7,6 +7,8 @@
 // and per-lead next action. It REDACTS message bodies and never exposes credentials.
 
 import { EMAIL_STATES } from "./intent.mjs";
+import { describeEmailConfig } from "./config.mjs";
+import { makeEmailClient, describeStoreConfig } from "./store.mjs";
 import { evaluateIntent, WATCHDOG_ACTION } from "./watchdog.mjs";
 
 function clean(v) { return String(v ?? "").trim(); }
@@ -121,6 +123,45 @@ export function buildEmailRailDashboard(input = {}, options = {}) {
     // Per-lead next action (most recent intent per lead).
     lead_next_actions: buildLeadNextActions(intents),
   };
+}
+
+export async function readEmailRailDashboardState(options = {}) {
+  const now = options.now || new Date().toISOString();
+  const client = options.client || makeEmailClient(options);
+  const config = describeEmailConfig(options.env || process.env);
+  const store = describeStoreConfig();
+  if (!client) {
+    return {
+      available: false,
+      reason: "supabase_not_configured",
+      config,
+      store,
+      dashboard: buildEmailRailDashboard({ intents: [], replies: [], now }, { now }),
+    };
+  }
+
+  try {
+    const [intentRows, replies] = await Promise.all([
+      typeof client.listDashboardIntents === "function" ? client.listDashboardIntents(options.limit || 100) : client.listActiveIntents(),
+      typeof client.listRecentReplies === "function" ? client.listRecentReplies(options.replyLimit || 100) : [],
+    ]);
+    const intents = intentRows.map((row) => row.raw_intent || row).filter(Boolean);
+    return {
+      available: true,
+      reason: "supabase",
+      config,
+      store,
+      dashboard: buildEmailRailDashboard({ intents, replies, now }, { now }),
+    };
+  } catch (err) {
+    return {
+      available: false,
+      reason: clean(err?.message) || "email_rail_read_failed",
+      config,
+      store,
+      dashboard: buildEmailRailDashboard({ intents: [], replies: [], now }, { now }),
+    };
+  }
 }
 
 function buildLeadNextActions(intents) {

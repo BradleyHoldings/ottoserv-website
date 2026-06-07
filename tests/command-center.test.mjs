@@ -10,7 +10,8 @@ import {
 test("builds safe zero-state command center data", () => {
   const data = buildCommandCenterData({}, { role: "client_owner" });
 
-  assert.equal(data.kpis.length, 7);
+  assert.equal(data.kpis.length, 8);
+  assert.equal(data.kpis.some((kpi) => kpi.id === "revenueRepairs"), true);
   assert.equal(data.kpis.find((kpi) => kpi.id === "activeTasks").value, 0);
   assert.equal(data.snapshot.leadsToFollowUp.items.length, 0);
   assert.equal(data.alerts.length, 0);

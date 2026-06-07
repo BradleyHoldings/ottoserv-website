@@ -46,8 +46,8 @@ test("heartbeat: no_send mode prepares without sending (no_transport flagged)", 
   const r = await runHeartbeat({
     now: NOW, mode: EMAIL_MODE.NO_SEND, client, leads: [LEAD],
     emailConfig: { mode: EMAIL_MODE.NO_SEND, state: EMAIL_CONFIG_STATE.CONFIGURED },
-    template_ref: "intro_v1", subject: "hi", body: "body", sender: "hermes@ottoserv.com",
-    policyCtx: { lead: LEAD, now: NOW, approvedSenders: ["hermes@ottoserv.com"], approvalPresent: true },
+    template_ref: "intro_v1", subject: "hi", body: "body", sender: "jonathan@ottoservco.com",
+    policyCtx: { lead: LEAD, now: NOW, approvedSenders: ["jonathan@ottoservco.com"], approvalPresent: true },
   });
   assert.equal(r.ok, true);
   assert.equal(r.no_transport, true);
@@ -60,8 +60,8 @@ test("heartbeat: live mode with transport executes one controlled send", async (
   const r = await runHeartbeat({
     now: NOW, mode: EMAIL_MODE.LIVE, client, leads: [LEAD], transport, max_to_send: 1,
     emailConfig: { mode: EMAIL_MODE.LIVE, state: EMAIL_CONFIG_STATE.CONFIGURED },
-    template_ref: "intro_v1", subject: "hi", body: "body", sender: "hermes@ottoserv.com",
-    policyCtx: { lead: LEAD, now: NOW, approvedSenders: ["hermes@ottoserv.com"], approvalPresent: true },
+    template_ref: "intro_v1", subject: "hi", body: "body", sender: "jonathan@ottoservco.com",
+    policyCtx: { lead: LEAD, now: NOW, approvedSenders: ["jonathan@ottoservco.com"], approvalPresent: true },
     updateLead: false,
   });
   assert.equal(r.ok, true);
@@ -77,9 +77,9 @@ test("heartbeat: respects per-cycle send cap (controlled = 1)", async () => {
   const r = await runHeartbeat({
     now: NOW, mode: EMAIL_MODE.LIVE, client, leads, transport, max_to_send: 1,
     emailConfig: { mode: EMAIL_MODE.LIVE, state: EMAIL_CONFIG_STATE.CONFIGURED },
-    template_ref: "intro_v1", subject: "hi", body: "body", sender: "hermes@ottoserv.com",
-    policyCtx: { lead: LEAD, now: NOW, approvedSenders: ["hermes@ottoserv.com"], approvalPresent: true },
-    actions: leads.map(l => ({ lead: l, action_type: "outbound_email", template_ref: "intro_v1", subject: "hi", body: "body", sender: "hermes@ottoserv.com", policyCtx: { lead: l, now: NOW, approvedSenders: ["hermes@ottoserv.com"], approvalPresent: true } })),
+    template_ref: "intro_v1", subject: "hi", body: "body", sender: "jonathan@ottoservco.com",
+    policyCtx: { lead: LEAD, now: NOW, approvedSenders: ["jonathan@ottoservco.com"], approvalPresent: true },
+    actions: leads.map(l => ({ lead: l, action_type: "outbound_email", template_ref: "intro_v1", subject: "hi", body: "body", sender: "jonathan@ottoservco.com", policyCtx: { lead: l, now: NOW, approvedSenders: ["jonathan@ottoservco.com"], approvalPresent: true } })),
     updateLead: false,
   });
   assert.equal(r.summary.sent, 1, "cap limits to one send per cycle");

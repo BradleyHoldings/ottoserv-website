@@ -49,7 +49,7 @@ export async function materializeIntent(input = {}, options = {}) {
     campaign_id: input.campaign_id,
     sequence_step: input.sequence_step,
     scheduled_slot: input.scheduled_slot,
-    sender: input.sender || emailCfg.provider,
+    sender: input.sender || emailCfg.sender,
     recipient: clean(lead.email),
     template_ref: input.template_ref,
     subject: input.subject,

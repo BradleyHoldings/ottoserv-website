@@ -7,11 +7,11 @@ import { EMAIL_STATES } from "../src/lib/emailRail/intent.mjs";
 const NOW = "2026-06-08T14:00:00.000Z";
 
 const INTENTS = [
-  { execution_id: "e1", lead_id: "L1", state: EMAIL_STATES.PROPOSED, sender: "hermes@ottoserv.com", recipient: "owner@acme.io", subject: "hi", body: "secret body content", updated_at: "2026-06-08T13:00:00.000Z" },
-  { execution_id: "e2", lead_id: "L2", state: EMAIL_STATES.APPROVAL_REQUIRED, sender: "hermes@ottoserv.com", recipient: "a@b.io", policy_receipt: { passed: false, block_reason: "approval_required" }, updated_at: NOW },
-  { execution_id: "e3", lead_id: "L3", state: EMAIL_STATES.COMPLETED, sender: "hermes@ottoserv.com", recipient: "c@d.io", provider_message_id: "pm_3", updated_at: NOW },
-  { execution_id: "e4", lead_id: "L4", state: EMAIL_STATES.SENT_UNVERIFIED, sender: "hermes@ottoserv.com", recipient: "e@f.io", updated_at: NOW },
-  { execution_id: "e5", lead_id: "L5", state: EMAIL_STATES.COMPLETED, sender: "hermes@ottoserv.com", recipient: "g@h.io", provider_message_id: "", updated_at: NOW }, // missing evidence → watchdog escalate
+  { execution_id: "e1", lead_id: "L1", state: EMAIL_STATES.PROPOSED, sender: "jonathan@ottoservco.com", recipient: "owner@acme.io", subject: "hi", body: "secret body content", updated_at: "2026-06-08T13:00:00.000Z" },
+  { execution_id: "e2", lead_id: "L2", state: EMAIL_STATES.APPROVAL_REQUIRED, sender: "jonathan@ottoservco.com", recipient: "a@b.io", policy_receipt: { passed: false, block_reason: "approval_required" }, updated_at: NOW },
+  { execution_id: "e3", lead_id: "L3", state: EMAIL_STATES.COMPLETED, sender: "jonathan@ottoservco.com", recipient: "c@d.io", provider_message_id: "pm_3", updated_at: NOW },
+  { execution_id: "e4", lead_id: "L4", state: EMAIL_STATES.SENT_UNVERIFIED, sender: "jonathan@ottoservco.com", recipient: "e@f.io", updated_at: NOW },
+  { execution_id: "e5", lead_id: "L5", state: EMAIL_STATES.COMPLETED, sender: "jonathan@ottoservco.com", recipient: "g@h.io", provider_message_id: "", updated_at: NOW }, // missing evidence -> watchdog escalate
 ];
 const REPLIES = [
   { provider_event_id: "r1", classification: "positive_interest" },

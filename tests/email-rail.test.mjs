@@ -103,7 +103,7 @@ const LEAD = {
 function baseAction(overrides = {}) {
   return {
     lead: LEAD, action_type: EMAIL_ACTION.OUTBOUND, template_ref: "intro_v1",
-    sender: "hermes@ottoserv.com", subject: "Quick question about your front desk",
+    sender: "jonathan@ottoservco.com", subject: "Quick question about your front desk",
     body: "Hi — noticed you might be missing after-hours calls. Worth a quick look?",
     ...overrides,
   };
@@ -117,7 +117,7 @@ function intentFor(overrides = {}) {
   }, { now: NOW });
 }
 function passingPolicyCtx(extra = {}) {
-  return { lead: LEAD, now: NOW, approvedSenders: ["hermes@ottoserv.com", "ottoserv.com"], approvalPresent: true, ...extra };
+  return { lead: LEAD, now: NOW, approvedSenders: ["jonathan@ottoservco.com", "ottoservco.com"], approvalPresent: true, ...extra };
 }
 
 // Real (stub) transport that returns a real-shaped provider result.
@@ -256,7 +256,7 @@ test("policy: prior successful send with same idem key blocks re-send", () => {
 
 // ─── 15. Cap enforcement (sender) ────────────────────────────────────────────
 test("policy: sender daily cap blocks", () => {
-  const res = evaluatePolicy(intentFor(), passingPolicyCtx({ sentTodayBySender: { "hermes@ottoserv.com": 999 } }));
+  const res = evaluatePolicy(intentFor(), passingPolicyCtx({ sentTodayBySender: { "jonathan@ottoservco.com": 999 } }));
   assert.equal(res.reason, "sender_daily_cap_reached");
 });
 

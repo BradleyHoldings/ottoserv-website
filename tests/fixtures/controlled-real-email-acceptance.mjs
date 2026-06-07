@@ -28,7 +28,7 @@ export const ACCEPTANCE_LEAD = {
 export const ACCEPTANCE_ACTION = {
   action_type: "outbound_email",
   template_ref: "intro_v1",
-  sender: process.env.HERMES_EMAIL_SENDER || "hermes@ottoserv.com",
+  sender: process.env.HERMES_EMAIL_SENDER || "jonathan@ottoservco.com",
   subject: "OttoServ — quick note (controlled acceptance test)",
   body: [
     "Hi — this is a controlled internal acceptance test of the OttoServ email rail.",

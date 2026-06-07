@@ -17,8 +17,8 @@
 // Usage (in a credentialed environment, after the migration is applied):
 //   HERMES_EMAIL_MODE=live \
 //   SUPABASE_URL=... SUPABASE_SERVICE_KEY=... \
-//   HERMES_EMAIL_PROVIDER=resend HERMES_EMAIL_API_KEY=... \
-//   HERMES_EMAIL_SENDER=hermes@ottoserv.com \
+//   HERMES_EMAIL_PROVIDER=gmail_workspace HERMES_GMAIL_TRANSPORT_READY=1 \
+//   HERMES_EMAIL_SENDER=jonathan@ottoservco.com \
 //   HERMES_EMAIL_CONTROLLED_RECIPIENT=controlled@ottoserv.com \
 //   node scripts/phase2-controlled-real-acceptance.mjs --send
 //
@@ -34,6 +34,7 @@ import { evaluatePolicy } from "../src/lib/emailRail/policy.mjs";
 import { processReply } from "../src/lib/emailRail/reply.mjs";
 import { EMAIL_STATES } from "../src/lib/emailRail/intent.mjs";
 import { ACCEPTANCE_LEAD, ACCEPTANCE_ACTION } from "../tests/fixtures/controlled-real-email-acceptance.mjs";
+import { APPROVED_CONTROLLED_SENDER } from "../src/lib/emailRail/config.mjs";
 
 function arg(name, fallback = "") {
   const i = process.argv.indexOf(`--${name}`);
@@ -62,6 +63,10 @@ async function doSend() {
     process.exit(2);
   }
   const recipient = pf.cfg.controlled_recipient;
+  if (pf.cfg.sender !== APPROVED_CONTROLLED_SENDER) {
+    log({ ok: false, stage: "preflight", blockers: [`sender_not_approved:${pf.cfg.sender || "(missing)"}`], note: "controlled-real send refused - sender must be jonathan@ottoservco.com" });
+    process.exit(2);
+  }
   const lead = { ...ACCEPTANCE_LEAD, email: recipient };
   const policyCtx = {
     lead, now: new Date().toISOString(),

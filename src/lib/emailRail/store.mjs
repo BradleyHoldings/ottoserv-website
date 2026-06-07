@@ -130,7 +130,21 @@ export function makeEmailClient(options = {}) {
     return Array.isArray(rows) ? rows : [];
   }
 
-  return { configured: true, readIntent, upsertIntent, claim, writeEvidence, readEvidence, writeReply, listActiveIntents };
+  async function listDashboardIntents(limit = 100) {
+    const res = await fetchImpl(`${root}/rest/v1/${EMAIL_INTENT_TABLE}?select=raw_intent,version,state,updated_at&order=updated_at.desc&limit=${Number(limit) || 100}`, { headers: headers(cfg.key), cache: "no-store" });
+    if (!res.ok) throw new Error(`dashboard_intents_read_failed_${res.status}`);
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  async function listRecentReplies(limit = 100) {
+    const res = await fetchImpl(`${root}/rest/v1/${EMAIL_REPLY_TABLE}?select=*&order=received_at.desc&limit=${Number(limit) || 100}`, { headers: headers(cfg.key), cache: "no-store" });
+    if (!res.ok) throw new Error(`replies_read_failed_${res.status}`);
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  return { configured: true, readIntent, upsertIntent, claim, writeEvidence, readEvidence, writeReply, listActiveIntents, listDashboardIntents, listRecentReplies };
 }
 
 /**

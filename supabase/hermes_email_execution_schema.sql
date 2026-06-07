@@ -53,6 +53,8 @@ create index if not exists hermes_email_exec_state_idx on public.hermes_email_ex
 create index if not exists hermes_email_exec_lease_idx on public.hermes_email_executions (lease_expires_at);
 create index if not exists hermes_email_exec_campaign_idx on public.hermes_email_executions (campaign_id);
 alter table public.hermes_email_executions enable row level security;
+revoke all on public.hermes_email_executions from anon, authenticated;
+grant select, insert, update, delete on public.hermes_email_executions to service_role;
 
 -- ─── Provider evidence (one row per real provider message id) ────────────────
 create table if not exists public.hermes_email_evidence (
@@ -71,6 +73,8 @@ create table if not exists public.hermes_email_evidence (
 );
 create index if not exists hermes_email_evidence_exec_idx on public.hermes_email_evidence (execution_id);
 alter table public.hermes_email_evidence enable row level security;
+revoke all on public.hermes_email_evidence from anon, authenticated;
+grant select, insert, update, delete on public.hermes_email_evidence to service_role;
 
 -- ─── Replies (deduplicated on provider_event_id) ─────────────────────────────
 create table if not exists public.hermes_email_replies (
@@ -93,6 +97,8 @@ create index if not exists hermes_email_replies_exec_idx on public.hermes_email_
 create index if not exists hermes_email_replies_lead_idx on public.hermes_email_replies (lead_id);
 create index if not exists hermes_email_replies_class_idx on public.hermes_email_replies (classification);
 alter table public.hermes_email_replies enable row level security;
+revoke all on public.hermes_email_replies from anon, authenticated;
+grant select, insert, update, delete on public.hermes_email_replies to service_role;
 
 -- ─── updated_at trigger ──────────────────────────────────────────────────────
 create or replace function public.hermes_email_set_updated_at()
@@ -134,14 +140,49 @@ begin
     if p_expected_version <> 0 or v_target <> 1 then
       return jsonb_build_object('ok', false, 'status', 'conflict', 'reason', 'first_insert_version_mismatch', 'current_version', 0);
     end if;
-    v_next := jsonb_populate_record(null::public.hermes_email_executions, p_row);
-    v_next.created_at := coalesce(v_next.created_at, now());
-    insert into public.hermes_email_executions select v_next.*;
+    insert into public.hermes_email_executions (
+      execution_id, lead_id, lead_version, correlation_id, idempotency_key,
+      action_type, campaign_id, sequence_step, sender, recipient, template_ref,
+      content_hash, subject, policy_version, reason, scheduled_at, state,
+      retry_count, lease_owner, lease_expires_at, provider_message_id,
+      provider_thread_id, policy_receipt, provider_evidence, raw_intent,
+      schema_version, version, created_at, updated_at
+    ) values (
+      p_execution_id,
+      p_row->>'lead_id',
+      coalesce((p_row->>'lead_version')::integer, 0),
+      p_row->>'correlation_id',
+      p_idempotency_key,
+      coalesce(p_row->>'action_type', 'outbound_email'),
+      p_row->>'campaign_id',
+      coalesce((p_row->>'sequence_step')::integer, 0),
+      p_row->>'sender',
+      p_row->>'recipient',
+      p_row->>'template_ref',
+      p_row->>'content_hash',
+      p_row->>'subject',
+      coalesce(p_row->>'policy_version', 'phase2.v1'),
+      p_row->>'reason',
+      nullif(p_row->>'scheduled_at', '')::timestamptz,
+      coalesce(p_row->>'state', 'proposed'),
+      coalesce((p_row->>'retry_count')::integer, 0),
+      coalesce(p_row->>'lease_owner', ''),
+      nullif(p_row->>'lease_expires_at', '')::timestamptz,
+      coalesce(p_row->>'provider_message_id', ''),
+      coalesce(p_row->>'provider_thread_id', ''),
+      p_row->'policy_receipt',
+      p_row->'provider_evidence',
+      p_row,
+      coalesce(p_row->>'schema_version', 'phase2.v1'),
+      v_target,
+      coalesce(nullif(p_row->>'created_at', '')::timestamptz, now()),
+      coalesce(nullif(p_row->>'updated_at', '')::timestamptz, now())
+    );
     return jsonb_build_object('ok', true, 'status', 'inserted', 'version', 1);
   end if;
 
   -- Idempotent replay of the same version + identical payload.
-  if v_current.version = v_target and v_current.raw_intent = p_row->'raw_intent' then
+  if v_current.version = v_target and v_current.raw_intent = p_row then
     return jsonb_build_object('ok', true, 'status', 'idempotent', 'version', v_current.version);
   end if;
 
@@ -152,18 +193,31 @@ begin
     return jsonb_build_object('ok', false, 'status', 'conflict', 'reason', 'non_sequential_version', 'current_version', v_current.version);
   end if;
 
-  v_next := jsonb_populate_record(v_current, p_row);
   update public.hermes_email_executions set
-    lead_version = v_next.lead_version, correlation_id = v_next.correlation_id,
-    action_type = v_next.action_type, campaign_id = v_next.campaign_id,
-    sequence_step = v_next.sequence_step, sender = v_next.sender, recipient = v_next.recipient,
-    template_ref = v_next.template_ref, content_hash = v_next.content_hash, subject = v_next.subject,
-    policy_version = v_next.policy_version, reason = v_next.reason, scheduled_at = v_next.scheduled_at,
-    state = v_next.state, retry_count = v_next.retry_count,
-    lease_owner = v_next.lease_owner, lease_expires_at = v_next.lease_expires_at,
-    provider_message_id = v_next.provider_message_id, provider_thread_id = v_next.provider_thread_id,
-    policy_receipt = v_next.policy_receipt, provider_evidence = v_next.provider_evidence,
-    raw_intent = v_next.raw_intent, version = v_next.version
+    lead_version = coalesce((p_row->>'lead_version')::integer, lead_version),
+    correlation_id = p_row->>'correlation_id',
+    action_type = coalesce(p_row->>'action_type', action_type),
+    campaign_id = p_row->>'campaign_id',
+    sequence_step = coalesce((p_row->>'sequence_step')::integer, sequence_step),
+    sender = p_row->>'sender',
+    recipient = p_row->>'recipient',
+    template_ref = p_row->>'template_ref',
+    content_hash = p_row->>'content_hash',
+    subject = p_row->>'subject',
+    policy_version = coalesce(p_row->>'policy_version', policy_version),
+    reason = p_row->>'reason',
+    scheduled_at = nullif(p_row->>'scheduled_at', '')::timestamptz,
+    state = coalesce(p_row->>'state', state),
+    retry_count = coalesce((p_row->>'retry_count')::integer, retry_count),
+    lease_owner = coalesce(p_row->>'lease_owner', ''),
+    lease_expires_at = nullif(p_row->>'lease_expires_at', '')::timestamptz,
+    provider_message_id = coalesce(p_row->>'provider_message_id', ''),
+    provider_thread_id = coalesce(p_row->>'provider_thread_id', ''),
+    policy_receipt = p_row->'policy_receipt',
+    provider_evidence = p_row->'provider_evidence',
+    raw_intent = p_row,
+    schema_version = coalesce(p_row->>'schema_version', schema_version),
+    version = v_target
   where execution_id = p_execution_id and version = p_expected_version;
   if not found then
     return jsonb_build_object('ok', false, 'status', 'conflict', 'reason', 'cas_lost');
