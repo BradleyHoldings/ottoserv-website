@@ -121,6 +121,11 @@ export default async function LeakCheckReportPage({
               <Insight label="Recording" value={(scan.recording_status || "not provided").replaceAll("_", " ")} />
               <Insight label="Narration" value={scan.audio_included ? "Captured" : "Not captured"} />
             </div>
+            {scan.recording_status === "recorded_upload_pending" && (
+              <p className="mt-4 rounded border border-yellow-900 bg-yellow-950/30 p-3 text-sm text-yellow-200">
+                Recording storage note: the browser captured a local preview, but the video file was not uploaded or stored durably. This report uses the submitted status, gap tags, and user-provided context; durable recording upload remains a follow-up storage task.
+              </p>
+            )}
           </ReportSection>
 
           <ReportSection title="2. Report Confidence">

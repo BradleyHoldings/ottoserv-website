@@ -99,6 +99,8 @@ const RECORDING_TIPS = [
 
 const MAX_RECORDING_BYTES = 50 * 1024 * 1024;
 const MAX_RECORDING_MS = 8 * 60 * 1000;
+const LOCAL_RECORDING_NOTICE =
+  "Recording preview is local to this browser session and is not uploaded or stored durably yet. Your submitted scan records that a recording was captured, but OttoServ admins will not receive the video file from this MVP flow.";
 
 export default function ProcessScanIntake() {
   const router = useRouter();
@@ -417,6 +419,11 @@ export default function ProcessScanIntake() {
                 {recordingSize > 0 && (
                   <p className="mt-2 text-xs text-gray-500">
                     Local recording size: {(recordingSize / 1024 / 1024).toFixed(1)} MB
+                  </p>
+                )}
+                {recordingUrl && (
+                  <p className="mt-3 rounded border border-yellow-900 bg-yellow-950/30 p-3 text-xs leading-relaxed text-yellow-200">
+                    {LOCAL_RECORDING_NOTICE}
                   </p>
                 )}
                 {recordingError && <p className="mt-3 text-sm text-yellow-300">{recordingError}</p>}

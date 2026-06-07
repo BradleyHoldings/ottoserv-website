@@ -354,9 +354,6 @@ CREATE TABLE IF NOT EXISTS process_scans (
     current_state_workflow_map_json JSONB DEFAULT '{}'::jsonb,
     future_state_workflow_map_json JSONB DEFAULT '{}'::jsonb,
     ai_recommendation_json JSONB DEFAULT '{}'::jsonb,
-    revenue_risks_json JSONB DEFAULT '[]'::jsonb,
-    priority_ranking_json JSONB DEFAULT '[]'::jsonb,
-    practical_next_actions_json JSONB DEFAULT '[]'::jsonb,
     analysis_status VARCHAR(60) DEFAULT 'pending',
     transcript TEXT,
     process_summary TEXT,
@@ -390,11 +387,6 @@ CREATE TABLE IF NOT EXISTS process_scans (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-ALTER TABLE process_scans
-  ADD COLUMN IF NOT EXISTS revenue_risks_json JSONB DEFAULT '[]'::jsonb,
-  ADD COLUMN IF NOT EXISTS priority_ranking_json JSONB DEFAULT '[]'::jsonb,
-  ADD COLUMN IF NOT EXISTS practical_next_actions_json JSONB DEFAULT '[]'::jsonb;
-
 CREATE INDEX IF NOT EXISTS idx_process_scans_created_at ON process_scans(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_process_scans_email ON process_scans(email);
 CREATE INDEX IF NOT EXISTS idx_process_scans_status ON process_scans(status);
@@ -413,41 +405,6 @@ BEGIN
   ) THEN
     CREATE POLICY "Service role can manage process scans"
       ON process_scans FOR ALL USING (auth.role() = 'service_role');
-  END IF;
-END$$;
-
-CREATE TABLE IF NOT EXISTS process_scan_conversion_events (
-    id TEXT PRIMARY KEY,
-    event_type VARCHAR(80) NOT NULL,
-    scan_id TEXT,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    company VARCHAR(255) NOT NULL,
-    phone VARCHAR(60),
-    workflow TEXT NOT NULL,
-    preferred_start_date VARCHAR(60),
-    notes TEXT,
-    consent_to_contact BOOLEAN DEFAULT false,
-    source_page VARCHAR(120) DEFAULT 'front_office_leak_check_start_pilot',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_process_scan_conversion_events_created_at ON process_scan_conversion_events(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_process_scan_conversion_events_scan_id ON process_scan_conversion_events(scan_id);
-CREATE INDEX IF NOT EXISTS idx_process_scan_conversion_events_email ON process_scan_conversion_events(email);
-
-ALTER TABLE process_scan_conversion_events ENABLE ROW LEVEL SECURITY;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public'
-      AND tablename = 'process_scan_conversion_events'
-      AND policyname = 'Service role can manage process scan conversion events'
-  ) THEN
-    CREATE POLICY "Service role can manage process scan conversion events"
-      ON process_scan_conversion_events FOR ALL USING (auth.role() = 'service_role');
   END IF;
 END$$;
 

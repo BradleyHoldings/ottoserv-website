@@ -69,6 +69,20 @@ export async function POST(request: NextRequest) {
   try {
     const conversion = buildPilotStartConversion(input);
     const saved = await savePilotStartConversion(conversion);
+    if (saved.storage === "pending_supabase_configuration") {
+      const message = "Pilot start request is pending because Supabase persistence is not configured. No local production conversion record was treated as authoritative.";
+      if (contentType.includes("application/json")) {
+        return NextResponse.json(
+          { status: "pending_supabase_configuration", error: message, reason: saved.reason },
+          { status: 503 },
+        );
+      }
+      const url = new URL("/front-office-leak-check/start-pilot", request.nextUrl.origin);
+      if (conversion.scan_id) url.searchParams.set("scan", conversion.scan_id);
+      if (conversion.workflow) url.searchParams.set("workflow", conversion.workflow);
+      url.searchParams.set("error", message);
+      return NextResponse.redirect(url, { status: 303 });
+    }
     if (conversion.scan_id) {
       await updateProcessScan(conversion.scan_id, {
         status: "pilot_recommended",

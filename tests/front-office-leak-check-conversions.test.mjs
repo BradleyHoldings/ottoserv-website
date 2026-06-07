@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,6 +56,46 @@ test("pilot start conversion persists locally when Supabase is unavailable", asy
     process.chdir(previousCwd);
     if (previousUrl) process.env.NEXT_PUBLIC_SUPABASE_URL = previousUrl;
     if (previousKey) process.env.SUPABASE_SERVICE_KEY = previousKey;
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("production pilot conversion does not silently use local filesystem as authoritative", async () => {
+  const previousCwd = process.cwd();
+  const dir = await mkdtemp(join(tmpdir(), "ottoserv-conversions-prod-"));
+  process.chdir(dir);
+  const previousUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_KEY;
+  const previousNodeEnv = process.env.NODE_ENV;
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  delete process.env.SUPABASE_SERVICE_KEY;
+  process.env.NODE_ENV = "production";
+
+  try {
+    const conversion = buildPilotStartConversion({
+      scan_id: "ps_prod",
+      name: "Maya Lee",
+      email: "maya@harborpoint.example",
+      company: "Harbor Point PM",
+      workflow: "Lead Intake Agent",
+      consent_to_contact: true,
+    });
+    const saved = await savePilotStartConversion(conversion);
+    const rows = await listPilotStartConversions();
+
+    assert.equal(saved.storage, "pending_supabase_configuration");
+    assert.equal(saved.reason, "supabase_not_configured");
+    assert.deepEqual(rows, []);
+    assert.equal(existsSync(join(dir, "data", "process_scan_conversion_events.json")), false);
+  } finally {
+    process.chdir(previousCwd);
+    if (previousUrl) process.env.NEXT_PUBLIC_SUPABASE_URL = previousUrl;
+    if (previousKey) process.env.SUPABASE_SERVICE_KEY = previousKey;
+    if (previousNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
     await rm(dir, { recursive: true, force: true });
   }
 });

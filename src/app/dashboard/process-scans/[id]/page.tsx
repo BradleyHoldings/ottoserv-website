@@ -187,7 +187,7 @@ export default function ProcessScanDetailPage({ params }: { params: Promise<{ id
               <video controls src={scan.recording_url} className="aspect-video w-full rounded bg-black" />
             ) : (
               <p className="text-gray-400">
-                No recording URL yet. Browser recording is captured locally in the MVP and upload storage still needs wiring.
+                No recording URL yet. recorded_upload_pending means the browser captured a local preview only; the video file was not uploaded or stored durably, so admins should not treat this as durable recording evidence.
               </p>
             )}
           </Panel>

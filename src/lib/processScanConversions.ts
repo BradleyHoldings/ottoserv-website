@@ -65,6 +65,13 @@ export async function savePilotStartConversion(conversion: PilotStartConversion)
   if (supabase.error !== "supabase_not_configured") {
     throw new Error(supabase.error);
   }
+  if (requiresAuthoritativeSupabase()) {
+    return {
+      conversion,
+      storage: "pending_supabase_configuration" as const,
+      reason: "supabase_not_configured" as const,
+    };
+  }
   await saveLocalConversion(conversion);
   return { conversion, storage: "local" as const };
 }
@@ -72,6 +79,7 @@ export async function savePilotStartConversion(conversion: PilotStartConversion)
 export async function listPilotStartConversions(): Promise<PilotStartConversion[]> {
   const supabase = await selectSupabaseConversions();
   if (supabase.ok) return supabase.conversions;
+  if (requiresAuthoritativeSupabase()) return [];
   return readLocalConversions();
 }
 
@@ -141,4 +149,8 @@ function clean(value: unknown): string {
 
 function localDataPath() {
   return path.join(process.cwd(), "data", "process_scan_conversion_events.json");
+}
+
+function requiresAuthoritativeSupabase() {
+  return process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
 }
