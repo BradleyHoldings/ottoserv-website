@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ottoserv.com/schemas/phase1/enrichment-result.schema.json",
+  "title": "OttoServ Phase 1 Enrichment Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "lead_id",
+    "idempotency_key",
+    "status",
+    "actor",
+    "validated_at",
+    "source_url",
+    "normalized_phone",
+    "email",
+    "confidence",
+    "external_outreach_allowed"
+  ],
+  "properties": {
+    "schema_version": { "const": "phase1.v1" },
+    "task_id": { "type": "string", "pattern": "^enr-lid_v1_[a-f0-9]{16}$" },
+    "lead_id": { "type": "string", "pattern": "^lid_v1_[a-f0-9]{16}$" },
+    "idempotency_key": { "type": "string", "pattern": "^lid_v1_[a-f0-9]{16}$" },
+    "status": { "enum": ["completed", "blocked", "in_progress"] },
+    "actor": { "enum": ["Cowork"] },
+    "validated_at": { "type": "string" },
+    "source_url": { "type": "string" },
+    "normalized_phone": { "type": "string", "pattern": "^$|^[0-9]{10}$" },
+    "email": { "type": "string" },
+    "confidence": { "type": "string" },
+    "external_outreach_allowed": { "const": false }
+  }
+}

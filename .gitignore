@@ -31,6 +31,10 @@
 # SocialEngine runtime ledgers (mutable). The committed seed lives in
 # data/social-engine/seed/ and evidence in data/social-engine/evidence/.
 /data/social-engine/*.json
+# Lead-rail runtime cache/quarantine/tasks (mutable, may carry real contact data).
+# Tracked synthetic fixtures live in data/lead-rail/fixtures/ and stay committed.
+/data/lead-rail/*.json
+/data/lead-rail/tasks/
 /reports/ops/*.md
 
 # misc

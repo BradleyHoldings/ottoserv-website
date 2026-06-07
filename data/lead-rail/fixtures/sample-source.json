@@ -1,0 +1,72 @@
+[
+  {
+    "_note": "SYNTHETIC FIXTURE — not real leads, do not contact. Exercises the Phase-1 rail end to end (accept/quarantine/reject/dedupe/enrich).",
+    "company_name": "Cascade Plumbing Co",
+    "website": "https://cascadeplumbing.com",
+    "phone": "(206) 824-1107",
+    "email": "office@cascadeplumbing.com",
+    "city": "Seattle",
+    "state": "WA",
+    "industry": "plumbing",
+    "contact_name": "Owner (public post)",
+    "source_url": "https://www.reddit.com/r/smallbusiness/comments/sample-cascade/",
+    "date_of_signal": "2026-05-20",
+    "intent_type": "missed_call_or_response_issue",
+    "intent_evidence_summary": "Owner asked how others stop missing after-hours calls.",
+    "evidence_snippet": "We keep missing calls after 5pm and losing jobs."
+  },
+  {
+    "company_name": "Cascade Plumbing Company",
+    "website": "https://www.cascadeplumbing.com/contact",
+    "phone": "206-824-1107",
+    "email": "office@cascadeplumbing.com",
+    "city": "Seattle",
+    "state": "WA",
+    "industry": "plumbing",
+    "source_url": "https://www.reddit.com/r/smallbusiness/comments/sample-cascade/",
+    "_note": "DUPLICATE of row 1 within the same file (different formatting) — must collapse to one lead."
+  },
+  {
+    "company_name": "Harborview Property Management",
+    "website": "https://harborviewpm.com",
+    "city": "Tampa",
+    "state": "FL",
+    "industry": "property_management",
+    "source_url": "https://www.indeed.com/sample-leasing-coordinator",
+    "date_of_signal": "2026-04-02",
+    "intent_type": "operational_pain",
+    "intent_evidence_summary": "Hiring a leasing coordinator to handle overflow calls and maintenance scheduling.",
+    "evidence_snippet": "Seeking coordinator to manage high call volume and maintenance scheduling.",
+    "_note": "Public evidence + enrichable website but NO contact path → should QUEUE enrichment."
+  },
+  {
+    "company_name": "Summit Air HVAC",
+    "email": "service@summitair-hvac.com",
+    "phone": "813-555-0142",
+    "website": "https://summitair-hvac.com",
+    "city": "St. Petersburg",
+    "state": "FL",
+    "industry": "hvac",
+    "source_url": "https://www.google.com/maps/place/sample-summit-air",
+    "intent_type": "missed_call_or_response_issue",
+    "evidence_snippet": "Called twice, no callback.",
+    "_note": "Email + website valid (phone is 555 reserved and is dropped) → email_eligible, packet only."
+  },
+  {
+    "company_name": "Test Company",
+    "website": "https://example.com",
+    "phone": "(000) 000-0000",
+    "email": "test@example.com",
+    "industry": "plumbing",
+    "_note": "Placeholder identity + example.com + 000 phone + no evidence → QUARANTINE (kept on file)."
+  },
+  {
+    "company_name": "BrightLeads Marketing Agency",
+    "website": "https://brightleadsagency.com",
+    "email": "sales@brightleadsagency.com",
+    "industry": "marketing agency (vendor)",
+    "source_url": "https://brightleadsagency.com/about",
+    "intent_evidence_summary": "Marketing agency selling lead-gen services — not an ICP.",
+    "_note": "Excluded fit (marketing agency / lead-gen vendor) → REJECTED (kept on file)."
+  }
+]

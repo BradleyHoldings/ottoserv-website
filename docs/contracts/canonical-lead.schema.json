@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ottoserv.com/schemas/phase1/canonical-lead.schema.json",
+  "title": "OttoServ Phase 1 Canonical Lead",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "lead_id",
+    "company_name",
+    "contact_name",
+    "normalized_phone",
+    "email",
+    "website",
+    "industry",
+    "city",
+    "state",
+    "timezone",
+    "source_url",
+    "source_type",
+    "source_evidence",
+    "discovered_at",
+    "imported_at",
+    "last_validated_at",
+    "contact_validation",
+    "fit_validation",
+    "score",
+    "tier",
+    "score_reasons",
+    "pipeline_stage",
+    "eligibility",
+    "next_action",
+    "enrichment_status",
+    "external_outreach_allowed",
+    "record_status",
+    "schema_version",
+    "version",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "lead_id": { "type": "string", "pattern": "^lid_v1_[a-f0-9]{16}$" },
+    "company_name": { "type": "string" },
+    "contact_name": { "type": "string" },
+    "normalized_phone": { "type": "string", "pattern": "^$|^[0-9]{10}$" },
+    "email": { "type": "string" },
+    "website": { "type": "string" },
+    "industry": { "type": "string" },
+    "city": { "type": "string" },
+    "state": { "type": "string" },
+    "timezone": { "type": "string" },
+    "source_url": { "type": "string" },
+    "source_type": { "type": "string" },
+    "source_evidence": { "type": "string" },
+    "discovered_at": { "type": "string" },
+    "imported_at": { "type": "string" },
+    "last_validated_at": { "type": "string" },
+    "contact_validation": {
+      "type": "object",
+      "required": ["phone", "email", "website", "has_contact_path", "validated_at", "method", "version"],
+      "properties": {
+        "phone": { "$ref": "#/$defs/phoneValidation" },
+        "email": { "$ref": "#/$defs/emailValidation" },
+        "website": { "$ref": "#/$defs/websiteValidation" },
+        "has_contact_path": { "type": "boolean" },
+        "validated_at": { "type": "string" },
+        "method": { "const": "rail_validator" },
+        "version": { "const": "v1" }
+      }
+    },
+    "fit_validation": {
+      "type": "object",
+      "required": ["excluded", "exclusion_reason", "has_public_evidence", "placeholder_company", "validated_at"],
+      "properties": {
+        "excluded": { "type": "boolean" },
+        "exclusion_reason": { "type": "string" },
+        "has_public_evidence": { "type": "boolean" },
+        "placeholder_company": { "type": "boolean" },
+        "validated_at": { "type": "string" }
+      }
+    },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "tier": { "enum": ["A-tier", "B-tier", "C-tier", "Reject"] },
+    "score_reasons": { "type": "array", "items": { "type": "string" } },
+    "pipeline_stage": { "type": "string" },
+    "eligibility": { "enum": ["enrich", "email_eligible", "call_eligible", "manual_review", "gated", "rejected"] },
+    "next_action": { "enum": ["enrich_lead_contact", "prepare_email_packet", "prepare_call_packet", "manual_review", "hold_gated", "none"] },
+    "enrichment_status": { "enum": ["not_required", "queued", "in_progress", "completed", "blocked", "stalled"] },
+    "external_outreach_allowed": { "const": false },
+    "record_status": { "enum": ["accepted", "quarantined", "rejected"] },
+    "schema_version": { "const": "phase1.v1" },
+    "version": { "type": "number", "minimum": 1 },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  },
+  "$defs": {
+    "phoneValidation": {
+      "type": "object",
+      "required": ["valid", "normalized", "code", "reason"],
+      "properties": {
+        "valid": { "type": "boolean" },
+        "normalized": { "type": "string" },
+        "code": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
+    "emailValidation": {
+      "type": "object",
+      "required": ["valid", "normalized", "code", "reason"],
+      "properties": {
+        "valid": { "type": "boolean" },
+        "normalized": { "type": "string" },
+        "code": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
+    "websiteValidation": {
+      "type": "object",
+      "required": ["valid", "host", "code", "reason"],
+      "properties": {
+        "valid": { "type": "boolean" },
+        "host": { "type": "string" },
+        "code": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}
