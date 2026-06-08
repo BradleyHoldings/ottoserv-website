@@ -85,12 +85,12 @@ export function classifyReply(reply = {}) {
 
   // Meeting request (check before positive so it's more specific).
   if (MEETING_SIGNALS.some(s => full.includes(s))) {
-    return { classification: REPLY_CLASS.MEETING_REQUESTED, confidence: "high", stops_sequence: false, requires_review: false, reason: "meeting_signal" };
+    return { classification: REPLY_CLASS.MEETING_REQUESTED, confidence: "high", stops_sequence: true, requires_review: false, reason: "meeting_signal" };
   }
 
   // Positive interest.
   if (POSITIVE_SIGNALS.some(s => full.includes(s))) {
-    return { classification: REPLY_CLASS.POSITIVE_INTEREST, confidence: "medium", stops_sequence: false, requires_review: false, reason: "positive_signal" };
+    return { classification: REPLY_CLASS.POSITIVE_INTEREST, confidence: "medium", stops_sequence: true, requires_review: false, reason: "positive_signal" };
   }
 
   // Question — requires review (never auto-respond with custom content).

@@ -26,6 +26,11 @@ function configuredWebhookUrl(env) {
     || clean(env.N8N_AGENT_EMAIL_SEND_WEBHOOK_URL);
 }
 
+function configuredReplyLookupWebhookUrl(env) {
+  return clean(env.HERMES_N8N_EMAIL_REPLY_LOOKUP_WEBHOOK)
+    || clean(env.HERMES_GMAIL_REPLY_LOOKUP_WEBHOOK);
+}
+
 function authHeaders(env) {
   const token = clean(env.HERMES_N8N_EMAIL_WEBHOOK_TOKEN) || clean(env.HERMES_N8N_WEBHOOK_TOKEN);
   if (!token) return {};
@@ -97,6 +102,60 @@ export function buildN8nGmailTransport(env = process.env, options = {}) {
   };
 }
 
+export function normalizeGmailReplyLookupResult(body = {}) {
+  const payload = firstPayload(body);
+  if (!payload?.reply_found && clean(payload.status) === "not_found") return null;
+  const message_id = clean(payload.provider_event_id) || clean(payload.message_id) || clean(payload.id);
+  if (!message_id) return null;
+  return {
+    provider_event_id: message_id,
+    message_id,
+    thread_id: clean(payload.thread_id) || clean(payload.threadId),
+    from: clean(payload.from),
+    to: clean(payload.to),
+    subject: clean(payload.subject),
+    body: clean(payload.body) || clean(payload.body_preview) || clean(payload.snippet),
+    snippet: clean(payload.snippet) || clean(payload.body_preview),
+    date: clean(payload.date) || clean(payload.provider_timestamp),
+    source: "n8n_gmail_workspace",
+  };
+}
+
+export function buildN8nGmailReplyLookup(env = process.env, options = {}) {
+  const url = configuredReplyLookupWebhookUrl(env);
+  if (!url) return undefined;
+  if (!/^https:\/\//i.test(url) && env.HERMES_ALLOW_INSECURE_EMAIL_WEBHOOK !== "1") {
+    throw new Error("gmail_reply_lookup_webhook_must_be_https");
+  }
+  const fetchImpl = options.fetchImpl || globalThis.fetch;
+  return async function n8nGmailReplyLookup(_idempotencyKey = "", _executionId = "", context = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), Number(env.HERMES_EMAIL_WEBHOOK_TIMEOUT_MS || 30000));
+    try {
+      const res = await fetchImpl(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders(env) },
+        signal: controller.signal,
+        body: JSON.stringify({
+          provider: "gmail_workspace",
+          idempotency_key: clean(_idempotencyKey),
+          execution_id: clean(_executionId),
+          thread_id: clean(context.thread_id) || clean(context.provider_thread_id),
+          from: clean(context.from) || clean(env.HERMES_EMAIL_CONTROLLED_RECIPIENT),
+          newer_than: clean(context.newer_than) || "14d",
+        }),
+      });
+      const text = await res.text();
+      let parsed = {};
+      try { parsed = text ? JSON.parse(text) : {}; } catch (_) { parsed = { status: text }; }
+      if (!res.ok) throw new Error(`gmail_reply_lookup_webhook_${res.status}`);
+      return normalizeGmailReplyLookupResult(parsed);
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+}
+
 // Returns { ok, transport?, lookup?, reason } and never any credential value.
 export function buildProviderTransport(env = process.env, options = {}) {
   const provider = emailProviderName(env);
@@ -111,7 +170,7 @@ export function buildProviderTransport(env = process.env, options = {}) {
       ok: true,
       provider: "gmail_workspace",
       transport,
-      lookup: typeof options.lookup === "function" ? options.lookup : undefined,
+      lookup: typeof options.lookup === "function" ? options.lookup : buildN8nGmailReplyLookup(env, options),
     };
   }
 

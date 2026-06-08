@@ -22,9 +22,9 @@
 //   HERMES_EMAIL_CONTROLLED_RECIPIENT=controlled@ottoserv.com \
 //   node scripts/phase2-controlled-real-acceptance.mjs --send
 //
-//   # after the controlled reply lands in the inbox, ingest it:
+//   # after the controlled reply lands in the inbox, look it up and ingest it:
 //   node scripts/phase2-controlled-real-acceptance.mjs --ingest-reply \
-//     --provider-event-id <id> --in-reply-to <outbound_message_id> --body "..."
+//     --execution-id <execution_id> --in-reply-to <outbound_message_id> --thread-id <thread_id>
 
 import { readEmailConfig, EMAIL_MODE, EMAIL_CONFIG_STATE } from "../src/lib/emailRail/config.mjs";
 import { buildProviderTransport } from "../src/lib/emailRail/transport.mjs";
@@ -107,22 +107,50 @@ async function doSend() {
 async function doIngestReply() {
   const pf = await preflight();
   if (!pf.client) { log({ ok: false, blockers: pf.blockers }); process.exit(2); }
+  let inbound = {
+    provider_event_id: arg("provider-event-id"),
+    in_reply_to: arg("in-reply-to"),
+    thread_id: arg("thread-id"),
+    from: pf.cfg.controlled_recipient,
+    subject: "Re: " + ACCEPTANCE_ACTION.subject,
+    body: arg("body", ""),
+  };
+  if (!inbound.provider_event_id && typeof pf.lookup === "function") {
+    const found = await pf.lookup("", arg("execution-id"), {
+      thread_id: inbound.thread_id,
+      from: pf.cfg.controlled_recipient,
+      newer_than: arg("newer-than", "14d"),
+    });
+    if (found) {
+      inbound = {
+        ...inbound,
+        provider_event_id: found.provider_event_id || found.message_id,
+        thread_id: found.thread_id || inbound.thread_id,
+        from: found.from || inbound.from,
+        subject: found.subject || inbound.subject,
+        body: found.body || found.snippet || inbound.body,
+        snippet: found.snippet,
+        date: found.date,
+      };
+    }
+  }
   const intent = {
     execution_id: arg("execution-id"),
     lead_id: ACCEPTANCE_LEAD.lead_id,
     provider_message_id: arg("in-reply-to"),
     provider_thread_id: arg("thread-id"),
   };
-  const inbound = {
-    provider_event_id: arg("provider-event-id"),
-    in_reply_to: arg("in-reply-to"),
-    thread_id: arg("thread-id"),
-    from: pf.cfg.controlled_recipient,
-    subject: "Re: " + ACCEPTANCE_ACTION.subject,
-    body: arg("body", "Yes, this looks good — I'm interested, tell me more."),
-  };
   const r = await processReply(inbound, intent, { client: pf.client, updateLead: true });
-  log({ ok: r.ok, stage: "ingest-reply", classification: r.classification, deduped: r.deduped, stops_sequence: r.stops_sequence, lead_advanced: r.lead_advanced });
+  log({
+    ok: r.ok,
+    stage: "ingest-reply",
+    provider_event_id: r.provider_event_id,
+    classification: r.classification,
+    deduped: r.deduped,
+    stops_sequence: r.stops_sequence,
+    lead_advanced: r.lead_advanced,
+    reason: r.reason,
+  });
   process.exit(r.ok ? 0 : 1);
 }
 
