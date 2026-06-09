@@ -29,6 +29,7 @@ export function evaluateOpportunityPolicy(intent = {}, ctx = {}) {
   const localHour = Number(ctx.localHour);
   if (Number.isFinite(localHour) && (localHour >= QUIET_START || localHour < QUIET_END)) blockers.push("quiet_hours");
   if (Number(intent.attempts || intent.retries?.attempt || 0) >= Number(intent.retries?.max_attempts || ctx.maxAttempts || 3)) blockers.push("attempt_cap");
+  if (ctx.activePositiveReply === true) blockers.push("active_positive_reply");
   if (TERMINAL_LEAD_STAGES.has(stage)) blockers.push("terminal_lead_stage");
   if (HUMAN_HANDLING_STAGES.has(stage) && selected !== ACTION_KIND.PREPARE_HUMAN_REVIEW_PACKET) blockers.push("active_human_handling");
 

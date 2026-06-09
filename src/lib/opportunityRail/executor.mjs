@@ -24,6 +24,15 @@ function validBookingEvidence(evidence = {}) {
   );
 }
 
+function asArray(v) { return Array.isArray(v) ? v : []; }
+
+function minutesBetween(a, b) {
+  const end = Date.parse(clean(a));
+  const start = Date.parse(clean(b));
+  if (Number.isNaN(end) || Number.isNaN(start)) return 0;
+  return Math.max(0, Math.floor((end - start) / 60000));
+}
+
 async function updateLeadToBooked(intent, evidence, options = {}) {
   const leadStore = options.leadStore || {};
   const lead_id = clean(intent.lead_ref?.lead_id);
@@ -149,4 +158,46 @@ export async function reconcileBookingEvidence(intent = {}, options = {}) {
     lead_updated: true,
     lead: leadUpdate.lead,
   };
+}
+
+export function reconcileOpportunityTimeouts(intents = [], options = {}) {
+  const now = options.now || new Date().toISOString();
+  const unverifiedTimeoutMinutes = Number(options.unverifiedTimeoutMinutes || 120);
+  const updated = [];
+  const unchanged = [];
+  const summary = { expired_claims_released: 0, unverified_escalated: 0 };
+
+  for (const intent of asArray(intents)) {
+    if (intent.lifecycle_state === LIFECYCLE_STATE.CLAIMED && clean(intent.lease_expires_at) && new Date(intent.lease_expires_at) <= new Date(now)) {
+      updated.push({
+        ...intent,
+        lifecycle_state: LIFECYCLE_STATE.APPROVED,
+        lease_owner: "",
+        lease_expires_at: "",
+        updated_at: now,
+        version: Number(intent.version || 1) + 1,
+      });
+      summary.expired_claims_released += 1;
+      continue;
+    }
+
+    if (
+      [LIFECYCLE_STATE.SENT_UNVERIFIED, LIFECYCLE_STATE.SCHEDULED_UNVERIFIED].includes(intent.lifecycle_state)
+      && minutesBetween(now, intent.action_receipt?.sent_at || intent.updated_at || intent.created_at) >= unverifiedTimeoutMinutes
+    ) {
+      updated.push({
+        ...intent,
+        lifecycle_state: LIFECYCLE_STATE.HUMAN_REVIEW,
+        blockers: [...new Set([...(intent.blockers || []), "booking_evidence_timeout"])],
+        updated_at: now,
+        version: Number(intent.version || 1) + 1,
+      });
+      summary.unverified_escalated += 1;
+      continue;
+    }
+
+    unchanged.push(intent);
+  }
+
+  return { updated, unchanged, summary };
 }

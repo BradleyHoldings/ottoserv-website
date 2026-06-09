@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { executeOpportunityIntent, reconcileBookingEvidence } from "../src/lib/opportunityRail/executor.mjs";
+import { executeOpportunityIntent, reconcileBookingEvidence, reconcileOpportunityTimeouts } from "../src/lib/opportunityRail/executor.mjs";
 import { evaluateOpportunityPolicy } from "../src/lib/opportunityRail/policy.mjs";
 
 const NOW = "2026-06-09T14:00:00.000Z";
@@ -54,6 +54,7 @@ test("policy blocks stale lead version, DNC, quiet hours, active duplicates, unr
   assert.equal(evaluateOpportunityPolicy(meetingLinkIntent, { lead, suppressions: { dnc: true } }).blocked_reasons.includes("suppression_dnc"), true);
   assert.equal(evaluateOpportunityPolicy(meetingLinkIntent, { lead, localHour: 22 }).blocked_reasons.includes("quiet_hours"), true);
   assert.equal(evaluateOpportunityPolicy(meetingLinkIntent, { lead, activeIntents: [{ ...meetingLinkIntent, lifecycle_state: "sent_unverified" }] }).blocked_reasons.includes("duplicate_action"), true);
+  assert.equal(evaluateOpportunityPolicy(meetingLinkIntent, { lead, activePositiveReply: true }).blocked_reasons.includes("active_positive_reply"), true);
   assert.equal(evaluateOpportunityPolicy({ ...meetingLinkIntent, selected_action: "prepare_human_review_packet", approval_boundary: "jonathan_required" }, { lead }).blocked_reasons.includes("unresolved_approval"), true);
   assert.equal(evaluateOpportunityPolicy({ ...meetingLinkIntent, target: {} }, { lead }).blocked_reasons.includes("invalid_contact_path"), true);
 });
@@ -111,4 +112,39 @@ test("no-connect recovery schedules retry, email fallback, or escalation without
   assert.equal(retry.intent.lifecycle_state, "retry_waiting");
   assert.equal(retry.contacted, false);
   assert.equal(retry.intent.next_attempt_at, "2026-06-09T18:00:00.000Z");
+});
+
+test("timeout reconciliation releases expired claims and escalates stale unverified actions", () => {
+  const result = reconcileOpportunityTimeouts([
+    {
+      ...meetingLinkIntent,
+      intent_id: "oppact_expired_claim",
+      lifecycle_state: "claimed",
+      lease_owner: "worker-a",
+      lease_expires_at: "2026-06-09T13:59:00.000Z",
+    },
+    {
+      ...meetingLinkIntent,
+      intent_id: "oppact_stale_link",
+      lifecycle_state: "sent_unverified",
+      action_receipt: { sent_at: "2026-06-09T12:00:00.000Z", provider_message_id: "msg_1" },
+    },
+    {
+      ...meetingLinkIntent,
+      intent_id: "oppact_fresh_link",
+      lifecycle_state: "sent_unverified",
+      action_receipt: { sent_at: "2026-06-09T13:55:00.000Z", provider_message_id: "msg_2" },
+    },
+  ], { now: NOW, unverifiedTimeoutMinutes: 60 });
+
+  const released = result.updated.find((intent) => intent.intent_id === "oppact_expired_claim");
+  const escalated = result.updated.find((intent) => intent.intent_id === "oppact_stale_link");
+
+  assert.equal(released.lifecycle_state, "approved");
+  assert.equal(released.lease_owner, "");
+  assert.equal(escalated.lifecycle_state, "human_review");
+  assert.equal(escalated.blockers.includes("booking_evidence_timeout"), true);
+  assert.equal(result.unchanged.find((intent) => intent.intent_id === "oppact_fresh_link").lifecycle_state, "sent_unverified");
+  assert.equal(result.summary.expired_claims_released, 1);
+  assert.equal(result.summary.unverified_escalated, 1);
 });
