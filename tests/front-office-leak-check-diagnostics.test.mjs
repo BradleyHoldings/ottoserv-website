@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildProcessScan } from "../src/lib/processScans.ts";
 import { createWorkflowDiagnostics, getClarificationQuestions } from "../src/lib/processScanDiagnostics.mjs";
+import { importTs } from "./helpers/import-ts.mjs";
+
+const { buildProcessScan } = await importTs("src/lib/processScans.ts");
 
 const baseInput = {
   company_name: "Harbor Point PM",

@@ -56,6 +56,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
   const revenueEngine = raw.revenueEngine || null;
   const admin = isOttoServAdmin(user);
   const emailRail = admin && raw.emailRail ? raw.emailRail : null;
+  const callRail = admin && raw.callRail ? raw.callRail : null;
 
   const activeTasks = tasks.filter((task) => ACTIVE_TASK_STATUSES.has(String(task.status || "").toLowerCase()));
   const overdueTasks = tasks.filter((task) => String(task.status || "").toLowerCase() === "overdue" || isPast(task.due_date || task.dueDate));
@@ -108,6 +109,13 @@ export function buildCommandCenterData(raw = {}, user = {}) {
       title: "Email Rail",
       value: Number(emailRail?.summary?.queued || 0) + Number(emailRail?.summary?.failures || 0) + Number(emailRail?.summary?.sent || 0),
       description: emailRail?.summary?.failures ? `${emailRail.summary.failures} failure${emailRail.summary.failures === 1 ? "" : "s"} need review` : `${Number(emailRail?.summary?.replies || 0)} replies captured`,
+      href: "/os/hermes",
+    }] : []),
+    ...(callRail ? [{
+      id: "callRail",
+      title: "Call Rail",
+      value: Number(callRail?.summary?.queued || 0) + Number(callRail?.summary?.failures || 0) + Number(callRail?.summary?.completed || 0),
+      description: callRail?.summary?.failures ? `${callRail.summary.failures} failure${callRail.summary.failures === 1 ? "" : "s"} need review` : `${Number(callRail?.summary?.completed || 0)} verified outcomes`,
       href: "/os/hermes",
     }] : []),
   ];
@@ -228,6 +236,26 @@ export function buildCommandCenterData(raw = {}, user = {}) {
       suggestedAction: "Review watchdog",
       dismissible: false,
     }] : []),
+    ...(callRail && Number(callRail?.summary?.failures || 0) > 0 ? [{
+      id: "call-rail-failures",
+      type: "call_rail_failure",
+      severity: "high",
+      title: "Call rail needs review",
+      description: `${callRail.summary.failures} call execution${callRail.summary.failures === 1 ? "" : "s"} require reconciliation or retry review.`,
+      href: "/os/hermes",
+      suggestedAction: "Open call rail",
+      dismissible: false,
+    }] : []),
+    ...(callRail && Number(callRail?.summary?.watchdog_alerts || 0) > 0 ? [{
+      id: "call-rail-watchdog",
+      type: "call_rail_watchdog",
+      severity: "medium",
+      title: "Call watchdog raised an alert",
+      description: `${callRail.summary.watchdog_alerts} watchdog alert${callRail.summary.watchdog_alerts === 1 ? "" : "s"} need triage.`,
+      href: "/os/hermes",
+      suggestedAction: "Review call watchdog",
+      dismissible: false,
+    }] : []),
   ];
 
   const normalizedApprovals = approvals.slice(0, 6).map((approval, index) => ({
@@ -323,6 +351,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     jarvisBrief,
     leadHealth,
     emailRail,
+    callRail,
     revenueEngine,
     meta: {
       activeProjects: activeProjects.length,

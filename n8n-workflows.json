@@ -342,6 +342,54 @@
           }
         }
       ]
+    },
+    {
+      "name": "Hermes Controlled Gmail Reply Lookup",
+      "description": "Phase 3 repair: autonomous reply ingestion uses the approved n8n Gmail credential/runtime instead of an out-of-band connector.",
+      "webhook_endpoint": "/hermes-controlled-gmail-reply-lookup",
+      "trigger": {
+        "type": "webhook",
+        "path": "/hermes-controlled-gmail-reply-lookup",
+        "method": "POST"
+      },
+      "nodes": [
+        {
+          "name": "Reply Lookup Webhook",
+          "type": "webhook",
+          "config": {
+            "path": "/hermes-controlled-gmail-reply-lookup",
+            "method": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Build Gmail Query",
+          "type": "function",
+          "config": {
+            "code": "const data = $json || {}; const threadId = String(data.thread_id || data.threadId || data.provider_thread_id || '').trim(); const messageId = String(data.message_id || data.provider_message_id || data.gmail_message_id || data.in_reply_to || '').trim(); const from = String(data.from || data.reply_from || data.controlled_from || '').trim().toLowerCase(); const newerThan = String(data.newer_than || '365d').trim(); const queryParts = ['in:anywhere', `newer_than:${newerThan}`]; if (from) queryParts.push(`from:${from}`); const query = queryParts.join(' '); return { ...data, thread_id: threadId, message_id: messageId, gmail_query: query, lookup_status: query ? 'ready' : 'missing_query' };"
+          }
+        },
+        {
+          "name": "Search Gmail Replies",
+          "type": "gmail",
+          "config": {
+            "resource": "message",
+            "operation": "getAll",
+            "returnAll": false,
+            "limit": 10,
+            "filters": {
+              "q": "{{$json.gmail_query}}"
+            }
+          }
+        },
+        {
+          "name": "Normalize Reply Evidence",
+          "type": "function",
+          "config": {
+            "code": "const request = $('Build Gmail Query').first().json || {}; const items = $input.all().map(i => i.json).filter(Boolean); const headersFor = (m) => Array.isArray(m.payload?.headers) ? m.payload.headers : []; const header = (m, name) => (headersFor(m).find(h => String(h.name).toLowerCase() === name.toLowerCase()) || {}).value || ''; const matchesMessage = (m) => request.message_id && (String(m.id || m.message_id || '') === request.message_id || String(header(m, 'Message-ID')).includes(request.message_id)); const matchesThread = (m) => request.thread_id && String(m.threadId || m.thread_id || '') === request.thread_id; const matchesFrom = (m) => request.from && String(header(m, 'From') || m.from || '').toLowerCase().includes(request.from); const reply = items.find(m => matchesMessage(m) || matchesThread(m) || (!request.message_id && !request.thread_id && matchesFrom(m))); if (!reply) return { status: 'not_found', reply_found: false, query: request.gmail_query, thread_id: request.thread_id, message_id: request.message_id, lookup_checked_at: new Date().toISOString() }; return { status: 'found', reply_found: true, message_id: reply.id || reply.message_id, provider_event_id: reply.id || reply.message_id, thread_id: reply.threadId || reply.thread_id, from: header(reply, 'From') || reply.from || '', subject: header(reply, 'Subject') || reply.subject || '', date: header(reply, 'Date') || reply.date || reply.internalDate || '', body_preview: reply.snippet || reply.body_preview || '', query: request.gmail_query, lookup_checked_at: new Date().toISOString() };"
+          }
+        }
+      ]
     }
   ],
   "environment_variables": {
@@ -350,7 +398,8 @@
     "SUPABASE_SERVICE_KEY": "Your Supabase service role key",
     "NEXT_PUBLIC_SUPABASE_URL": "Your Supabase project URL",
     "TELEGRAM_JARVIS_CHAT_ID": "Telegram chat ID for notifications",
-    "HUBSPOT_API_KEY": "HubSpot API key for CRM integration"
+    "HUBSPOT_API_KEY": "HubSpot API key for CRM integration",
+    "HERMES_EMAIL_CONTROLLED_RECIPIENT": "Jonathan-controlled Gmail recipient for Phase 2 reply acceptance"
   },
   "setup_instructions": {
     "1": "Import each workflow into your n8n instance",
@@ -365,6 +414,7 @@
     "audit_request": "https://n8n.ottoserv.com/webhook/audit-request",
     "platform_signal": "https://n8n.ottoserv.com/webhook/platform-signal",
     "weekly_report": "https://n8n.ottoserv.com/webhook/weekly-report",
-    "beehiiv_sync": "https://n8n.ottoserv.com/webhook/beehiiv-sync"
+    "beehiiv_sync": "https://n8n.ottoserv.com/webhook/beehiiv-sync",
+    "hermes_controlled_gmail_reply_lookup": "https://n8n.ottoserv.com/webhook/hermes-controlled-gmail-reply-lookup"
   }
 }
