@@ -1,4 +1,21 @@
 function clean(v) { return String(v ?? "").trim(); }
+function isoTimestamp(v) {
+  const s = clean(v);
+  if (!s) return "";
+  if (/^\d+$/.test(s)) {
+    const n = Number(s);
+    const ms = n > 100000000000 ? n : n * 1000;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+  }
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? s : d.toISOString();
+}
+function secondsFromRetell(call = {}) {
+  if (call.duration_seconds !== undefined) return Number(call.duration_seconds || 0);
+  if (call.duration_ms !== undefined) return Math.round(Number(call.duration_ms || 0) / 1000);
+  return Number(call.duration || 0);
+}
 
 export function readRetellConfig(env = process.env) {
   const fromNumberRef = clean(env.RETELL_PHONE_NUMBER || env.RETELL_FROM_NUMBER || env.RETELL_PHONE_NUMBER_ID);
@@ -60,13 +77,14 @@ export function makeRetellTransport(options = {}) {
 
 export function normalizeRetellCall(raw = {}) {
   const call = raw.call || raw;
+  const successful = call.call_analysis?.call_successful;
   return {
     provider_call_id: clean(call.call_id || call.id),
     status: clean(call.call_status || call.status),
-    outcome: clean(call.disconnection_reason || call.call_analysis?.call_successful ? "connected" : call.outcome),
-    started_at: clean(call.start_timestamp || call.started_at),
-    ended_at: clean(call.end_timestamp || call.ended_at),
-    duration_seconds: Number(call.duration_seconds || call.duration || 0),
+    outcome: clean(call.outcome || call.disconnection_reason || (successful ? "connected" : "")),
+    started_at: isoTimestamp(call.start_timestamp || call.started_at),
+    ended_at: isoTimestamp(call.end_timestamp || call.ended_at),
+    duration_seconds: secondsFromRetell(call),
     recording_url: clean(call.recording_url),
     transcript_url: clean(call.transcript_url),
     summary: clean(call.call_analysis?.call_summary || call.summary || call.transcript),

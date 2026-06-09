@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { makeRetellTransport } from "../src/lib/callRail/retell.mjs";
+import { makeRetellTransport, normalizeRetellCall } from "../src/lib/callRail/retell.mjs";
 import { buildRetellReadinessReport } from "../src/lib/callRail/retellReadiness.mjs";
 
 test("Retell transport creates outbound calls with owned from_number and override_agent_id", async () => {
@@ -139,4 +139,22 @@ test("Retell readiness retrieves configured phone number directly when list does
   assert.equal(report.retell.phone_number_owned, true);
   assert.equal(report.retell.outbound_ready, true);
   assert.equal(report.phone_number.phone_number_last4, "***5560");
+});
+
+test("Retell provider normalization converts millisecond timestamps and duration", () => {
+  const normalized = normalizeRetellCall({
+    call_id: "call_ms",
+    call_status: "ended",
+    start_timestamp: 1780980449841,
+    end_timestamp: 1780980459841,
+    duration_ms: 10000,
+    disconnection_reason: "user_hangup",
+    transcript: "Answered and asked for a callback later.",
+  });
+
+  assert.equal(normalized.provider_call_id, "call_ms");
+  assert.equal(normalized.status, "ended");
+  assert.match(normalized.started_at, /^2026-/);
+  assert.match(normalized.ended_at, /^2026-/);
+  assert.equal(normalized.duration_seconds, 10);
 });
