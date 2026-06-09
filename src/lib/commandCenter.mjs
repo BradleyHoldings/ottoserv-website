@@ -55,6 +55,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
   const leadSupply = raw.leadSupply || null;
   const revenueEngine = raw.revenueEngine || null;
   const admin = isOttoServAdmin(user);
+  const emailRail = admin && raw.emailRail ? raw.emailRail : null;
 
   const activeTasks = tasks.filter((task) => ACTIVE_TASK_STATUSES.has(String(task.status || "").toLowerCase()));
   const overdueTasks = tasks.filter((task) => String(task.status || "").toLowerCase() === "overdue" || isPast(task.due_date || task.dueDate));
@@ -102,6 +103,13 @@ export function buildCommandCenterData(raw = {}, user = {}) {
       description: revenueEngine?.selfRepairStatus === "repairs_open" ? "Repair before scale" : "Daily loop ready",
       href: "/dashboard/command-center#revenue-engine",
     },
+    ...(emailRail ? [{
+      id: "emailRail",
+      title: "Email Rail",
+      value: Number(emailRail?.summary?.queued || 0) + Number(emailRail?.summary?.failures || 0) + Number(emailRail?.summary?.sent || 0),
+      description: emailRail?.summary?.failures ? `${emailRail.summary.failures} failure${emailRail.summary.failures === 1 ? "" : "s"} need review` : `${Number(emailRail?.summary?.replies || 0)} replies captured`,
+      href: "/os/hermes",
+    }] : []),
   ];
 
   const snapshot = {
@@ -200,6 +208,26 @@ export function buildCommandCenterData(raw = {}, user = {}) {
       suggestedAction: "Review automation",
       dismissible: false,
     })),
+    ...(emailRail && Number(emailRail?.summary?.failures || 0) > 0 ? [{
+      id: "email-rail-failures",
+      type: "email_rail_failure",
+      severity: "high",
+      title: "Email rail needs review",
+      description: `${emailRail.summary.failures} execution${emailRail.summary.failures === 1 ? "" : "s"} require reconciliation or retry review.`,
+      href: "/os/hermes",
+      suggestedAction: "Open email rail",
+      dismissible: false,
+    }] : []),
+    ...(emailRail && Number(emailRail?.summary?.watchdog_alerts || 0) > 0 ? [{
+      id: "email-rail-watchdog",
+      type: "email_rail_watchdog",
+      severity: "medium",
+      title: "Email watchdog raised an alert",
+      description: `${emailRail.summary.watchdog_alerts} watchdog alert${emailRail.summary.watchdog_alerts === 1 ? "" : "s"} need triage.`,
+      href: "/os/hermes",
+      suggestedAction: "Review watchdog",
+      dismissible: false,
+    }] : []),
   ];
 
   const normalizedApprovals = approvals.slice(0, 6).map((approval, index) => ({
@@ -294,6 +322,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     recentActivity,
     jarvisBrief,
     leadHealth,
+    emailRail,
     revenueEngine,
     meta: {
       activeProjects: activeProjects.length,

@@ -31,6 +31,7 @@ import { mergeMaterializedIntoQueue } from "./hermesActorQueue.mjs";
 import { executeSafeInternalActions } from "./hermesSafeExecutor.mjs";
 import { executeEmailQueue } from "./hermesEmailExecutor.mjs";
 import { executeCallQueue } from "./hermesCallExecutor.mjs";
+import { runHeartbeat as runEmailRailHeartbeat } from "./emailRail/heartbeat.mjs";
 import { upsertRevenueState } from "./revenueEngineSupabaseStore.mjs";
 
 export const CYCLE_ROW_ID = "operating_cycle";
@@ -177,6 +178,28 @@ export async function runOperatingCycle(options = {}) {
     cooldownDays: options.cooldownDays, attempts: options.attempts, maxAttempts: options.maxAttempts,
     businessHours: options.businessHours, localHour: options.localHour,
   });
+  const emailRailRunner = typeof options.emailRailRunner === "function" ? options.emailRailRunner : runEmailRailHeartbeat;
+  const emailRailExec = await emailRailRunner({
+    now,
+    mode: options.emailRailMode || options.emailMode || (options.executionMode === "live" ? "live" : "no_send"),
+    transport: options.emailRailTransport || options.emailTransport || null,
+    lookup: options.emailRailLookup || null,
+    inboundReplies: asArray(options.emailRailInboundReplies),
+    pendingIntents: asArray(options.emailRailPendingIntents),
+    intentsForWatchdog: asArray(options.emailRailIntentsForWatchdog),
+    actions: asArray(options.emailRailActions),
+    leads: options.emailRailLeads !== undefined ? asArray(options.emailRailLeads) : undefined,
+    leadStore: options.emailRailLeadStore,
+    client: options.emailRailClient,
+    emailConfig: options.emailRailConfig,
+    worker_id: options.emailRailWorkerId || "Hermes",
+    max_to_send: options.emailRailMaxToSend,
+    subject: options.emailRailSubject,
+    body: options.emailRailBody,
+    sender: options.emailRailSender,
+    template_ref: options.emailRailTemplateRef,
+    policyCtx: options.emailRailPolicyCtx,
+  });
   const documentExecuted = callExec.document;
   const executionLedgerEvents = [
     ...asArray(emailExec.ledgerEvents),
@@ -240,6 +263,7 @@ export async function runOperatingCycle(options = {}) {
       queue_added: queued.added,
       internal_completed: internalExec.executed.length,
       email: emailExec.summary,
+      email_rail: emailRailExec,
       call: callExec.summary,
       changed: executionChanged,
     },
@@ -297,7 +321,14 @@ export async function runOperatingCycle(options = {}) {
       blockers: scorecard.top_blockers.length,
       self_repair_packets: selfRepair.new_packets.length,
       deferred_until_reset: asArray(selfRepair.deferred).length,
-      execution: { queue_added: queued.added, internal_completed: internalExec.executed.length, emails_sent: emailExec.summary.sent, calls_placed: callExec.summary.dialed },
+      execution: {
+        queue_added: queued.added,
+        internal_completed: internalExec.executed.length,
+        emails_sent: emailExec.summary.sent,
+        email_rail_sent: Number(emailRailExec?.summary?.sent || 0),
+        email_rail_replies: Number(emailRailExec?.summary?.replies || 0),
+        calls_placed: callExec.summary.dialed,
+      },
       ledger_added: recorded.added,
       persisted: { local: local_written, supabase, document: document_persisted },
     },

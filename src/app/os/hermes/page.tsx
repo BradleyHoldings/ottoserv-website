@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatTimestamp, getHermesLiveDashboardData, HermesSourceFile } from "@/lib/hermesReadOnlyAdapter";
+import { readEmailRailDashboardState } from "@/lib/emailRail/dashboard.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,10 @@ const answerCards = [
 ];
 
 export default async function HermesCommandPage() {
-  const data = await getHermesLiveDashboardData();
+  const [data, emailRail] = await Promise.all([
+    getHermesLiveDashboardData(),
+    readEmailRailDashboardState(),
+  ]);
   const summary = data.summary;
   const leadMission = data.missions[0];
   const hasStaleSources = data.sources.some((source) => source.status === "real_data_connected" && source.stale);
@@ -94,6 +98,8 @@ export default async function HermesCommandPage() {
         <SourcePanel source={data.sections.coworkQueue} />
       </section>
 
+      <EmailRailPanel state={emailRail} />
+
       <section className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
         <div className="rounded-3xl border border-blue-400/20 bg-blue-500/10 p-6">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-200">Lead mission</p>
@@ -122,6 +128,87 @@ export default async function HermesCommandPage() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function EmailRailPanel({ state }: { state: any }) {
+  const dashboard = state.dashboard || {};
+  const summary = dashboard.summary || {};
+  const queued = dashboard.queues?.queued || [];
+  const failures = dashboard.failures || [];
+  const sent = dashboard.sent || [];
+  const nextActions = dashboard.lead_next_actions || [];
+
+  return (
+    <section className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-100">Phase 2 Email Rail</p>
+          <h2 className="mt-3 text-2xl font-black text-white">Controlled Gmail execution, replies, and evidence</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/80">
+            Redacted command view for email queue state, provider evidence, reply classification, watchdog alerts, and next actions.
+          </p>
+        </div>
+        <span className={`rounded-full border px-4 py-2 text-xs font-bold uppercase ${state.available ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-50" : "border-amber-300/40 bg-amber-400/15 text-amber-50"}`}>
+          {state.available ? "Supabase connected" : "Pending"}
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <Metric label="Queued" value={String(summary.queued ?? 0)} />
+        <Metric label="Sent" value={String(summary.sent ?? 0)} />
+        <Metric label="Failures" value={String(summary.failures ?? 0)} />
+        <Metric label="Replies" value={String(summary.replies ?? 0)} />
+        <Metric label="Watchdog" value={String(summary.watchdog_alerts ?? 0)} />
+        <Metric label="Provider" value={state.config?.provider || "pending"} />
+      </div>
+
+      {!state.available ? (
+        <p className="mt-4 rounded-2xl border border-dashed border-amber-200/25 bg-black/25 p-4 text-sm text-amber-50/80">
+          Email rail state is not being read from Supabase yet: {state.reason}. Live sends remain blocked until authoritative persistence and the approved Gmail transport are configured.
+        </p>
+      ) : null}
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-3">
+        <EmailRailList title="Queue" empty="No queued email actions." items={queued} />
+        <EmailRailList title="Provider Evidence" empty="No sent email evidence yet." items={sent} />
+        <EmailRailList title="Failures and Reconciliation" empty="No email failures." items={failures} />
+      </div>
+
+      {nextActions.length ? (
+        <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4">
+          <p className="text-sm font-bold text-white">Lead next actions</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {nextActions.slice(0, 6).map((item: any) => (
+              <p key={`${item.lead_id}-${item.state}`} className="rounded-xl border border-white/10 bg-white/[0.04] p-3 font-mono text-xs text-gray-300">
+                {item.lead_id}: {item.next_action}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function EmailRailList({ title, empty, items }: { title: string; empty: string; items: any[] }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+      <p className="text-sm font-bold text-white">{title}</p>
+      {items.length ? (
+        <div className="mt-3 space-y-2">
+          {items.slice(0, 4).map((item) => (
+            <div key={item.execution_id} className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+              <p className="font-mono text-xs text-emerald-100/80">{item.execution_id}</p>
+              <p className="mt-1 text-xs text-gray-400">{item.state} / {item.lead_id}</p>
+              <p className="mt-1 break-all text-xs text-gray-500">{item.provider_message_id || item.recipient || item.policy_block_reason || "No provider evidence yet"}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-gray-500">{empty}</p>
+      )}
     </div>
   );
 }
