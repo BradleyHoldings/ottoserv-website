@@ -27,6 +27,10 @@ create index if not exists hermes_opportunity_actions_lead_idx
 create index if not exists hermes_opportunity_actions_state_idx
   on public.hermes_opportunity_actions (lifecycle_state, updated_at desc);
 
+alter table public.hermes_opportunity_actions enable row level security;
+revoke all on public.hermes_opportunity_actions from anon, authenticated;
+grant select, insert, update, delete on public.hermes_opportunity_actions to service_role;
+
 create table if not exists public.hermes_opportunity_booking_evidence (
   booking_id text primary key,
   provider_event_id text not null unique,
@@ -44,6 +48,10 @@ create table if not exists public.hermes_opportunity_booking_evidence (
 create index if not exists hermes_opportunity_booking_lead_idx
   on public.hermes_opportunity_booking_evidence (lead_id, scheduled_start_at desc);
 
+alter table public.hermes_opportunity_booking_evidence enable row level security;
+revoke all on public.hermes_opportunity_booking_evidence from anon, authenticated;
+grant select, insert, update, delete on public.hermes_opportunity_booking_evidence to service_role;
+
 create or replace function public.hermes_opportunity_upsert_cas(
   p_intent_id text,
   p_idempotency_key text,
@@ -52,6 +60,7 @@ create or replace function public.hermes_opportunity_upsert_cas(
 ) returns jsonb
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   current_row public.hermes_opportunity_actions%rowtype;
@@ -125,6 +134,8 @@ begin
   return jsonb_build_object('ok', true, 'status', 'updated', 'version', target_version);
 end;
 $$;
+revoke all on function public.hermes_opportunity_upsert_cas(text, text, integer, jsonb) from public, anon, authenticated;
+grant execute on function public.hermes_opportunity_upsert_cas(text, text, integer, jsonb) to service_role;
 
 create or replace function public.hermes_opportunity_claim_cas(
   p_intent_id text,
@@ -134,6 +145,7 @@ create or replace function public.hermes_opportunity_claim_cas(
 ) returns jsonb
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   current_row public.hermes_opportunity_actions%rowtype;
@@ -174,3 +186,21 @@ begin
   return jsonb_build_object('ok', true, 'status', 'claimed', 'intent', next_raw, 'lease_expires_at', next_expires);
 end;
 $$;
+revoke all on function public.hermes_opportunity_claim_cas(text, text, integer, timestamptz) from public, anon, authenticated;
+grant execute on function public.hermes_opportunity_claim_cas(text, text, integer, timestamptz) to service_role;
+
+-- Validation after application:
+-- select count(*) from information_schema.tables where table_schema='public'
+--   and table_name in ('hermes_opportunity_actions','hermes_opportunity_booking_evidence'); -- 2
+-- select tablename, rowsecurity from pg_tables where schemaname='public'
+--   and tablename in ('hermes_opportunity_actions','hermes_opportunity_booking_evidence'); -- all true
+-- select count(*) from pg_policies where schemaname='public'
+--   and tablename in ('hermes_opportunity_actions','hermes_opportunity_booking_evidence'); -- 0
+
+-- ROLLBACK (explicit authorization required; destroys Phase 4 opportunity data):
+-- BEGIN;
+--   drop function if exists public.hermes_opportunity_claim_cas(text, text, integer, timestamptz);
+--   drop function if exists public.hermes_opportunity_upsert_cas(text, text, integer, jsonb);
+--   drop table if exists public.hermes_opportunity_booking_evidence cascade;
+--   drop table if exists public.hermes_opportunity_actions cascade;
+-- COMMIT;
