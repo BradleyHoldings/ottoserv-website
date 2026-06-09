@@ -195,8 +195,8 @@ export function buildWorkOrder(input = {}, options = {}) {
   };
 }
 
-export function updateWorkOrderStatus(workOrder, status, actor = "OttoServ", detail = "") {
-  const now = new Date().toISOString();
+export function updateWorkOrderStatus(workOrder, status, actor = "OttoServ", detail = "", options = {}) {
+  const now = options.now || new Date().toISOString();
   return {
     ...workOrder,
     status,

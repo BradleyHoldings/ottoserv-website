@@ -4,12 +4,15 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import {
+
+import { importTs } from "./helpers/import-ts.mjs";
+
+const {
   buildPilotStartConversion,
   listPilotStartConversions,
   savePilotStartConversion,
   validatePilotStartInput,
-} from "../src/lib/processScanConversions.ts";
+} = await importTs("src/lib/processScanConversions.ts");
 
 test("pilot start input requires contact details and consent", () => {
   assert.equal(validatePilotStartInput({ email: "bad", consent_to_contact: true }), "Please enter a valid email address.");

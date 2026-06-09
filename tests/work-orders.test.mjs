@@ -93,7 +93,7 @@ test("summaries and filters are safe and useful", () => {
   const orders = [
     buildWorkOrder({ title: "A", client: "A Client", property: "One", description: "A", priority: "emergency", category: "Plumbing", dueDate: "2026-05-19" }, { sequence: 1, now: "2026-05-20T10:00:00.000Z" }),
     buildWorkOrder({ title: "B", client: "B Client", property: "Two", description: "B", priority: "medium", category: "HVAC", scheduledDate: "2026-05-20", estimatedCost: 500 }, { sequence: 2, now: "2026-05-20T10:00:00.000Z" }),
-    updateWorkOrderStatus(buildWorkOrder({ title: "C", client: "C Client", property: "Three", description: "C", priority: "low", category: "Cleaning" }, { sequence: 3, now: "2026-05-19T10:00:00.000Z" }), "completed"),
+    updateWorkOrderStatus(buildWorkOrder({ title: "C", client: "C Client", property: "Three", description: "C", priority: "low", category: "Cleaning" }, { sequence: 3, now: "2026-05-19T10:00:00.000Z" }), "completed", "OttoServ", "", { now: "2026-05-20T10:00:00.000Z" }),
   ];
 
   const summary = getWorkOrderSummary(orders, "2026-05-20T12:00:00.000Z");
