@@ -99,3 +99,44 @@ test("Retell readiness verifies key, owned outbound phone number, and configured
     "https://api.retellai.test/get-agent/agent_phase3_acceptance",
   ]);
 });
+
+test("Retell readiness retrieves configured phone number directly when list does not include it", async () => {
+  const report = await buildRetellReadinessReport({
+    env: {
+      RETELL_API_KEY: "rk_live_secret",
+      RETELL_AGENT_ID: "agent_phase3_acceptance",
+      RETELL_PHONE_NUMBER_ID: "+14079045560",
+      RETELL_BASE_URL: "https://api.retellai.test",
+    },
+    fetchImpl: async (url) => {
+      if (url.endsWith("/v2/list-phone-numbers")) return { ok: true, async json() { return { phone_numbers: [] }; } };
+      if (url.endsWith("/get-phone-number/%2B14079045560")) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              phone_number: "+14079045560",
+              phone_number_type: "retell-twilio",
+              allowed_outbound_country_list: ["US"],
+              outbound_agents: [{ agent_id: "agent_phase3_acceptance" }],
+            };
+          },
+        };
+      }
+      if (url.endsWith("/get-agent/agent_phase3_acceptance")) {
+        return {
+          ok: true,
+          async json() {
+            return { agent_id: "agent_phase3_acceptance", agent_name: "Morgan", response_engine: { type: "retell-llm" } };
+          },
+        };
+      }
+      throw new Error(`unexpected ${url}`);
+    },
+  });
+
+  assert.equal(report.ok, true);
+  assert.equal(report.retell.phone_number_owned, true);
+  assert.equal(report.retell.outbound_ready, true);
+  assert.equal(report.phone_number.phone_number_last4, "***5560");
+});

@@ -114,6 +114,14 @@ async function retellJson(fetchImpl, root, apiKey, path) {
   return response.json();
 }
 
+async function retrievePhoneNumber(fetchImpl, root, apiKey, phoneRef) {
+  const encoded = encodeURIComponent(clean(phoneRef));
+  return firstSuccessful([
+    () => retellJson(fetchImpl, root, apiKey, `/get-phone-number/${encoded}`),
+    () => retellJson(fetchImpl, root, apiKey, `/v2/get-phone-number/${encoded}`),
+  ]);
+}
+
 async function firstSuccessful(calls) {
   const errors = [];
   for (const call of calls) {
@@ -171,7 +179,11 @@ export async function buildRetellReadinessReport(options = {}) {
   report.retell.api_key_verified = true;
 
   const phoneNumbers = extractPhoneNumbers(phonesResult.value);
-  const phoneNumber = findRetellPhoneNumber(phoneNumbers, phoneRef);
+  let phoneNumber = findRetellPhoneNumber(phoneNumbers, phoneRef);
+  if (!phoneNumber) {
+    const directPhone = await retrievePhoneNumber(fetchImpl, root, apiKey, phoneRef);
+    if (directPhone.ok) phoneNumber = directPhone.value?.phone_number ? directPhone.value : directPhone.value?.phone_number_record;
+  }
   report.retell.phone_number_owned = Boolean(phoneNumber);
   if (phoneNumber) {
     report.phone_number = describeRetellPhoneNumber(phoneNumber, agentId);
