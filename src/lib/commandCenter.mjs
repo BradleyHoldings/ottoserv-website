@@ -58,6 +58,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
   const emailRail = admin && raw.emailRail ? raw.emailRail : null;
   const callRail = admin && raw.callRail ? raw.callRail : null;
   const opportunityRail = admin && raw.opportunityRail ? raw.opportunityRail : null;
+  const commercialRail = admin && raw.commercialRail ? raw.commercialRail : null;
 
   const activeTasks = tasks.filter((task) => ACTIVE_TASK_STATUSES.has(String(task.status || "").toLowerCase()));
   const overdueTasks = tasks.filter((task) => String(task.status || "").toLowerCase() === "overdue" || isPast(task.due_date || task.dueDate));
@@ -126,6 +127,15 @@ export function buildCommandCenterData(raw = {}, user = {}) {
       description: Number(opportunityRail?.summary?.booked || 0)
         ? `${Number(opportunityRail.summary.booked)} booked next step${Number(opportunityRail.summary.booked) === 1 ? "" : "s"}`
         : `${Number(opportunityRail?.summary?.retry_waiting || 0)} recovery action${Number(opportunityRail?.summary?.retry_waiting || 0) === 1 ? "" : "s"} waiting`,
+      href: "/os/hermes",
+    }] : []),
+    ...(commercialRail ? [{
+      id: "commercialRail",
+      title: "Commercial Rail",
+      value: Number(commercialRail?.summary?.total || 0),
+      description: Number(commercialRail?.summary?.paid_verified || 0)
+        ? `${Number(commercialRail.summary.paid_verified)} verified payment${Number(commercialRail.summary.paid_verified) === 1 ? "" : "s"}`
+        : `${Number(commercialRail?.summary?.approvals_required || 0)} approval-gated item${Number(commercialRail?.summary?.approvals_required || 0) === 1 ? "" : "s"}`,
       href: "/os/hermes",
     }] : []),
   ];
@@ -286,6 +296,26 @@ export function buildCommandCenterData(raw = {}, user = {}) {
       suggestedAction: "Review approval boundary",
       dismissible: false,
     }] : []),
+    ...(commercialRail && Number(commercialRail?.summary?.approvals_required || 0) > 0 ? [{
+      id: "commercial-rail-approvals",
+      type: "commercial_rail_approval",
+      severity: "high",
+      title: "Commercial action needs approval",
+      description: `${commercialRail.summary.approvals_required} payment, offer, or onboarding item${commercialRail.summary.approvals_required === 1 ? "" : "s"} need approval boundary review.`,
+      href: "/os/hermes",
+      suggestedAction: "Review commercial action",
+      dismissible: false,
+    }] : []),
+    ...(commercialRail && Number(commercialRail?.failures?.length || 0) > 0 ? [{
+      id: "commercial-rail-failures",
+      type: "commercial_rail_failure",
+      severity: "high",
+      title: "Commercial rail needs review",
+      description: `${commercialRail.failures.length} payment or onboarding item${commercialRail.failures.length === 1 ? "" : "s"} require reconciliation.`,
+      href: "/os/hermes",
+      suggestedAction: "Review Stripe evidence",
+      dismissible: false,
+    }] : []),
   ];
 
   const normalizedApprovals = approvals.slice(0, 6).map((approval, index) => ({
@@ -383,6 +413,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     emailRail,
     callRail,
     opportunityRail,
+    commercialRail,
     revenueEngine,
     meta: {
       activeProjects: activeProjects.length,
