@@ -181,7 +181,7 @@ export async function POST(request: Request) {
   const input = intentInput(seeded.lead, seeded.version);
   const existing = await readExisting(callClient, input);
 
-  if (existing.intent?.provider_call_id) {
+  if (action === "place" && existing.intent?.provider_call_id) {
     return response({ ok: true, duplicate_prevented: true, action, intent: summarizeIntent(existing.intent) });
   }
 
