@@ -57,6 +57,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
   const admin = isOttoServAdmin(user);
   const emailRail = admin && raw.emailRail ? raw.emailRail : null;
   const callRail = admin && raw.callRail ? raw.callRail : null;
+  const opportunityRail = admin && raw.opportunityRail ? raw.opportunityRail : null;
 
   const activeTasks = tasks.filter((task) => ACTIVE_TASK_STATUSES.has(String(task.status || "").toLowerCase()));
   const overdueTasks = tasks.filter((task) => String(task.status || "").toLowerCase() === "overdue" || isPast(task.due_date || task.dueDate));
@@ -116,6 +117,15 @@ export function buildCommandCenterData(raw = {}, user = {}) {
       title: "Call Rail",
       value: Number(callRail?.summary?.queued || 0) + Number(callRail?.summary?.failures || 0) + Number(callRail?.summary?.completed || 0),
       description: callRail?.summary?.failures ? `${callRail.summary.failures} failure${callRail.summary.failures === 1 ? "" : "s"} need review` : `${Number(callRail?.summary?.completed || 0)} verified outcomes`,
+      href: "/os/hermes",
+    }] : []),
+    ...(opportunityRail ? [{
+      id: "opportunityRail",
+      title: "Opportunity Rail",
+      value: Number(opportunityRail?.summary?.total || 0),
+      description: Number(opportunityRail?.summary?.booked || 0)
+        ? `${Number(opportunityRail.summary.booked)} booked next step${Number(opportunityRail.summary.booked) === 1 ? "" : "s"}`
+        : `${Number(opportunityRail?.summary?.retry_waiting || 0)} recovery action${Number(opportunityRail?.summary?.retry_waiting || 0) === 1 ? "" : "s"} waiting`,
       href: "/os/hermes",
     }] : []),
   ];
@@ -256,6 +266,26 @@ export function buildCommandCenterData(raw = {}, user = {}) {
       suggestedAction: "Review call watchdog",
       dismissible: false,
     }] : []),
+    ...(opportunityRail && Number(opportunityRail?.summary?.failed || 0) > 0 ? [{
+      id: "opportunity-rail-failures",
+      type: "opportunity_rail_failure",
+      severity: "high",
+      title: "Opportunity rail needs review",
+      description: `${opportunityRail.summary.failed} opportunity action${opportunityRail.summary.failed === 1 ? "" : "s"} failed before verified booking.`,
+      href: "/os/hermes",
+      suggestedAction: "Review opportunity action",
+      dismissible: false,
+    }] : []),
+    ...(opportunityRail && (Number(opportunityRail?.summary?.blocked || 0) > 0 || Number(opportunityRail?.summary?.approvals_required || 0) > 0) ? [{
+      id: "opportunity-rail-blockers",
+      type: "opportunity_rail_blocker",
+      severity: "medium",
+      title: "Opportunity action is blocked",
+      description: `${Number(opportunityRail?.summary?.blocked || 0) + Number(opportunityRail?.summary?.approvals_required || 0)} item${Number(opportunityRail?.summary?.blocked || 0) + Number(opportunityRail?.summary?.approvals_required || 0) === 1 ? "" : "s"} need policy or Jonathan approval review.`,
+      href: "/os/hermes",
+      suggestedAction: "Review approval boundary",
+      dismissible: false,
+    }] : []),
   ];
 
   const normalizedApprovals = approvals.slice(0, 6).map((approval, index) => ({
@@ -352,6 +382,7 @@ export function buildCommandCenterData(raw = {}, user = {}) {
     leadHealth,
     emailRail,
     callRail,
+    opportunityRail,
     revenueEngine,
     meta: {
       activeProjects: activeProjects.length,
