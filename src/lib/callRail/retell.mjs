@@ -1,11 +1,13 @@
 function clean(v) { return String(v ?? "").trim(); }
 
 export function readRetellConfig(env = process.env) {
+  const fromNumberRef = clean(env.RETELL_PHONE_NUMBER || env.RETELL_FROM_NUMBER || env.RETELL_PHONE_NUMBER_ID);
   return {
-    configured: Boolean(clean(env.RETELL_API_KEY) && (clean(env.RETELL_AGENT_ID) || clean(env.RETELL_PHONE_NUMBER_ID))),
+    configured: Boolean(clean(env.RETELL_API_KEY) && clean(env.RETELL_AGENT_ID) && fromNumberRef),
     api_key: clean(env.RETELL_API_KEY),
     agent_id: clean(env.RETELL_AGENT_ID),
-    from_number_id: clean(env.RETELL_PHONE_NUMBER_ID),
+    from_number: fromNumberRef,
+    from_number_ref: fromNumberRef,
     base_url: clean(env.RETELL_BASE_URL) || "https://api.retellai.com",
   };
 }
@@ -24,10 +26,11 @@ export function makeRetellTransport(options = {}) {
   return {
     provider: "retell",
     async placeCall(intent) {
+      const fromNumber = clean(intent.from_number || intent.fromNumber || cfg.from_number);
       const body = {
         to_number: clean(intent.phone),
-        agent_id: cfg.agent_id || undefined,
-        from_number_id: cfg.from_number_id || undefined,
+        from_number: fromNumber,
+        override_agent_id: cfg.agent_id || undefined,
         metadata: {
           execution_id: clean(intent.execution_id),
           lead_id: clean(intent.lead_id),
@@ -36,6 +39,7 @@ export function makeRetellTransport(options = {}) {
           approved_angle: clean(intent.approved_angle),
         },
       };
+      if (!body.from_number) throw new Error("retell_from_number_missing");
       const res = await fetchImpl(`${root}/v2/create-phone-call`, {
         method: "POST",
         headers: { ...headers, "Idempotency-Key": clean(intent.idempotency_key) },
