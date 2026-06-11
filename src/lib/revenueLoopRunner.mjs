@@ -28,6 +28,12 @@ import { assembleRevenueLoopInput } from "./revenueLoopSources.mjs";
 import { promoteSeedsToWorkOrders } from "./implementationWorkOrders.mjs";
 import { upsertRevenueState } from "./revenueEngineSupabaseStore.mjs";
 import { buildApprovalExecutionQueue, readApprovedDecisionsFromDir } from "./approvalExecutionBridge.mjs";
+import { runServiceDeliveryOperatingCycle } from "./serviceDeliveryPersistence.mjs";
+import {
+  buildVoiceServiceStatusRollup,
+  generateVoiceSetupPacketsFromWorkOrders,
+} from "./retellVoiceServiceAutomation.mjs";
+import { buildFirstClientVoiceActivationStatuses } from "./retellFirstClientActivationPlaybook.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -51,7 +57,7 @@ export async function runRevenueDailyLoop(options = {}) {
   // outputDir fully contains everything the runner writes.
   const storePath = options.storePath || path.join(outputDir, "implementation-work-orders.json");
 
-  const { input, serviceDelivery, sources } = await assembleRevenueLoopInput({
+  const { input, scans, serviceDelivery, sources } = await assembleRevenueLoopInput({
     now,
     cycle,
     maxVolume,
@@ -73,10 +79,38 @@ export async function runRevenueDailyLoop(options = {}) {
       ? asArray(options.approvals)
       : await readApprovedDecisionsFromDir(options.approvalsDir);
   const approvalExecutionQueue = buildApprovalExecutionQueue(approvedDecisions, { now });
+  const serviceDeliveryExecution = await runServiceDeliveryOperatingCycle({
+    records: scans,
+    now,
+    store: options.serviceDeliveryStore,
+    liveClient: options.serviceDeliveryLiveClient,
+  });
+  const voiceSetupPackets = generateVoiceSetupPacketsFromWorkOrders(serviceDeliveryExecution.workOrders, { now });
+  const voiceServiceStatus = buildVoiceServiceStatusRollup(voiceSetupPackets, options.retellVoiceEvents);
+  const voiceActivationWorkOrders = options.firstClientVoiceWorkOrders || serviceDeliveryExecution.workOrders;
+  const firstClientVoiceActivation = buildFirstClientVoiceActivationStatuses(voiceActivationWorkOrders, {
+    ...(options.voiceActivationContext || {}),
+    events: options.voiceActivationContext?.events || options.retellVoiceEvents,
+    now,
+  });
 
   const document = {
     ...run,
     serviceDelivery,
+    serviceDeliveryExecution: {
+      summary: serviceDeliveryExecution.summary,
+      persistence: serviceDeliveryExecution.persistence,
+      opportunities: serviceDeliveryExecution.opportunities,
+      workOrders: serviceDeliveryExecution.workOrders,
+      approval_cards: serviceDeliveryExecution.approval_cards,
+      execution_packets: serviceDeliveryExecution.execution_packets,
+      delivery_status_summaries: serviceDeliveryExecution.delivery_status_summaries,
+      voice_service_status: {
+        ...voiceServiceStatus,
+        packets: voiceSetupPackets,
+      },
+      first_client_voice_activation: firstClientVoiceActivation,
+    },
     implementationWorkOrders: {
       created_this_run: implementation.created,
       skipped_existing: implementation.skipped,
@@ -127,6 +161,9 @@ export async function runRevenueDailyLoop(options = {}) {
       count: approvalExecutionQueue.count,
       skipped_not_approved: approvalExecutionQueue.skipped_not_approved,
     },
+    service_delivery_execution: serviceDeliveryExecution.summary,
+    voice_service_status: voiceServiceStatus.summary,
+    first_client_voice_activation: firstClientVoiceActivation.summary,
     revenue_risks: run.plan.revenue_risks,
     health: run.health,
     dated_output_path: datedPath,

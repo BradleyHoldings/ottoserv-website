@@ -23,6 +23,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { readRevenueState, REVENUE_STATE_TABLE } from "./revenueEngineSupabaseStore.mjs";
+import { readLiveServiceDeliveryStatus } from "./serviceDeliveryPersistence.mjs";
+import {
+  buildVoiceServiceStatusRollup,
+  generateVoiceSetupPacketsFromWorkOrders,
+} from "./retellVoiceServiceAutomation.mjs";
+import { buildFirstClientVoiceActivationStatuses } from "./retellFirstClientActivationPlaybook.mjs";
 
 // Durable fallback used when no local file exists (e.g. Vercel's read-only fs).
 // Returns { data, lastModified, available, source } or a not-available marker.
@@ -59,6 +65,39 @@ function asArray(value) {
 
 function clean(value) {
   return String(value ?? "").trim();
+}
+
+function emptyVoiceServiceStatus() {
+  return {
+    summary: { total: 0, approval_needed: 0, launch_ready: 0, active: 0 },
+    items: [],
+    packets: [],
+  };
+}
+
+function emptyFirstClientVoiceActivation() {
+  return {
+    summary: { total: 0, production_launch_ready: 0, blocked: 0, needs_approval: 0 },
+    items: [],
+  };
+}
+
+function voiceStatusFromWorkOrders(workOrders = []) {
+  const packets = generateVoiceSetupPacketsFromWorkOrders(workOrders);
+  return { ...buildVoiceServiceStatusRollup(packets), packets };
+}
+
+function voiceStatusFromDeliverySummaries(summaries = []) {
+  const workOrders = asArray(summaries).map((summary) => ({
+    id: clean(summary.work_order_id),
+    client: clean(summary.client),
+    service_key: clean(summary.service_key),
+    implementation: {
+      monitoring_metrics: asArray(summary.monitoring_metrics),
+      upsell_paths: asArray(summary.upsell_paths),
+    },
+  }));
+  return voiceStatusFromWorkOrders(workOrders);
 }
 
 // ─── Autonomous revenue loop status (from latest.json) ────────────────────────
@@ -282,11 +321,63 @@ export async function readApprovalExecutionQueue(options = {}) {
   };
 }
 
+export async function readServiceDeliveryExecution(options = {}) {
+  const live = await readLiveServiceDeliveryStatus(options);
+  if (live.available) {
+    return {
+      available: true,
+      source: { file: "live_supabase", lastModified: null },
+      summary: live.summary,
+      approval_cards: asArray(live.approval_cards),
+      execution_packets: asArray(live.execution_packets),
+      delivery_status_summaries: asArray(live.delivery_status_summaries),
+      voice_service_status: voiceStatusFromDeliverySummaries(live.delivery_status_summaries),
+      first_client_voice_activation: buildFirstClientVoiceActivationStatuses([]),
+    };
+  }
+
+  const dir = resolveRevenueEngineDir(options);
+  let { data, lastModified, available } = await readJsonWithMeta(path.join(dir, "latest.json"));
+  let sourceFile = path.join(dir, "latest.json");
+
+  if (!available || !data) {
+    const fallback = await readRevenueStateFallback();
+    if (fallback.available) {
+      data = fallback.data;
+      lastModified = fallback.lastModified;
+      available = true;
+      sourceFile = fallback.source;
+    }
+  }
+
+  const execution = data?.serviceDeliveryExecution || {};
+  const voiceServiceStatus =
+    execution.voice_service_status || voiceStatusFromWorkOrders(execution.workOrders || execution.work_orders);
+  return {
+    available: Boolean(available && execution.summary),
+    source: { file: sourceFile, lastModified: lastModified || null },
+    summary: execution.summary || {
+      records_seen: 0,
+      opportunities: { total: 0, persisted: 0 },
+      work_orders: { total: 0, persisted: 0 },
+      approvals: { pending: 0 },
+      execution_packets: { queue_ready: 0 },
+      delivery_packages: { recoverable: 0 },
+    },
+    approval_cards: asArray(execution.approval_cards),
+    execution_packets: asArray(execution.execution_packets),
+    delivery_status_summaries: asArray(execution.delivery_status_summaries),
+    voice_service_status: voiceServiceStatus || emptyVoiceServiceStatus(),
+    first_client_voice_activation: execution.first_client_voice_activation || emptyFirstClientVoiceActivation(),
+  };
+}
+
 export async function readRevenueDashboardReadModel(options = {}) {
-  const [revenue, implementation, approvalExecution] = await Promise.all([
+  const [revenue, implementation, approvalExecution, serviceDeliveryExecution] = await Promise.all([
     readAutonomousRevenueState(options),
     readImplementationWorkOrders(options),
     readApprovalExecutionQueue(options),
+    readServiceDeliveryExecution(options),
   ]);
-  return { revenue, implementation, approvalExecution, readOnly: true };
+  return { revenue, implementation, approvalExecution, serviceDeliveryExecution, readOnly: true };
 }

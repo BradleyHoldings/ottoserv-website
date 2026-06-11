@@ -5,6 +5,7 @@ import path from "path";
 import { cookies } from "next/headers";
 import { hermesApprovals, HermesRiskLevel } from "@/lib/hermesCommandCenter";
 import { formatTimestamp, HERMES_SAFE_EXPORT_DIR } from "@/lib/hermesReadOnlyAdapter";
+import { readServiceDeliveryExecution } from "@/lib/revenueEngineReadAdapter.mjs";
 
 export const HERMES_APPROVAL_OUTBOX_DIR = "/home/clawuser/hermes_safe_action_outbox/approval_decisions";
 export const HERMES_APPROVAL_AUDIT_LOG = "/home/clawuser/hermes_safe_action_outbox/audit_log.jsonl";
@@ -27,7 +28,7 @@ export interface HermesApprovalItem {
   riskLevel: HermesRiskLevel;
   unlocks: string;
   approvalType: "one_time" | "recurring_policy";
-  source: "safe_approval_queue" | "phase_1_fixture";
+  source: "safe_approval_queue" | "phase_1_fixture" | "phase6b_service_delivery";
   importedAt: string | null;
 }
 
@@ -285,7 +286,10 @@ export async function writeApprovalDecision(formData: FormData): Promise<Approva
 }
 
 async function getTraceableApprovalItems(): Promise<HermesApprovalItem[]> {
-  const importedItems = await readSafeApprovalQueueItems();
+  const [importedItems, serviceDeliveryExecution] = await Promise.all([
+    readSafeApprovalQueueItems(),
+    readServiceDeliveryExecution(),
+  ]);
   const fixtureItems: HermesApprovalItem[] = hermesApprovals.map((approval) => ({
     id: approval.id,
     requestedAction: sanitizeImportedText(approval.requestedAction),
@@ -296,9 +300,28 @@ async function getTraceableApprovalItems(): Promise<HermesApprovalItem[]> {
     source: "phase_1_fixture",
     importedAt: null,
   }));
+  const serviceDeliveryItems: HermesApprovalItem[] = (serviceDeliveryExecution.approval_cards || []).map((card: {
+    id: string;
+    requestedAction?: string;
+    reason?: string;
+    riskLevel?: string;
+    unlocks?: string;
+    approvalType?: "one_time" | "recurring_policy";
+    created_at?: string;
+    payload?: { expected_execution_result?: string; risk_reason?: string };
+  }) => ({
+    id: sanitizeImportedText(card.id),
+    requestedAction: sanitizeImportedText(card.requestedAction || "Approve service delivery work order"),
+    reason: sanitizeImportedText(card.reason || card.payload?.risk_reason || "Service delivery work order requires approval."),
+    riskLevel: normalizeRiskLevel(card.riskLevel || "high"),
+    unlocks: sanitizeImportedText(card.unlocks || card.payload?.expected_execution_result || "Hermes can route the service delivery work after approval."),
+    approvalType: card.approvalType || "one_time",
+    source: "phase6b_service_delivery",
+    importedAt: card.created_at || serviceDeliveryExecution.source?.lastModified || null,
+  }));
 
   const byId = new Map<string, HermesApprovalItem>();
-  for (const item of [...fixtureItems, ...importedItems]) {
+  for (const item of [...fixtureItems, ...importedItems, ...serviceDeliveryItems]) {
     byId.set(item.id, item);
   }
 

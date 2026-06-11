@@ -37,6 +37,7 @@
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "verify:revenue-flow": "node scripts/verify-revenue-flow.mjs",
     "verify:social-flow": "node scripts/verify-social-flow.mjs",
+    "service-delivery:phase6d-acceptance": "node scripts/phase6d-controlled-real-acceptance.mjs",
     "social:import-evidence": "node scripts/import-social-evidence.mjs"
   },
   "dependencies": {

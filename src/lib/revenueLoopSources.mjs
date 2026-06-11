@@ -115,7 +115,7 @@ export async function loadSocialItems(paths) {
 // and owns them, and so health flips to degraded/repair_first when a revenue rail
 // is empty or stale. Honest empty state must look broken, not "ready".
 
-export function detectFailures({ leads, callOutcomes, paths, now }) {
+export function detectFailures({ leads, callOutcomes, paths }) {
   const failures = [];
 
   // 1. Empty cold-lead pipeline — nothing can move without leads.
@@ -163,7 +163,7 @@ export function detectFailures({ leads, callOutcomes, paths, now }) {
   return failures;
 }
 
-export function detectRevenueRisks({ leads, callOutcomes, social, scans, now }) {
+export function detectRevenueRisks({ leads, social, scans, now }) {
   const risks = [];
   if (!leads.length) {
     risks.push("Cold-lead pipeline is empty — run lead discovery/import before outreach, calls, or revenue can move.");
@@ -258,6 +258,7 @@ export async function assembleRevenueLoopInput(options = {}) {
 
   return {
     input,
+    scans,
     serviceDelivery,
     sources: {
       leads_count: leads.length,
