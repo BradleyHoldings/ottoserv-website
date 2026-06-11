@@ -67,14 +67,16 @@ export function buildPaidClientOnboardingPayload(intent = {}, { lead = {}, now =
 
   const onboarding_invitation = {
     invitation_id: invitationId,
+    commercial_intent_id: intent.intent_id,
     client_id: clientId,
     project_id: project.id,
     work_order_id: work_order.id,
     recipient: client_record.email,
     provider: "gmail",
-    provider_message_id: "gmail_onboard_1",
-    status: "sent",
-    sent_at: now,
+    provider_message_id: "",
+    status: "pending_send",
+    queued_at: now,
+    sent_at: "",
     subject: `Welcome to OttoServ: ${clean(intent.selected_offer?.name)}`,
   };
 
@@ -92,14 +94,16 @@ export async function atomicallyCreatePaidClientOnboarding(intent = {}, options 
 
   const next = {
     ...intent,
-    lifecycle_state: COMMERCIAL_STATES.ONBOARDING_INVITED,
+    lifecycle_state: COMMERCIAL_STATES.CLIENT_ONBOARDING_CREATED,
     onboarding: {
       client_id: payload.client_record.client_id,
       project_id: payload.project.id,
       work_order_id: payload.work_order.id,
       invitation_id: payload.onboarding_invitation.invitation_id,
+      invitation_status: payload.onboarding_invitation.status,
+      invitation_provider: payload.onboarding_invitation.provider,
       invitation_provider_message_id: payload.onboarding_invitation.provider_message_id,
-      invited_at: now,
+      queued_at: now,
     },
     updated_at: now,
     version: Number(intent.version || 1) + (result.idempotent ? 0 : 1),

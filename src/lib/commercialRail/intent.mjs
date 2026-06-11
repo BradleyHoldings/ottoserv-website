@@ -21,14 +21,14 @@ export const COMMERCIAL_STATES = {
 export const APPROVED_OFFERS = [
   {
     offer_id: "front_office_leak_check_pilot",
-    name: "Front Office Leak Check Pilot",
-    description: "Approved low-risk test offer for a controlled front-office leak check pilot.",
+    name: "Automation Audit",
+    description: "Approved low-risk Stripe test-mode offer for controlled Phase 5 acceptance.",
     approved: true,
-    amount_total: 29900,
+    amount_total: 100,
     currency: "usd",
-    stripe_product_id: "prod_test_front_office_leak_check",
-    stripe_price_id: "price_test_front_office_leak_check_pilot",
-    source_ref: "data/visibility-kit/clients/ottoserv.json pricing.summary",
+    stripe_product_id: "prod_UcREgJInooAR2m",
+    stripe_price_id: "price_1TdCMP00uJ9dJLfUM8F9HYTi",
+    source_ref: "Stripe test-mode approved product catalog: Automation Audit",
   },
   {
     offer_id: "starter_monthly",

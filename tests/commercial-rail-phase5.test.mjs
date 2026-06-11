@@ -46,7 +46,7 @@ test("commercial intent uses deterministic IDs and only selected approved offers
   assert.equal(first.lead_ref.version, 5);
   assert.equal(first.booking_evidence.provider_event_id, "cal_evt_phase4_controlled");
   assert.equal(first.selected_offer.offer_id, "front_office_leak_check_pilot");
-  assert.equal(first.selected_offer.stripe_price_id, "price_test_front_office_leak_check_pilot");
+  assert.equal(first.selected_offer.stripe_price_id, "price_1TdCMP00uJ9dJLfUM8F9HYTi");
   assert.equal(first.policy_receipt.requires_jonathan_approval, false);
   assert.equal(first.lifecycle_state, "approved_offer_selected");
 });
@@ -64,7 +64,7 @@ test("commercial policy blocks custom terms, stale lead versions, and nonstandar
 
   const result = evaluateCommercialPolicy(custom, {
     lead: { ...BOOKED_LEAD, version: 6 },
-    approvedStripePriceIds: ["price_test_front_office_leak_check_pilot"],
+    approvedStripePriceIds: ["price_1TdCMP00uJ9dJLfUM8F9HYTi"],
     now: NOW,
   });
 
@@ -90,14 +90,14 @@ test("order summary is truthful approved data and payment links are idempotent",
   const first = await createStripePaymentRequest(intent, { client, stripe, now: NOW });
   const rerun = await createStripePaymentRequest(intent, { client, stripe, now: NOW });
 
-  assert.match(summary.subject, /Front Office Leak Check Pilot/);
-  assert.match(summary.body, /299\.00 USD/);
+  assert.match(summary.subject, /Automation Audit/);
+  assert.match(summary.body, /1\.00 USD/);
   assert.doesNotMatch(summary.body, /guarantee|discount|custom/i);
   assert.equal(first.ok, true);
   assert.equal(first.intent.lifecycle_state, "payment_link_created");
   assert.equal(first.intent.payment.provider_link_id, "plink_1");
   assert.equal(first.intent.payment.provider_session_id, "");
-  assert.equal(first.intent.payment.amount_total, 29900);
+  assert.equal(first.intent.payment.amount_total, 100);
   assert.deepEqual(client.upserts.map((row) => row.version), [1, 2]);
   assert.equal(stripe.created.length, 1);
   assert.equal(rerun.idempotent, true);
@@ -114,7 +114,7 @@ test("verified Stripe payment evidence is required before paid state and onboard
   const checkoutStarted = await reconcileStripePaymentEvidence(intent, {
     type: "checkout.session.async_payment_pending",
     id: "evt_pending",
-    data: { object: { id: "cs_test_pending", payment_status: "unpaid", amount_total: 29900, currency: "usd" } },
+    data: { object: { id: "cs_test_pending", payment_status: "unpaid", amount_total: 100, currency: "usd" } },
   }, { client, now: NOW });
   assert.equal(checkoutStarted.ok, false);
   assert.equal(checkoutStarted.intent.lifecycle_state, "checkout_started_unpaid");
@@ -127,7 +127,7 @@ test("verified Stripe payment evidence is required before paid state and onboard
         id: "cs_test_paid",
         payment_status: "paid",
         payment_intent: "pi_test_paid",
-        amount_total: 29900,
+        amount_total: 100,
         currency: "usd",
         customer: "cus_test_phase5",
         customer_details: { email: "jonathan+phase5@example.com", name: "Jonathan Test" },
@@ -147,7 +147,10 @@ test("verified Stripe payment evidence is required before paid state and onboard
   assert.equal(onboarding.client_record.client_id, "client_lead_phase5_jonathan_controlled");
   assert.equal(onboarding.project.id, "PRJ-PHASE5-JONATHAN-CONTROLLED");
   assert.equal(onboarding.work_order.id, "WO-PHASE5-JONATHAN-CONTROLLED");
-  assert.equal(onboarding.onboarding_invitation.provider_message_id, "gmail_onboard_1");
+  assert.equal(onboarding.intent.lifecycle_state, "client_onboarding_created");
+  assert.equal(onboarding.onboarding_invitation.status, "pending_send");
+  assert.equal(onboarding.onboarding_invitation.provider_message_id, "");
+  assert.equal(onboarding.intent.onboarding.invitation_status, "pending_send");
   assert.equal(rerun.idempotent, true);
   assert.equal(client.clients.size, 1);
   assert.equal(client.projects.size, 1);
@@ -169,7 +172,7 @@ test("real Stripe payment_intent.succeeded evidence can verify paid state", asyn
       object: {
         id: "pi_test_paid",
         status: "succeeded",
-        amount_received: 29900,
+        amount_received: 100,
         currency: "usd",
         customer: "cus_test_phase5",
         receipt_email: "jonathan+phase5@example.com",
@@ -181,7 +184,7 @@ test("real Stripe payment_intent.succeeded evidence can verify paid state", asyn
   assert.equal(paid.intent.lifecycle_state, "paid_verified");
   assert.equal(paid.intent.payment.provider_payment_intent_id, "pi_test_paid");
   assert.equal(paid.intent.payment.status, "paid");
-  assert.equal(paid.intent.payment.amount_total, 29900);
+  assert.equal(paid.intent.payment.amount_total, 100);
   assert.equal(paid.intent.payment.customer_email, "jonathan+phase5@example.com");
 });
 
@@ -208,8 +211,8 @@ test("admin command center exposes Phase 5 commercial states and hides them from
   const commercialRail = buildCommercialDashboard({
     intents: [
       { intent_id: "comm_approval", lifecycle_state: "approval_required", selected_offer: { name: "Custom" }, blockers: ["custom_scope_requires_approval"] },
-      { intent_id: "comm_paid", lifecycle_state: "paid_verified", selected_offer: { name: "Front Office Leak Check Pilot" }, payment: { status: "paid", amount_total: 29900, currency: "usd" } },
-      { intent_id: "comm_onboarding", lifecycle_state: "onboarding_invited", onboarding: { invitation_provider_message_id: "gmail_onboard_1" } },
+      { intent_id: "comm_paid", lifecycle_state: "paid_verified", selected_offer: { name: "Automation Audit" }, payment: { status: "paid", amount_total: 100, currency: "usd" } },
+      { intent_id: "comm_onboarding", lifecycle_state: "client_onboarding_created", onboarding: { invitation_status: "pending_send" } },
       { intent_id: "comm_failed", lifecycle_state: "payment_failed", failures: [{ reason: "card_declined" }] },
     ],
   });
