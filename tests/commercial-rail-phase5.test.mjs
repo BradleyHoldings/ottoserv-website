@@ -98,6 +98,7 @@ test("order summary is truthful approved data and payment links are idempotent",
   assert.equal(first.intent.payment.provider_link_id, "plink_1");
   assert.equal(first.intent.payment.provider_session_id, "");
   assert.equal(first.intent.payment.amount_total, 29900);
+  assert.deepEqual(client.upserts.map((row) => row.version), [1, 2]);
   assert.equal(stripe.created.length, 1);
   assert.equal(rerun.idempotent, true);
   assert.equal(stripe.created.length, 1);
@@ -152,6 +153,36 @@ test("verified Stripe payment evidence is required before paid state and onboard
   assert.equal(client.projects.size, 1);
   assert.equal(client.workOrders.size, 1);
   assert.equal(client.onboardingInvites.size, 1);
+});
+
+test("real Stripe payment_intent.succeeded evidence can verify paid state", async () => {
+  const client = fakeCommercialClient();
+  const intent = (await createStripePaymentRequest(createCommercialIntent({
+    lead: BOOKED_LEAD,
+    offer: selectApprovedOffer("front_office_leak_check_pilot"),
+  }, { now: NOW }), { client, stripe: fakeStripe(), now: NOW })).intent;
+
+  const paid = await reconcileStripePaymentEvidence(intent, {
+    type: "payment_intent.succeeded",
+    id: "evt_pi_paid",
+    data: {
+      object: {
+        id: "pi_test_paid",
+        status: "succeeded",
+        amount_received: 29900,
+        currency: "usd",
+        customer: "cus_test_phase5",
+        receipt_email: "jonathan+phase5@example.com",
+      },
+    },
+  }, { client, now: NOW });
+
+  assert.equal(paid.ok, true);
+  assert.equal(paid.intent.lifecycle_state, "paid_verified");
+  assert.equal(paid.intent.payment.provider_payment_intent_id, "pi_test_paid");
+  assert.equal(paid.intent.payment.status, "paid");
+  assert.equal(paid.intent.payment.amount_total, 29900);
+  assert.equal(paid.intent.payment.customer_email, "jonathan+phase5@example.com");
 });
 
 test("expired, failed, refund, and dispute signals truthfully remain unpaid or blocked", () => {
@@ -218,6 +249,7 @@ function fakeCommercialClient() {
   const projects = new Map();
   const workOrders = new Map();
   const onboardingInvites = new Map();
+  const upserts = [];
   return {
     intents,
     linksByIntent,
@@ -225,8 +257,9 @@ function fakeCommercialClient() {
     projects,
     workOrders,
     onboardingInvites,
+    upserts,
     async readIntent(id) { return intents.get(id) || null; },
-    async upsertIntent(intent) { intents.set(intent.intent_id, intent); return { ok: true, row: intent }; },
+    async upsertIntent(intent) { upserts.push(intent); intents.set(intent.intent_id, intent); return { ok: true, row: intent }; },
     async readPaymentLink(intentId) { return linksByIntent.get(intentId) || null; },
     async writePaymentLink(intentId, payment) { linksByIntent.set(intentId, payment); return { ok: true, row: payment }; },
     async atomicPaidClientOnboarding(payload) {

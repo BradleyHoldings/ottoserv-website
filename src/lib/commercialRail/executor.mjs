@@ -54,6 +54,11 @@ export async function createStripePaymentRequest(intent = {}, options = {}) {
     return { ok: false, reason: "policy_blocked", policy, intent: blocked };
   }
 
+  const initialWrite = await client.upsertIntent?.(intent);
+  if (initialWrite && initialWrite.ok === false) {
+    return { ok: false, reason: initialWrite.reason || initialWrite.error || "commercial_intent_initial_write_failed", intent };
+  }
+
   const link = await stripe.createPaymentLink({
     line_items: [{ price: intent.selected_offer.stripe_price_id, quantity: 1 }],
     metadata: {
@@ -102,6 +107,27 @@ export async function reconcileStripePaymentEvidence(intent = {}, event = {}, op
       customer_id: clean(obj.customer),
       customer_email: clean(obj.customer_details?.email),
       customer_name: clean(obj.customer_details?.name),
+      verified_paid_at: now,
+      provider_event_id: clean(event.id),
+    };
+    next.version = Number(next.version || 1) + 1;
+    await options.client?.upsertIntent?.(next);
+    return { ok: true, intent: next, evidence };
+  }
+
+  if (clean(event.type) === "payment_intent.succeeded" && lower(obj.status) === "succeeded") {
+    next.lifecycle_state = COMMERCIAL_STATES.PAID_VERIFIED;
+    next.payment = {
+      ...basePayment,
+      provider: "stripe",
+      provider_session_id: clean(basePayment.provider_session_id),
+      provider_payment_intent_id: clean(obj.id),
+      status: "paid",
+      amount_total: Number(obj.amount_received || obj.amount || basePayment.amount_total || 0),
+      currency: lower(obj.currency || basePayment.currency || "usd"),
+      customer_id: clean(obj.customer),
+      customer_email: clean(obj.receipt_email || basePayment.customer_email),
+      customer_name: clean(basePayment.customer_name),
       verified_paid_at: now,
       provider_event_id: clean(event.id),
     };
