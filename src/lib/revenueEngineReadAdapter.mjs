@@ -182,6 +182,7 @@ export async function readAutonomousRevenueState(options = {}) {
     resourceAvailabilityState: data.resourceAvailabilityState || null,
     schedulingWindowState: data.schedulingWindowState || null,
     dispatchControlState: data.dispatchControlState || null,
+    dailyAutonomousOperatingCycle: data.dailyAutonomousOperatingCycle || null,
   };
 }
 

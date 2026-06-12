@@ -36,6 +36,7 @@ function baseDecision(handoff = {}, schedule = {}) {
   return {
     task_id: clean(handoff.task_id),
     source_system: clean(handoff.source_system),
+    task_type: clean(handoff.task_type),
     current_owner: clean(handoff.current_owner),
     target_assignee_resource: clean(schedule.required_resource || handoff.current_owner),
     current_status: clean(handoff.status),

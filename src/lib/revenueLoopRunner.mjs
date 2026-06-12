@@ -48,6 +48,7 @@ import {
   buildSchedulingWindowState,
 } from "./resourceAvailabilityScheduling.mjs";
 import { buildDispatchControlState } from "./dispatchControlState.mjs";
+import { buildDailyAutonomousOperatingCycle } from "./dailyAutonomousOperatingCycle.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -223,6 +224,26 @@ export async function runRevenueDailyLoop(options = {}) {
     resourceAvailabilityState,
     schedulingWindowState,
   });
+  const dailyAutonomousOperatingCycle = buildDailyAutonomousOperatingCycle({
+    now,
+    mode: options.dailyOperatingCycleMode || "queue_only",
+    state: {
+      leadSupplyDailyLoop,
+      publicLeadDiscovery,
+      durableRevenueExecutionQueue,
+      controlledEmailExecution,
+      serviceDeliveryExecution,
+      approvalExecutionQueue,
+    },
+    commandTasks,
+    resources: options.commandResources || options.agentResources || {},
+    approvals: options.schedulingApprovals || options.commandApprovals || {},
+    multiAgentCommandState,
+    taskOwnershipLedger,
+    resourceAvailabilityState,
+    schedulingWindowState,
+    dispatchControlState,
+  });
 
   const document = {
     ...run,
@@ -235,6 +256,7 @@ export async function runRevenueDailyLoop(options = {}) {
     resourceAvailabilityState,
     schedulingWindowState,
     dispatchControlState,
+    dailyAutonomousOperatingCycle,
     serviceDelivery,
     serviceDeliveryExecution: {
       summary: serviceDeliveryExecution.summary,
@@ -309,6 +331,7 @@ export async function runRevenueDailyLoop(options = {}) {
     resource_availability_state: resourceAvailabilityState.summary,
     scheduling_window_state: schedulingWindowState.summary,
     dispatch_control_state: dispatchControlState.summary,
+    daily_autonomous_operating_cycle: dailyAutonomousOperatingCycle.report_summary,
     service_delivery_execution: serviceDeliveryExecution.summary,
     voice_service_status: voiceServiceStatus.summary,
     first_client_voice_activation: firstClientVoiceActivation.summary,
