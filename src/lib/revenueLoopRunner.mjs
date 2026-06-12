@@ -42,6 +42,7 @@ import {
 import { prepareControlledEmailExecution } from "./leadSupplyEmailExecutionGate.mjs";
 import { runPublicLeadDiscovery } from "./publicLeadDiscovery.mjs";
 import { buildMultiAgentCommandState } from "./multiAgentCommandState.mjs";
+import { buildTaskOwnershipLedger } from "./taskOwnershipLedger.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -185,6 +186,20 @@ export async function runRevenueDailyLoop(options = {}) {
     tasks: commandTasks,
     resources: options.commandResources || options.agentResources || {},
   });
+  const builtTaskOwnershipLedger = buildTaskOwnershipLedger({
+    now,
+    tasks: commandTasks,
+    resources: options.commandResources || options.agentResources || {},
+    multiAgentCommandState,
+    durableRevenueExecutionQueue,
+    serviceDeliveryExecution,
+    approvalExecutionQueue,
+    publicLeadDiscovery,
+    store: options.taskOwnershipStore,
+  });
+  const taskOwnershipLedger = Object.fromEntries(
+    Object.entries(builtTaskOwnershipLedger).filter(([key]) => key !== "store"),
+  );
 
   const document = {
     ...run,
@@ -193,6 +208,7 @@ export async function runRevenueDailyLoop(options = {}) {
     durableRevenueExecutionQueue,
     controlledEmailExecution,
     multiAgentCommandState,
+    taskOwnershipLedger,
     serviceDelivery,
     serviceDeliveryExecution: {
       summary: serviceDeliveryExecution.summary,
@@ -263,6 +279,7 @@ export async function runRevenueDailyLoop(options = {}) {
     durable_revenue_execution_queue: durableRevenueExecutionQueue.summary,
     controlled_email_execution: controlledEmailExecution.summary,
     multi_agent_command_state: multiAgentCommandState.summary,
+    task_ownership_ledger: taskOwnershipLedger.summary,
     service_delivery_execution: serviceDeliveryExecution.summary,
     voice_service_status: voiceServiceStatus.summary,
     first_client_voice_activation: firstClientVoiceActivation.summary,

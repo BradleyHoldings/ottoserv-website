@@ -178,6 +178,7 @@ export async function readAutonomousRevenueState(options = {}) {
     durableRevenueExecutionQueue: data.durableRevenueExecutionQueue || null,
     controlledEmailExecution: data.controlledEmailExecution || null,
     multiAgentCommandState: data.multiAgentCommandState || null,
+    taskOwnershipLedger: data.taskOwnershipLedger || null,
   };
 }
 
