@@ -35,6 +35,17 @@ export type AutonomousRevenueState = {
   repairPackets: RevenueRepairPacket[];
   revenueRisks: string[];
   queueCounts: Record<string, number>;
+  leadSupplyDailyLoop?: unknown;
+  publicLeadDiscovery?: unknown;
+  durableRevenueExecutionQueue?: unknown;
+  controlledEmailExecution?: unknown;
+  multiAgentCommandState?: unknown;
+  taskOwnershipLedger?: unknown;
+  resourceAvailabilityState?: unknown;
+  schedulingWindowState?: unknown;
+  dispatchControlState?: unknown;
+  dailyAutonomousOperatingCycle?: unknown;
+  autonomyGraduationState?: unknown;
 };
 
 export type ImplementationWorkOrderView = {
@@ -83,5 +94,7 @@ export function readImplementationWorkOrders(options?: RevenueReadOptions): Prom
 export function readRevenueDashboardReadModel(options?: RevenueReadOptions): Promise<{
   revenue: AutonomousRevenueState;
   implementation: ImplementationWorkOrdersState;
+  approvalExecution: unknown;
+  serviceDeliveryExecution: unknown;
   readOnly: true;
 }>;

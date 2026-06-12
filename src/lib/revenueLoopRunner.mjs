@@ -49,6 +49,7 @@ import {
 } from "./resourceAvailabilityScheduling.mjs";
 import { buildDispatchControlState } from "./dispatchControlState.mjs";
 import { buildDailyAutonomousOperatingCycle } from "./dailyAutonomousOperatingCycle.mjs";
+import { buildAutonomyGraduationState } from "./autonomyGraduationFramework.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -244,6 +245,17 @@ export async function runRevenueDailyLoop(options = {}) {
     schedulingWindowState,
     dispatchControlState,
   });
+  const autonomyGraduationState = buildAutonomyGraduationState({
+    now,
+    actionCandidates: options.autonomyGraduationActions,
+    commandTasks,
+    multiAgentCommandState,
+    taskOwnershipLedger,
+    resourceAvailabilityState,
+    schedulingWindowState,
+    dispatchControlState,
+    dailyAutonomousOperatingCycle,
+  });
 
   const document = {
     ...run,
@@ -257,6 +269,7 @@ export async function runRevenueDailyLoop(options = {}) {
     schedulingWindowState,
     dispatchControlState,
     dailyAutonomousOperatingCycle,
+    autonomyGraduationState,
     serviceDelivery,
     serviceDeliveryExecution: {
       summary: serviceDeliveryExecution.summary,
@@ -332,6 +345,7 @@ export async function runRevenueDailyLoop(options = {}) {
     scheduling_window_state: schedulingWindowState.summary,
     dispatch_control_state: dispatchControlState.summary,
     daily_autonomous_operating_cycle: dailyAutonomousOperatingCycle.report_summary,
+    autonomy_graduation_state: autonomyGraduationState.summary,
     service_delivery_execution: serviceDeliveryExecution.summary,
     voice_service_status: voiceServiceStatus.summary,
     first_client_voice_activation: firstClientVoiceActivation.summary,
