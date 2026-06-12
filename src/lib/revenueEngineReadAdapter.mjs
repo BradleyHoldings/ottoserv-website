@@ -174,7 +174,10 @@ export async function readAutonomousRevenueState(options = {}) {
     revenueRisks: asArray(plan.revenue_risks).map(clean).filter(Boolean),
     queueCounts: health.queue_counts || {},
     leadSupplyDailyLoop: data.leadSupplyDailyLoop || null,
+    publicLeadDiscovery: data.publicLeadDiscovery || null,
     durableRevenueExecutionQueue: data.durableRevenueExecutionQueue || null,
+    controlledEmailExecution: data.controlledEmailExecution || null,
+    multiAgentCommandState: data.multiAgentCommandState || null,
   };
 }
 

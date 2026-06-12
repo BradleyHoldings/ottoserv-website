@@ -39,6 +39,9 @@ import {
   createMemoryRevenueExecutionStore,
   persistLeadSupplyExecution,
 } from "./leadSupplyExecutionPersistence.mjs";
+import { prepareControlledEmailExecution } from "./leadSupplyEmailExecutionGate.mjs";
+import { runPublicLeadDiscovery } from "./publicLeadDiscovery.mjs";
+import { buildMultiAgentCommandState } from "./multiAgentCommandState.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -51,6 +54,15 @@ export function defaultOutputDir(cwd = process.cwd()) {
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function cleanExecutionRailTaskType(rail = "") {
+  const value = String(rail || "").trim().toLowerCase();
+  if (value === "codex") return "code_changes";
+  if (value === "cowork") return "browser_manual_research";
+  if (value === "hermes_internal") return "service_delivery_work_order";
+  if (value === "manual_review") return "approval_review";
+  return "service_delivery_work_order";
 }
 
 export async function runRevenueDailyLoop(options = {}) {
@@ -98,11 +110,20 @@ export async function runRevenueDailyLoop(options = {}) {
     events: options.voiceActivationContext?.events || options.retellVoiceEvents,
     now,
   });
-  const leadSupplyDailyLoop = runLeadSupplyDailyLoop({
-    sources: options.leadSupplySources || [
+  const publicLeadDiscovery = runPublicLeadDiscovery({
+    sources: options.publicLeadDiscoverySources || [],
+    now,
+    doNotContact: options.leadSupplyDoNotContact,
+    recentContactHistory: options.publicLeadRecentContactHistory,
+    existingAliases: options.publicLeadExistingAliases,
+    leadSupplyOptions: options.leadSupplyOptions,
+  });
+  const leadSupplySources = options.leadSupplySources || [
       { source_type: "existing_ottoserv_lead_records", records: input.leads },
       { source_type: "front_office_leak_check_submissions", records: scans },
-    ],
+    ];
+  const leadSupplyDailyLoop = runLeadSupplyDailyLoop({
+    sources: [...leadSupplySources, ...publicLeadDiscovery.leadSupplySources],
     existingTasks: options.leadSupplyExistingTasks,
     failures: input.failures,
     now,
@@ -118,11 +139,60 @@ export async function runRevenueDailyLoop(options = {}) {
     callClient: options.leadSupplyCallClient,
   });
   const durableRevenueExecutionQueue = persistedLeadSupplyExecution.queue;
+  const controlledEmailExecution = prepareControlledEmailExecution(durableRevenueExecutionQueue, {
+    now,
+    ...(options.controlledEmailExecutionOptions || {}),
+  });
+  const commandTasks = [
+    ...asArray(options.commandTasks),
+    ...asArray(approvalExecutionQueue.items),
+    ...asArray(serviceDeliveryExecution.execution_packets).map((packet) => ({
+      task_id: packet.task_id,
+      task_type: cleanExecutionRailTaskType(packet.execution_rail),
+      assigned_agent: packet.assigned_agent,
+      status: packet.status,
+      required_evidence: packet.required_evidence,
+      evidence_path: asArray(packet.required_evidence).join("; "),
+      approval_required: packet.status === "blocked_pending_approval",
+      created_at: packet.created_at,
+      source: "serviceDeliveryExecution",
+    })),
+    ...asArray(durableRevenueExecutionQueue.items).map((item) => ({
+      task_id: item.action_id,
+      task_type: item.raw_action?.email?.intent ? "email_queue_execution" : item.raw_action?.call?.intent ? "call_queue_execution" : "revenue_queue_task",
+      assigned_agent: item.raw_action?.email?.intent ? "email_rail" : item.raw_action?.call?.intent ? "retell_call_rail" : "hermes",
+      status: item.status,
+      lead_id: item.lead_id,
+      required_evidence: ["policy_receipt", "execution_evidence"],
+      evidence_path: item.evidence_source_reference,
+      created_at: item.created_at,
+      source: "durableRevenueExecutionQueue",
+    })),
+    ...asArray(publicLeadDiscovery.cowork_packets).map((packet) => ({
+      task_id: packet.packet_id,
+      task_type: "browser_manual_research",
+      assigned_agent: "cowork",
+      status: "queued",
+      lead_id: packet.lead_id,
+      required_evidence: packet.required_evidence,
+      evidence_path: asArray(packet.required_evidence).join("; "),
+      created_at: packet.created_at,
+      source: "publicLeadDiscovery",
+    })),
+  ];
+  const multiAgentCommandState = buildMultiAgentCommandState({
+    now,
+    tasks: commandTasks,
+    resources: options.commandResources || options.agentResources || {},
+  });
 
   const document = {
     ...run,
     leadSupplyDailyLoop,
+    publicLeadDiscovery,
     durableRevenueExecutionQueue,
+    controlledEmailExecution,
+    multiAgentCommandState,
     serviceDelivery,
     serviceDeliveryExecution: {
       summary: serviceDeliveryExecution.summary,
@@ -189,7 +259,10 @@ export async function runRevenueDailyLoop(options = {}) {
       skipped_not_approved: approvalExecutionQueue.skipped_not_approved,
     },
     lead_supply_daily_loop: leadSupplyDailyLoop.summary,
+    public_lead_discovery: publicLeadDiscovery.summary,
     durable_revenue_execution_queue: durableRevenueExecutionQueue.summary,
+    controlled_email_execution: controlledEmailExecution.summary,
+    multi_agent_command_state: multiAgentCommandState.summary,
     service_delivery_execution: serviceDeliveryExecution.summary,
     voice_service_status: voiceServiceStatus.summary,
     first_client_voice_activation: firstClientVoiceActivation.summary,
