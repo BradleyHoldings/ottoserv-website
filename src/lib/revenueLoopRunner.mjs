@@ -43,6 +43,11 @@ import { prepareControlledEmailExecution } from "./leadSupplyEmailExecutionGate.
 import { runPublicLeadDiscovery } from "./publicLeadDiscovery.mjs";
 import { buildMultiAgentCommandState } from "./multiAgentCommandState.mjs";
 import { buildTaskOwnershipLedger } from "./taskOwnershipLedger.mjs";
+import {
+  buildResourceAvailabilityState,
+  buildSchedulingWindowState,
+} from "./resourceAvailabilityScheduling.mjs";
+import { buildDispatchControlState } from "./dispatchControlState.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -200,6 +205,24 @@ export async function runRevenueDailyLoop(options = {}) {
   const taskOwnershipLedger = Object.fromEntries(
     Object.entries(builtTaskOwnershipLedger).filter(([key]) => key !== "store"),
   );
+  const resourceAvailabilityState = buildResourceAvailabilityState({
+    now,
+    resources: options.commandResources || options.agentResources || {},
+    taskOwnershipLedger,
+  });
+  const schedulingWindowState = buildSchedulingWindowState({
+    now,
+    resources: options.commandResources || options.agentResources || {},
+    taskOwnershipLedger,
+    resourceAvailabilityState,
+    approvals: options.schedulingApprovals || options.commandApprovals || {},
+  });
+  const dispatchControlState = buildDispatchControlState({
+    now,
+    taskOwnershipLedger,
+    resourceAvailabilityState,
+    schedulingWindowState,
+  });
 
   const document = {
     ...run,
@@ -209,6 +232,9 @@ export async function runRevenueDailyLoop(options = {}) {
     controlledEmailExecution,
     multiAgentCommandState,
     taskOwnershipLedger,
+    resourceAvailabilityState,
+    schedulingWindowState,
+    dispatchControlState,
     serviceDelivery,
     serviceDeliveryExecution: {
       summary: serviceDeliveryExecution.summary,
@@ -280,6 +306,9 @@ export async function runRevenueDailyLoop(options = {}) {
     controlled_email_execution: controlledEmailExecution.summary,
     multi_agent_command_state: multiAgentCommandState.summary,
     task_ownership_ledger: taskOwnershipLedger.summary,
+    resource_availability_state: resourceAvailabilityState.summary,
+    scheduling_window_state: schedulingWindowState.summary,
+    dispatch_control_state: dispatchControlState.summary,
     service_delivery_execution: serviceDeliveryExecution.summary,
     voice_service_status: voiceServiceStatus.summary,
     first_client_voice_activation: firstClientVoiceActivation.summary,

@@ -179,6 +179,9 @@ export async function readAutonomousRevenueState(options = {}) {
     controlledEmailExecution: data.controlledEmailExecution || null,
     multiAgentCommandState: data.multiAgentCommandState || null,
     taskOwnershipLedger: data.taskOwnershipLedger || null,
+    resourceAvailabilityState: data.resourceAvailabilityState || null,
+    schedulingWindowState: data.schedulingWindowState || null,
+    dispatchControlState: data.dispatchControlState || null,
   };
 }
 
