@@ -38,8 +38,10 @@ import { runLeadSupplyDailyLoop } from "./leadSupplyDailyLoop.mjs";
 import {
   createMemoryRevenueExecutionStore,
   persistLeadSupplyExecution,
+  readDurableRevenueExecutionQueue,
 } from "./leadSupplyExecutionPersistence.mjs";
 import { prepareControlledEmailExecution } from "./leadSupplyEmailExecutionGate.mjs";
+import { runControlledEmailExecutionAcceptance } from "./controlledEmailExecutionAcceptance.mjs";
 import { runPublicLeadDiscovery } from "./publicLeadDiscovery.mjs";
 import { buildMultiAgentCommandState } from "./multiAgentCommandState.mjs";
 import { buildTaskOwnershipLedger } from "./taskOwnershipLedger.mjs";
@@ -146,11 +148,21 @@ export async function runRevenueDailyLoop(options = {}) {
     emailClient: options.leadSupplyEmailClient,
     callClient: options.leadSupplyCallClient,
   });
-  const durableRevenueExecutionQueue = persistedLeadSupplyExecution.queue;
-  const controlledEmailExecution = prepareControlledEmailExecution(durableRevenueExecutionQueue, {
+  let durableRevenueExecutionQueue = persistedLeadSupplyExecution.queue;
+  let controlledEmailExecution = prepareControlledEmailExecution(durableRevenueExecutionQueue, {
     now,
     ...(options.controlledEmailExecutionOptions || {}),
   });
+  if (options.controlledEmailAcceptanceOptions) {
+    controlledEmailExecution = await runControlledEmailExecutionAcceptance({
+      now,
+      queue: durableRevenueExecutionQueue,
+      store: leadSupplyExecutionStore,
+      ...(options.controlledEmailExecutionOptions || {}),
+      ...(options.controlledEmailAcceptanceOptions || {}),
+    });
+    durableRevenueExecutionQueue = readDurableRevenueExecutionQueue({ store: leadSupplyExecutionStore });
+  }
   const commandTasks = [
     ...asArray(options.commandTasks),
     ...asArray(approvalExecutionQueue.items),
