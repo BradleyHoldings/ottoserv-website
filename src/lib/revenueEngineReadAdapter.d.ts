@@ -46,6 +46,7 @@ export type AutonomousRevenueState = {
   dispatchControlState?: unknown;
   dailyAutonomousOperatingCycle?: unknown;
   autonomyGraduationState?: unknown;
+  autonomyGraduationReviewState?: unknown;
 };
 
 export type ImplementationWorkOrderView = {

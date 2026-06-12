@@ -52,6 +52,7 @@ import {
 import { buildDispatchControlState } from "./dispatchControlState.mjs";
 import { buildDailyAutonomousOperatingCycle } from "./dailyAutonomousOperatingCycle.mjs";
 import { buildAutonomyGraduationState } from "./autonomyGraduationFramework.mjs";
+import { buildAutonomyGraduationReviewState } from "./autonomyGraduationReviewWorkflow.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -268,6 +269,12 @@ export async function runRevenueDailyLoop(options = {}) {
     dispatchControlState,
     dailyAutonomousOperatingCycle,
   });
+  const autonomyGraduationReviewState = buildAutonomyGraduationReviewState({
+    now,
+    autonomyGraduationState,
+    decisions: options.autonomyGraduationReviewDecisions,
+    requests: options.autonomyGraduationReviewRequests,
+  });
 
   const document = {
     ...run,
@@ -282,6 +289,7 @@ export async function runRevenueDailyLoop(options = {}) {
     dispatchControlState,
     dailyAutonomousOperatingCycle,
     autonomyGraduationState,
+    autonomyGraduationReviewState,
     serviceDelivery,
     serviceDeliveryExecution: {
       summary: serviceDeliveryExecution.summary,
@@ -358,6 +366,7 @@ export async function runRevenueDailyLoop(options = {}) {
     dispatch_control_state: dispatchControlState.summary,
     daily_autonomous_operating_cycle: dailyAutonomousOperatingCycle.report_summary,
     autonomy_graduation_state: autonomyGraduationState.summary,
+    autonomy_graduation_review_state: autonomyGraduationReviewState.summary,
     service_delivery_execution: serviceDeliveryExecution.summary,
     voice_service_status: voiceServiceStatus.summary,
     first_client_voice_activation: firstClientVoiceActivation.summary,
