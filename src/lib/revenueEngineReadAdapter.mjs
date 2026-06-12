@@ -173,6 +173,8 @@ export async function readAutonomousRevenueState(options = {}) {
     repairPackets,
     revenueRisks: asArray(plan.revenue_risks).map(clean).filter(Boolean),
     queueCounts: health.queue_counts || {},
+    leadSupplyDailyLoop: data.leadSupplyDailyLoop || null,
+    durableRevenueExecutionQueue: data.durableRevenueExecutionQueue || null,
   };
 }
 

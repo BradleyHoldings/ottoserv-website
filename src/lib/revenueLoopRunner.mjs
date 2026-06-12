@@ -34,6 +34,11 @@ import {
   generateVoiceSetupPacketsFromWorkOrders,
 } from "./retellVoiceServiceAutomation.mjs";
 import { buildFirstClientVoiceActivationStatuses } from "./retellFirstClientActivationPlaybook.mjs";
+import { runLeadSupplyDailyLoop } from "./leadSupplyDailyLoop.mjs";
+import {
+  createMemoryRevenueExecutionStore,
+  persistLeadSupplyExecution,
+} from "./leadSupplyExecutionPersistence.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -93,9 +98,31 @@ export async function runRevenueDailyLoop(options = {}) {
     events: options.voiceActivationContext?.events || options.retellVoiceEvents,
     now,
   });
+  const leadSupplyDailyLoop = runLeadSupplyDailyLoop({
+    sources: options.leadSupplySources || [
+      { source_type: "existing_ottoserv_lead_records", records: input.leads },
+      { source_type: "front_office_leak_check_submissions", records: scans },
+    ],
+    existingTasks: options.leadSupplyExistingTasks,
+    failures: input.failures,
+    now,
+    approvals: options.leadSupplyOptions || {},
+    policy: options.leadSupplyPolicy || {},
+    doNotContact: options.leadSupplyDoNotContact,
+  });
+  const leadSupplyExecutionStore = options.leadSupplyExecutionStore || createMemoryRevenueExecutionStore();
+  const persistedLeadSupplyExecution = await persistLeadSupplyExecution(leadSupplyDailyLoop, {
+    store: leadSupplyExecutionStore,
+    now,
+    emailClient: options.leadSupplyEmailClient,
+    callClient: options.leadSupplyCallClient,
+  });
+  const durableRevenueExecutionQueue = persistedLeadSupplyExecution.queue;
 
   const document = {
     ...run,
+    leadSupplyDailyLoop,
+    durableRevenueExecutionQueue,
     serviceDelivery,
     serviceDeliveryExecution: {
       summary: serviceDeliveryExecution.summary,
@@ -161,6 +188,8 @@ export async function runRevenueDailyLoop(options = {}) {
       count: approvalExecutionQueue.count,
       skipped_not_approved: approvalExecutionQueue.skipped_not_approved,
     },
+    lead_supply_daily_loop: leadSupplyDailyLoop.summary,
+    durable_revenue_execution_queue: durableRevenueExecutionQueue.summary,
     service_delivery_execution: serviceDeliveryExecution.summary,
     voice_service_status: voiceServiceStatus.summary,
     first_client_voice_activation: firstClientVoiceActivation.summary,
