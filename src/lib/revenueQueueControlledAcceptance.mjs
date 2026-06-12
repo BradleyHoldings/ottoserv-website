@@ -61,17 +61,45 @@ function parseCookieHeader(value = "") {
 function hasSuperAdminCookie(request) {
   const cookies = parseCookieHeader(request?.headers?.get?.("cookie"));
   if (cookies.get("ottoserv_token") !== "super_admin_token") return false;
+  return isSuperAdminUserJson(cookies.get("ottoserv_current_user") || cookies.get("ottoserv_user") || "");
+}
+
+function isSuperAdminUserJson(value) {
   try {
-    const userCookie = cookies.get("ottoserv_current_user") || cookies.get("ottoserv_user") || "";
-    const user = JSON.parse(decodeURIComponent(userCookie));
+    const user = JSON.parse(decodeURIComponent(clean(value)));
     return user?.role === "super_admin" && user?.isOttoServEmployee === true && Boolean(clean(user?.email));
   } catch {
     return false;
   }
 }
 
+function sameOriginAdminHeaders(request) {
+  const origin = clean(request?.headers?.get?.("origin"));
+  const referer = clean(request?.headers?.get?.("referer"));
+  const allowedHosts = new Set([
+    "www.ottoserv.com",
+    "ottoserv.com",
+    "ottoserv-website.vercel.app",
+    "ottoserv-website-teamottoserv-8499s-projects.vercel.app",
+  ]);
+  const validHost = (value) => {
+    if (!value) return false;
+    try {
+      return allowedHosts.has(new URL(value).host);
+    } catch {
+      return false;
+    }
+  };
+  if (!validHost(origin) && !validHost(referer)) return false;
+
+  const token = clean(request?.headers?.get?.("x-ottoserv-token"));
+  const user = clean(request?.headers?.get?.("x-ottoserv-current-user"));
+  return token === "super_admin_token" && isSuperAdminUserJson(user);
+}
+
 export function authorizePhase7CInternalTriggerRequest(request) {
   if (hasSuperAdminCookie(request)) return { ok: true, auth_method: "ottoserv_super_admin_cookie" };
+  if (sameOriginAdminHeaders(request)) return { ok: true, auth_method: "ottoserv_admin_session_headers" };
   return { ok: false, status: 401, reason: "super_admin_session_required" };
 }
 

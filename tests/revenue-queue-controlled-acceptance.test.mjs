@@ -80,6 +80,34 @@ test("Phase 7C internal trigger requires real super-admin session and uses fixed
   assert.equal(PHASE7C_CONTROLLED_RUN_ID, RUN_ID);
 });
 
+test("Phase 7C internal trigger aligns with Hermes admin console localStorage guard", () => {
+  const adminUser = JSON.stringify({
+    email: "jonathan@ottoservco.com",
+    role: "super_admin",
+    isOttoServEmployee: true,
+  });
+  const allowed = authorizePhase7CInternalTriggerRequest(request({
+    origin: "https://www.ottoserv.com",
+    "x-ottoserv-token": "super_admin_token",
+    "x-ottoserv-current-user": encodeURIComponent(adminUser),
+  }));
+  const crossOrigin = authorizePhase7CInternalTriggerRequest(request({
+    origin: "https://example.com",
+    "x-ottoserv-token": "super_admin_token",
+    "x-ottoserv-current-user": encodeURIComponent(adminUser),
+  }));
+  const demoUser = authorizePhase7CInternalTriggerRequest(request({
+    origin: "https://www.ottoserv.com",
+    "x-ottoserv-token": "demo_token",
+    "x-ottoserv-current-user": encodeURIComponent(JSON.stringify({ role: "demo", isOttoServEmployee: false })),
+  }));
+
+  assert.equal(allowed.ok, true);
+  assert.equal(allowed.auth_method, "ottoserv_admin_session_headers");
+  assert.equal(crossOrigin.ok, false);
+  assert.equal(demoUser.ok, false);
+});
+
 test("Phase 7C options fail closed without env flag, Supabase env, or synthetic run id", async () => {
   const missingFlag = await buildPhase7CAcceptanceOptions({ run_id: RUN_ID }, env({ REVENUE_QUEUE_CONTROLLED_REAL_ACCEPTANCE: "" }));
   assert.equal(missingFlag.ok, false);
