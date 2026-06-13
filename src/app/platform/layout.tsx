@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { getToken, getPlatformUser, platformLogout } from "@/lib/platformApi";
 
 const NAV_ITEMS = [
   {
@@ -75,19 +74,36 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const router = useRouter();
   const [user, setUser] = useState<PlatformUser | null>(null);
 
-  const isLoginPage = pathname === "/platform/login";
+  const isPublicAuthPage = pathname === "/platform/login" || pathname === "/platform/forgot-password" || pathname === "/platform/reset-password";
 
   useEffect(() => {
-    if (isLoginPage) return;
-    const token = getToken();
-    if (!token) {
-      router.push("/platform/login");
-      return;
-    }
-    setUser(getPlatformUser());
-  }, [isLoginPage, router]);
+    if (isPublicAuthPage) return;
 
-  if (isLoginPage) {
+    let cancelled = false;
+    fetch("/api/auth/session", {
+      cache: "no-store",
+      credentials: "same-origin",
+    })
+      .then(async (response) => {
+        if (cancelled) return;
+        if (!response.ok) {
+          router.push("/login");
+          return;
+        }
+
+        const data = await response.json();
+        if (!cancelled) setUser(data.user ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) router.push("/login");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPublicAuthPage, router]);
+
+  if (isPublicAuthPage) {
     return <>{children}</>;
   }
 
@@ -135,15 +151,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
           </Link>
           <button
             onClick={() => {
-              const raw = localStorage.getItem("ottoserv_platform_token") || "";
-              let role = "user", name = "", email = "", company = "";
-              try {
-                const p = JSON.parse(atob(raw.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-                role = p.role === "otto_internal_admin" ? "super_admin" : p.role === "owner" ? "admin" : "user";
-                name = p.name || ""; email = p.email || ""; company = p.company || "OttoServ";
-              } catch { /* use defaults */ }
-              const d = btoa(JSON.stringify({ name, email, role, company }));
-              window.location.href = `/auth/sso?d=${d}`;
+              window.location.href = "/dashboard/command-center";
             }}
             className="block text-sm text-blue-400 hover:text-blue-300 transition-colors mt-2 text-left w-full"
           >
@@ -165,7 +173,14 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
               <p className="text-gray-500 text-xs capitalize">{user?.role || "—"}</p>
             </div>
             <button
-              onClick={platformLogout}
+              onClick={() => {
+                localStorage.removeItem("ottoserv_current_user");
+                localStorage.removeItem("ottoserv_token");
+                localStorage.removeItem("ottoserv_client");
+                localStorage.removeItem("ottoserv_platform_token");
+                localStorage.removeItem("ottoserv_platform_user");
+                window.location.href = "/login";
+              }}
               className="text-gray-400 hover:text-white text-sm transition-colors px-3 py-1.5 rounded-md hover:bg-gray-800"
             >
               Log Out

@@ -13,16 +13,19 @@ const compiled = ts.transpileModule(source, {
 }).outputText;
 
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`;
-const { readDashboardAdminSession } = await import(moduleUrl);
+const { readDashboardAdminSession, readDashboardUserSession } = await import(moduleUrl);
 
 test("accepts only the real super admin cookie shape", () => {
   const session = readDashboardAdminSession(
     "super_admin_token",
     JSON.stringify({
+      id: "jonathan-bradley",
       email: "jonathan@ottoservco.com",
       name: "Jonathan Bradley",
       role: "super_admin",
       isOttoServEmployee: true,
+      clientAccess: ["all"],
+      permissions: ["system_admin"],
     }),
   );
 
@@ -39,11 +42,34 @@ test("rejects browser-only or non-admin state", () => {
     readDashboardAdminSession(
       "demo_token",
       JSON.stringify({
+        id: "demo-user",
         email: "demo@ottoserv.com",
+        name: "Demo User",
         role: "demo",
         isOttoServEmployee: false,
+        clientAccess: ["demo-clients"],
+        permissions: ["view_demo_data"],
       }),
     ),
     null,
   );
+});
+
+test("accepts non-admin users as normal cookie-backed sessions only", () => {
+  const session = readDashboardUserSession(
+    "demo_token",
+    JSON.stringify({
+      id: "demo-user",
+      email: "demo@ottoserv.com",
+      name: "Demo User",
+      role: "demo",
+      isOttoServEmployee: false,
+      clientAccess: ["demo-clients"],
+      permissions: ["view_demo_data"],
+    }),
+  );
+
+  assert.equal(session?.email, "demo@ottoserv.com");
+  assert.equal(session?.role, "demo");
+  assert.equal(readDashboardAdminSession("demo_token", JSON.stringify(session)), null);
 });
