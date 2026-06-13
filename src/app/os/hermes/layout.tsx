@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { canAccessAdmin, getCurrentUser } from "@/lib/userAuth";
 
 const hermesNavItems = [
   { href: "/os/hermes", label: "Command" },
@@ -22,15 +21,31 @@ export default function HermesLayout({ children }: { children: React.ReactNode }
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("ottoserv_token");
-    const user = getCurrentUser();
+    let cancelled = false;
 
-    if (!token || !user || !canAccessAdmin()) {
-      router.replace("/login");
-      return;
-    }
+    fetch("/api/auth/session", {
+      cache: "no-store",
+      credentials: "same-origin",
+    })
+      .then((response) => {
+        if (cancelled) return;
+        if (response.ok) {
+          setReady(true);
+          return;
+        }
 
-    setReady(true);
+        localStorage.removeItem("ottoserv_current_user");
+        localStorage.removeItem("ottoserv_token");
+        router.replace("/login");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        router.replace("/login");
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (!ready) {

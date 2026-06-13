@@ -3,6 +3,7 @@ import "server-only";
 import { appendFile, mkdir, readFile, readdir, rename, stat, writeFile } from "fs/promises";
 import path from "path";
 import { cookies } from "next/headers";
+import { readDashboardAdminSession } from "@/lib/dashboardAdminSession";
 import { hermesApprovals, HermesRiskLevel } from "@/lib/hermesCommandCenter";
 import { formatTimestamp, HERMES_SAFE_EXPORT_DIR } from "@/lib/hermesReadOnlyAdapter";
 import { readServiceDeliveryExecution } from "@/lib/revenueEngineReadAdapter.mjs";
@@ -574,22 +575,16 @@ async function appendAuditLog(record: HermesApprovalDecisionRecord) {
 
 async function requireDashboardAdmin(): Promise<{ email: string; name: string }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("ottoserv_token")?.value;
-  const userRaw = cookieStore.get("ottoserv_current_user")?.value;
+  const session = readDashboardAdminSession(
+    cookieStore.get("ottoserv_token")?.value,
+    cookieStore.get("ottoserv_current_user")?.value,
+  );
 
-  if (token !== "super_admin_token" || !userRaw) {
+  if (!session) {
     throw new Error("Admin session cookie is required to write approval decisions.");
   }
 
-  const user = JSON.parse(userRaw) as { email?: string; name?: string; role?: string; isOttoServEmployee?: boolean };
-  if (user.role !== "super_admin" || user.isOttoServEmployee !== true || !user.email) {
-    throw new Error("Only OttoServ super admin users can write approval decisions.");
-  }
-
-  return {
-    email: sanitizePlainText(user.email),
-    name: sanitizePlainText(user.name || user.email),
-  };
+  return session;
 }
 
 function sanitizePlainText(value: string): string {
