@@ -89,10 +89,8 @@ export function setCurrentUser(user: User) {
 }
 
 export function loginAsJonathan() {
-  setCurrentUser(JONATHAN_SUPER_ADMIN);
   if (typeof window !== "undefined") {
-    localStorage.setItem("ottoserv_token", "super_admin_token");
-    window.location.href = "/dashboard/admin";
+    window.location.href = "/login";
   }
 }
 

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { readDashboardAdminSession } from "@/lib/dashboardAdminSession";
+import { readDashboardUserSession } from "@/lib/dashboardAdminSession";
 
 export async function GET() {
   const cookieStore = await cookies();
-  const session = readDashboardAdminSession(
+  const session = readDashboardUserSession(
     cookieStore.get("ottoserv_token")?.value,
     cookieStore.get("ottoserv_current_user")?.value,
   );
@@ -16,10 +16,14 @@ export async function GET() {
   return NextResponse.json({
     authenticated: true,
     user: {
+      id: session.id,
       email: session.email,
       name: session.name,
-      role: "super_admin",
-      isOttoServEmployee: true,
+      role: session.role,
+      isOttoServEmployee: session.isOttoServEmployee,
+      clientAccess: session.clientAccess,
+      permissions: session.permissions,
+      ...(session.company ? { company: session.company } : {}),
     },
   });
 }
