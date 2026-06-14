@@ -53,6 +53,10 @@ import { buildDispatchControlState } from "./dispatchControlState.mjs";
 import { buildDailyAutonomousOperatingCycle } from "./dailyAutonomousOperatingCycle.mjs";
 import { buildAutonomyGraduationState } from "./autonomyGraduationFramework.mjs";
 import { buildAutonomyGraduationReviewState } from "./autonomyGraduationReviewWorkflow.mjs";
+import {
+  buildHermesTenPhaseGapClosureSprint,
+  getDefaultTenPhaseRepoEvidence,
+} from "./hermesTenPhaseGapClosure.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -275,6 +279,30 @@ export async function runRevenueDailyLoop(options = {}) {
     decisions: options.autonomyGraduationReviewDecisions,
     requests: options.autonomyGraduationReviewRequests,
   });
+  const hermesTenPhaseGapClosureSprint = buildHermesTenPhaseGapClosureSprint({
+    now,
+    repoEvidence: options.tenPhaseRepoEvidence || getDefaultTenPhaseRepoEvidence(),
+    runtimeState: {
+      leadSupplyDailyLoop,
+      publicLeadDiscovery,
+      durableRevenueExecutionQueue,
+      controlledEmailExecution,
+      multiAgentCommandState,
+      taskOwnershipLedger,
+      resourceAvailabilityState,
+      schedulingWindowState,
+      dispatchControlState,
+      dailyAutonomousOperatingCycle,
+      autonomyGraduationState,
+      autonomyGraduationReviewState,
+      serviceDeliveryExecution: {
+        ...serviceDeliveryExecution,
+        voice_service_status: voiceServiceStatus,
+        first_client_voice_activation: firstClientVoiceActivation,
+      },
+      approvalExecutionQueue,
+    },
+  });
 
   const document = {
     ...run,
@@ -290,6 +318,7 @@ export async function runRevenueDailyLoop(options = {}) {
     dailyAutonomousOperatingCycle,
     autonomyGraduationState,
     autonomyGraduationReviewState,
+    hermesTenPhaseGapClosureSprint,
     serviceDelivery,
     serviceDeliveryExecution: {
       summary: serviceDeliveryExecution.summary,
@@ -367,6 +396,7 @@ export async function runRevenueDailyLoop(options = {}) {
     daily_autonomous_operating_cycle: dailyAutonomousOperatingCycle.report_summary,
     autonomy_graduation_state: autonomyGraduationState.summary,
     autonomy_graduation_review_state: autonomyGraduationReviewState.summary,
+    hermes_10_phase_gap_closure: hermesTenPhaseGapClosureSprint.summary,
     service_delivery_execution: serviceDeliveryExecution.summary,
     voice_service_status: voiceServiceStatus.summary,
     first_client_voice_activation: firstClientVoiceActivation.summary,
