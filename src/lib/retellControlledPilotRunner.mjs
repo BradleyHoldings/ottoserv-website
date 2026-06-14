@@ -228,6 +228,79 @@ function hasTranscript(evidence = {}) {
   return Boolean(clean(evidence.transcript_or_summary || evidence.transcript || evidence.summary || evidence.transcript_url));
 }
 
+function transcriptText(evidence = {}) {
+  return clean(evidence.transcript_or_summary || evidence.transcript || evidence.summary);
+}
+
+function unresolvedTemplateVariables(text = "") {
+  const matches = clean(text).match(/\{\{\s*[^}]+\s*\}\}/g) || [];
+  return [...new Set(matches.map((item) => item.replace(/\s+/g, "")))];
+}
+
+function excerptAround(text = "", needle = "", size = 180) {
+  const haystack = clean(text);
+  if (!haystack) return "";
+  const index = needle ? haystack.indexOf(needle) : -1;
+  if (index < 0) return haystack.slice(0, size);
+  const start = Math.max(0, index - 60);
+  return haystack.slice(start, start + size);
+}
+
+export function analyzeRetellPilotTranscriptQuality(evidence = {}, options = {}) {
+  const transcript = transcriptText(evidence);
+  const variables = unresolvedTemplateVariables(transcript);
+  const connected = /ended|completed|successful/i.test(clean(evidence.call_status || evidence.status)) && Number(evidence.duration_ms || evidence.duration_seconds || 0) > 0;
+  const hasIssue = variables.length > 0;
+  const recommendedPromptFix = "Replace any opening that depends on {{contact_name}} with: \"Hi, this is Morgan from OttoServ. Who am I speaking with?\" Or, only if a name variable is reliably available: \"Hi, this is Morgan from OttoServ. Am I speaking with {contact_name}?\" with a fallback when missing.";
+  const repairPacket = hasIssue ? {
+    id: `retell-script-repair-${slug(evidence.retell_call_id || evidence.run_id || "unknown")}`,
+    issue_type: "unresolved_retell_prompt_variable",
+    severity: "high",
+    production_readiness_impact: "blocks_phase7_production_activation",
+    affected_call_id: clean(evidence.retell_call_id || evidence.call_id),
+    affected_agent_id: clean(evidence.agent_id),
+    transcript_excerpt: excerptAround(transcript, variables[0]),
+    unresolved_variables: variables,
+    recommended_prompt_fix: recommendedPromptFix,
+    live_production_activation_allowed: false,
+    route_options: {
+      codex_repo_managed_prompt: {
+        owner: "Codex",
+        when: "prompt/config is managed in repo",
+        action: "patch prompt template, add regression test, and rerun controlled pilot before production activation",
+      },
+      manual_retell_dashboard: {
+        owner: "Jonathan/operator",
+        when: "prompt/config must be edited manually in the Retell dashboard",
+        action: "replace unresolved-variable opening with natural fallback wording",
+      },
+      future_retell_api_updater: {
+        owner: "retell_api_updater",
+        when: "API-based Retell agent prompt updates are enabled and approved",
+        action: "apply approved prompt patch through Retell API with evidence read-back",
+      },
+    },
+    safety: {
+      no_live_call_executed_by_repair_packet: true,
+      no_production_activation: true,
+      no_full_phone_numbers: true,
+    },
+  } : null;
+
+  return {
+    ok: true,
+    status: hasIssue ? "script_polish_needed" : connected ? "clean_connected_transcript" : "transcript_not_connected_or_pending",
+    unresolved_variables: variables,
+    pass_fail_result: hasIssue ? "pilot_connected_script_polish_needed" : connected ? "pilot_pass_candidate" : clean(evidence.pass_fail_result || "pending_call_completion"),
+    repair_packet: repairPacket,
+    production_activation: {
+      status: "requires_separate_approval",
+      allowed: false,
+      blocked_by_script_quality: hasIssue,
+    },
+  };
+}
+
 function durationMs(evidence = {}) {
   if (evidence.duration_ms !== undefined) return Number(evidence.duration_ms || 0);
   if (evidence.duration_seconds !== undefined) return Number(evidence.duration_seconds || 0) * 1000;
@@ -471,7 +544,7 @@ export async function executeControlledRetellPilot(options = {}) {
   });
   const normalized = normalizeRetellCall(call);
   const retellCallId = clean(call.provider_call_id || normalized.provider_call_id);
-  const evidence = {
+  const baseEvidence = {
     version: RETELL_CONTROLLED_PILOT_RUNNER_VERSION,
     run_id: plan.run_id,
     timestamp: plan.timestamp,
@@ -486,15 +559,21 @@ export async function executeControlledRetellPilot(options = {}) {
     scenario,
     call_status: clean(call.status || normalized.status),
     transcript_or_summary: clean(call.summary || normalized.summary),
-    pass_fail_result: /ended|completed|successful/i.test(clean(call.status || normalized.status)) ? "pass" : "pending_call_completion",
     rollback_monitoring_notes: "Single friendly-contact pilot only. No general production voice activation; monitor Retell dashboard/call status and do not run follow-up calls without another Jonathan/operator approval.",
     production_activation_still_requires_separate_approval: true,
     safety: plan.safety,
   };
+  const quality = analyzeRetellPilotTranscriptQuality(baseEvidence);
+  const evidence = {
+    ...baseEvidence,
+    pass_fail_result: quality.pass_fail_result === "pilot_pass_candidate" ? "pass" : quality.pass_fail_result,
+    script_quality: quality,
+    repair_packet: quality.repair_packet,
+  };
   const filePath = writeEvidence(options.outputDir, evidence);
   return {
     ok: true,
-    status: evidence.pass_fail_result === "pass" ? "pilot_passed" : "pilot_executed",
+    status: evidence.pass_fail_result === "pass" ? "pilot_passed" : evidence.pass_fail_result === "pilot_connected_script_polish_needed" ? "pilot_connected_script_polish_needed" : "pilot_executed",
     evidence,
     evidence_path: filePath,
     safety: plan.safety,
@@ -530,7 +609,7 @@ export async function executeControlledRetellPilotRetry(options = {}) {
   });
   const normalized = normalizeRetellCall(call);
   const status = clean(call.status || normalized.status);
-  const evidence = {
+  const baseEvidence = {
     version: RETELL_CONTROLLED_PILOT_RUNNER_VERSION,
     run_id: plan.run_id,
     previous_run_id: plan.previous_run_id,
@@ -549,15 +628,21 @@ export async function executeControlledRetellPilotRetry(options = {}) {
     disconnection_reason: clean(call.outcome || normalized.outcome),
     duration_ms: Number(call.duration_ms || normalized.duration_seconds * 1000 || 0),
     transcript_or_summary: clean(call.summary || normalized.summary),
-    pass_fail_result: /ended|completed|successful/i.test(status) ? "pass" : "pending_call_completion",
     rollback_monitoring_notes: "Single approved retry after zero-duration not-connected first attempt. No production activation; no follow-up calls without another Jonathan/operator approval.",
     production_activation_still_requires_separate_approval: true,
     safety: plan.safety,
   };
+  const quality = analyzeRetellPilotTranscriptQuality(baseEvidence);
+  const evidence = {
+    ...baseEvidence,
+    pass_fail_result: quality.pass_fail_result === "pilot_pass_candidate" ? "pass" : quality.pass_fail_result,
+    script_quality: quality,
+    repair_packet: quality.repair_packet,
+  };
   const filePath = writeEvidence(options.outputDir, evidence);
   return {
     ok: true,
-    status: evidence.pass_fail_result === "pass" ? "pilot_passed" : "pilot_retry_executed",
+    status: evidence.pass_fail_result === "pass" ? "pilot_passed" : evidence.pass_fail_result === "pilot_connected_script_polish_needed" ? "pilot_connected_script_polish_needed" : "pilot_retry_executed",
     evidence,
     evidence_path: filePath,
     safety: plan.safety,
@@ -587,6 +672,8 @@ export function readControlledRetellPilotFinalState(options = {}) {
   let status = clean(latest.pass_fail_result) === "pass" ? "pilot_passed" : clean(latest.pass_fail_result);
   if (!status || status === "pending_call_completion") status = Number(latest.attempt_number) === 2 ? "pilot_retry_executed" : "pilot_failed_not_connected";
   if (clean(latest.call_status) === "not_connected") status = "pilot_failed_not_connected";
+  const repairPackets = attempts.map((item) => item.repair_packet).filter(Boolean);
+  if (repairPackets.length) status = "pilot_connected_script_polish_needed";
   return {
     ok: true,
     status,
@@ -609,6 +696,8 @@ export function readControlledRetellPilotFinalState(options = {}) {
     production_activation: {
       status: "requires_separate_approval",
       allowed: false,
+      blocked_by_script_quality: repairPackets.length > 0,
     },
+    repair_packets: repairPackets,
   };
 }

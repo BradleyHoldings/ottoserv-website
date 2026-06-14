@@ -16,6 +16,7 @@ import { generateVoiceSetupPacket } from "../src/lib/retellVoiceServiceAutomatio
 import { createMockServiceDeliveryLiveClient, persistServiceDeliveryRun } from "../src/lib/serviceDeliveryPersistence.mjs";
 import { runRevenueDailyLoop } from "../src/lib/revenueLoopRunner.mjs";
 import {
+  analyzeRetellPilotTranscriptQuality,
   buildControlledRetellPilotPlan,
   buildControlledRetellPilotRetryPlan,
   executeControlledRetellPilot,
@@ -637,6 +638,86 @@ test("controlled Retell retry writes separate retry evidence and final state can
   assert.equal(finalState.status, "pilot_retry_executed");
   assert.equal(finalState.attempts.length, 2);
   assert.equal(finalState.production_activation.status, "requires_separate_approval");
+});
+
+test("Retell transcript with unresolved contact_name marks connected pilot as script polish needed", () => {
+  const analysis = analyzeRetellPilotTranscriptQuality({
+    run_id: "retell-pilot-devon-retry-1-d82f6de0a1",
+    retell_call_id: "call_057f1bd039224b5b416fe3d54ce",
+    agent_id: "agent_pilot_001",
+    redacted_phone_number: "***6243",
+    from_number: "***5341",
+    call_status: "ended",
+    duration_ms: 38852,
+    disconnection_reason: "user_hangup",
+    transcript_or_summary: "Hi, this is Morgan from OttoServ. Am I speaking with {{contact_name}}?",
+  });
+
+  assert.equal(analysis.pass_fail_result, "pilot_connected_script_polish_needed");
+  assert.equal(analysis.production_activation.allowed, false);
+  assert.ok(analysis.unresolved_variables.includes("{{contact_name}}"));
+  assert.equal(analysis.repair_packet.issue_type, "unresolved_retell_prompt_variable");
+  assert.equal(analysis.repair_packet.severity, "high");
+  assert.equal(analysis.repair_packet.affected_call_id, "call_057f1bd039224b5b416fe3d54ce");
+  assert.equal(analysis.repair_packet.affected_agent_id, "agent_pilot_001");
+  assert.match(analysis.repair_packet.transcript_excerpt, /\{\{contact_name\}\}/);
+  assert.equal(analysis.repair_packet.live_production_activation_allowed, false);
+  assert.equal(JSON.stringify(analysis).includes("+14078816243"), false);
+});
+
+test("clean connected Retell transcript can become pass candidate but still requires separate production approval", () => {
+  const analysis = analyzeRetellPilotTranscriptQuality({
+    retell_call_id: "call_clean",
+    agent_id: "agent_pilot_001",
+    redacted_phone_number: "***6243",
+    from_number: "***5341",
+    call_status: "ended",
+    duration_ms: 24000,
+    transcript_or_summary: "Hi, this is Morgan from OttoServ. Who am I speaking with? Thanks, Devon.",
+  });
+
+  assert.equal(analysis.pass_fail_result, "pilot_pass_candidate");
+  assert.equal(analysis.repair_packet, null);
+  assert.equal(analysis.production_activation.allowed, false);
+  assert.equal(analysis.production_activation.status, "requires_separate_approval");
+});
+
+test("pilot final state blocks production activation when script quality repair exists", async () => {
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "retell-pilot-script-quality-"));
+  writePriorPilotEvidence(outputDir);
+  const retryPath = path.join(outputDir, "retell-pilot-evidence", "retell-pilot-devon-retry-1-d82f6de0a1.json");
+  writeFileSync(retryPath, JSON.stringify({
+    version: "phase7_retell_controlled_pilot_runner_v1",
+    run_id: "retell-pilot-devon-retry-1-d82f6de0a1",
+    previous_run_id: "retell-pilot-devon-13dfa8f3d7",
+    attempt_number: 2,
+    test_contact_name: "Devon",
+    redacted_phone_number: "***6243",
+    from_number: "***5341",
+    retell_call_id: "call_057f1bd039224b5b416fe3d54ce",
+    agent_id: "agent_pilot_001",
+    call_status: "ended",
+    duration_ms: 38852,
+    disconnection_reason: "user_hangup",
+    transcript_or_summary: "Am I speaking with {{contact_name}}?",
+    pass_fail_result: "pilot_connected_script_polish_needed",
+    repair_packet: analyzeRetellPilotTranscriptQuality({
+      retell_call_id: "call_057f1bd039224b5b416fe3d54ce",
+      agent_id: "agent_pilot_001",
+      redacted_phone_number: "***6243",
+      from_number: "***5341",
+      call_status: "ended",
+      duration_ms: 38852,
+      transcript_or_summary: "Am I speaking with {{contact_name}}?",
+    }).repair_packet,
+  }, null, 2));
+
+  const finalState = readControlledRetellPilotFinalState({ outputDir, priorRunId: "retell-pilot-devon-13dfa8f3d7" });
+
+  assert.equal(finalState.status, "pilot_connected_script_polish_needed");
+  assert.equal(finalState.production_activation.allowed, false);
+  assert.equal(finalState.repair_packets.length, 1);
+  assert.equal(finalState.repair_packets[0].route_options.manual_retell_dashboard.owner, "Jonathan/operator");
 });
 
 test("controlled Retell evidence ingestion requires real proof", () => {
