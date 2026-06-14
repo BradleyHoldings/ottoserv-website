@@ -46,6 +46,14 @@ function approvalAccepted(approval = {}) {
     && /single_controlled_retell_pilot_call|retell_pilot|test_call/i.test(scope);
 }
 
+function retryApprovalAccepted(approval = {}) {
+  const decision = clean(approval.decision || approval.approval_status).toLowerCase();
+  const scope = clean(approval.scope || approval.action || approval.approved_scope);
+  return ["approved", "approve"].includes(decision)
+    && /jonathan|operator/i.test(clean(approval.operator || approval.decided_by || approval.approved_by))
+    && /single_controlled_retell_pilot_retry|retell_pilot_retry|retry/i.test(scope);
+}
+
 function contactBlockers(contact = {}, approval = {}) {
   const blockers = [];
   if (!clean(contact.name)) blockers.push("test_contact_name_missing");
@@ -184,6 +192,12 @@ function evidencePath(outputDir, runId) {
   return path.join(evidenceDir(outputDir), `${slug(runId)}.json`);
 }
 
+function readEvidenceByRunId(outputDir, runId) {
+  const filePath = evidencePath(outputDir, runId);
+  if (!existsSync(filePath)) return null;
+  return JSON.parse(readFileSync(filePath, "utf8"));
+}
+
 function existingEvidenceForContact(outputDir, contact = {}) {
   const dir = evidenceDir(outputDir);
   if (!existsSync(dir)) return null;
@@ -208,6 +222,45 @@ function writeEvidence(outputDir, evidence) {
   const filePath = evidencePath(outputDir, evidence.run_id);
   writeFileSync(filePath, `${JSON.stringify(evidence, null, 2)}\n`);
   return filePath;
+}
+
+function hasTranscript(evidence = {}) {
+  return Boolean(clean(evidence.transcript_or_summary || evidence.transcript || evidence.summary || evidence.transcript_url));
+}
+
+function durationMs(evidence = {}) {
+  if (evidence.duration_ms !== undefined) return Number(evidence.duration_ms || 0);
+  if (evidence.duration_seconds !== undefined) return Number(evidence.duration_seconds || 0) * 1000;
+  return 0;
+}
+
+function priorAttemptRetryable(evidence = {}) {
+  const status = clean(evidence.call_status).toLowerCase();
+  const reason = clean(evidence.disconnection_reason).toLowerCase();
+  return status === "not_connected"
+    && ["user_declined", "dial_no_answer", "voicemail_reached", "call_failed", ""].includes(reason)
+    && durationMs(evidence) === 0
+    && !hasTranscript(evidence);
+}
+
+function retryRunId({ priorRunId, now, attempt = 1 }) {
+  const hash = createHash("sha1").update(`${clean(priorRunId)}:retry:${attempt}:${clean(now)}`).digest("hex").slice(0, 10);
+  return `retell-pilot-devon-retry-${attempt}-${hash}`;
+}
+
+function retryEvidenceAlreadyExists(outputDir, priorRunId) {
+  const dir = evidenceDir(outputDir);
+  if (!existsSync(dir)) return null;
+  try {
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".json")) continue;
+      const parsed = JSON.parse(readFileSync(path.join(dir, name), "utf8"));
+      if (clean(parsed.previous_run_id) === clean(priorRunId) && Number(parsed.attempt_number) === 2) return parsed;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function statusFor(blockers = []) {
@@ -282,6 +335,114 @@ export async function buildControlledRetellPilotPlan(options = {}) {
   };
 }
 
+function retryStatusFor(blockers = []) {
+  if (blockers.includes("retry_already_used")) return "pilot_retry_executed";
+  if (blockers.includes("prior_attempt_connected_or_has_transcript")) return "blocked_prior_attempt_connected";
+  if (blockers.includes("explicit_retry_approval_missing")) return "blocked_missing_retry_approval";
+  if (blockers.includes("retell_credentials_missing")) return "blocked_missing_credentials";
+  if (blockers.includes("retell_phone_number_agent_binding_missing") || blockers.includes("retell_phone_number_lookup_failed")) return "blocked_missing_phone_number_agent_binding";
+  if (blockers.includes("corrected_from_number_required")) return "blocked_missing_phone_number_agent_binding";
+  if (blockers.some((item) => /^test_contact|wrong_test_contact/.test(item))) return "blocked_missing_test_contact_approval";
+  return "pilot_retry_ready";
+}
+
+export async function buildControlledRetellPilotRetryPlan(options = {}) {
+  const now = clean(options.now) || new Date().toISOString();
+  const env = options.env || process.env;
+  const fetchImpl = options.fetchImpl || globalThis.fetch;
+  const contact = options.testContact || {};
+  const approval = options.retryApproval || {};
+  const priorRunId = clean(options.priorRunId);
+  const priorEvidence = priorRunId ? readEvidenceByRunId(options.outputDir, priorRunId) : null;
+  const retell = await getRuntimeRetellDetails({ env, fetchImpl });
+  const blockers = [...retell.blockers];
+
+  if (!priorEvidence) blockers.push("prior_attempt_evidence_missing");
+  if (priorEvidence && !priorAttemptRetryable(priorEvidence)) blockers.push("prior_attempt_connected_or_has_transcript");
+  if (!retryApprovalAccepted(approval)) blockers.push("explicit_retry_approval_missing");
+  if (clean(env.RETELL_CONTROLLED_PILOT_ENABLED).toLowerCase() !== "true") blockers.push("controlled_pilot_env_flag_not_enabled");
+  if (clean(contact.name) !== "Devon" || maskPhone(contact.phone_number) !== "***6243") blockers.push("wrong_test_contact_for_retry");
+  if (!clean(contact.consent_note)) blockers.push("test_contact_consent_note_missing");
+  if (!clean(contact.scenario)) blockers.push("test_scenario_missing");
+  if (retell.config?.from_number_redacted !== "***5341") blockers.push("corrected_from_number_required");
+  const existingRetry = retryEvidenceAlreadyExists(options.outputDir, priorRunId);
+  if (existingRetry) blockers.push("retry_already_used");
+
+  const uniqueBlockers = [...new Set(blockers)];
+  const status = retryStatusFor(uniqueBlockers);
+  return {
+    ok: uniqueBlockers.length === 0,
+    status,
+    version: RETELL_CONTROLLED_PILOT_RUNNER_VERSION,
+    run_id: retryRunId({ priorRunId, now, attempt: 1 }),
+    previous_run_id: priorRunId,
+    timestamp: now,
+    blockers: uniqueBlockers,
+    prior_attempt: priorEvidence ? {
+      run_id: clean(priorEvidence.run_id),
+      attempt_number: Number(priorEvidence.attempt_number || 1),
+      call_status: clean(priorEvidence.call_status),
+      disconnection_reason: clean(priorEvidence.disconnection_reason),
+      duration_ms: durationMs(priorEvidence),
+      transcript_present: hasTranscript(priorEvidence),
+      redacted_phone_number: clean(priorEvidence.redacted_phone_number),
+      from_number: clean(priorEvidence.from_number),
+      retryable: priorAttemptRetryable(priorEvidence),
+    } : null,
+    retry: {
+      attempt_number: 2,
+      corrected_from_number: retell.config?.from_number_redacted || "",
+      already_used: Boolean(existingRetry),
+    },
+    retell: {
+      env_present: retell.env_present,
+      agent_id_last6: retell.config?.agent_id_last6 || "",
+      selected_agent_verified: Boolean(retell.ok && retell.config?.agent_id),
+      selected_agent_name: retell.config?.agent_name || "",
+      from_number: retell.config?.from_number_redacted || "",
+      phone_number_management: retell.config?.phone_number_management || "unknown",
+      phone_number_agent_bound: Boolean(retell.config?.phone_number_agent_bound),
+      errors: retell.errors || [],
+    },
+    test_contact: {
+      name: clean(contact.name),
+      redacted_phone_number: maskPhone(contact.phone_number),
+      consent_note_present: Boolean(clean(contact.consent_note)),
+      scenario: clean(contact.scenario),
+    },
+    operator_approval: {
+      approved: retryApprovalAccepted(approval),
+      approval_id: clean(approval.approval_id || approval.id),
+      operator: clean(approval.operator || approval.decided_by || approval.approved_by),
+      scope: clean(approval.scope || approval.action || approval.approved_scope),
+      reason: clean(approval.reason),
+    },
+    execution: {
+      call_limit: 1,
+      retry_limit: 1,
+      execute_allowed: uniqueBlockers.length === 0,
+    },
+    safety: {
+      call_limit: 1,
+      retry_limit: 1,
+      no_broad_production_calling: true,
+      no_leads_called: true,
+      no_clients_called: true,
+      no_general_production_voice_activation: true,
+      production_activation_still_requires_separate_approval: true,
+    },
+    production_activation: {
+      status: "requires_separate_approval",
+      allowed: false,
+    },
+    _runtime: retell.ok ? {
+      agent_id: retell.config.agent_id,
+      from_number: retell.config.from_number,
+      base_url: clean(env.RETELL_BASE_URL) || "https://api.retellai.com",
+    } : null,
+  };
+}
+
 export async function executeControlledRetellPilot(options = {}) {
   const plan = await buildControlledRetellPilotPlan(options);
   if (!plan.ok) return plan;
@@ -340,6 +501,69 @@ export async function executeControlledRetellPilot(options = {}) {
   };
 }
 
+export async function executeControlledRetellPilotRetry(options = {}) {
+  const plan = await buildControlledRetellPilotRetryPlan(options);
+  if (!plan.ok) return plan;
+  const contact = options.testContact || {};
+  const env = options.env || process.env;
+  const transport = makeRetellTransport({
+    config: {
+      configured: true,
+      api_key: clean(env.RETELL_API_KEY),
+      agent_id: plan._runtime.agent_id,
+      from_number: plan._runtime.from_number,
+      base_url: plan._runtime.base_url,
+    },
+    fetchImpl: options.fetchImpl || globalThis.fetch,
+  });
+  if (!transport) return { ...plan, ok: false, status: "blocked_missing_credentials", blockers: ["retell_credentials_missing"] };
+
+  const scenario = clean(contact.scenario);
+  const call = await transport.placeCall({
+    phone: clean(contact.phone_number),
+    from_number: plan._runtime.from_number,
+    execution_id: plan.run_id,
+    lead_id: "controlled-retell-pilot-friendly-test-contact-retry",
+    idempotency_key: plan.run_id,
+    approved_script_ref: "phase7_controlled_retell_pilot_devon_retry_1",
+    approved_angle: scenario,
+  });
+  const normalized = normalizeRetellCall(call);
+  const status = clean(call.status || normalized.status);
+  const evidence = {
+    version: RETELL_CONTROLLED_PILOT_RUNNER_VERSION,
+    run_id: plan.run_id,
+    previous_run_id: plan.previous_run_id,
+    timestamp: plan.timestamp,
+    attempt_number: 2,
+    operator_approval: plan.operator_approval,
+    test_contact_name: clean(contact.name),
+    redacted_phone_number: maskPhone(contact.phone_number),
+    retell_call_id: clean(call.provider_call_id || normalized.provider_call_id),
+    agent_id: plan._runtime.agent_id,
+    agent_id_last6: last(plan._runtime.agent_id),
+    from_number: maskPhone(plan._runtime.from_number),
+    phone_number_management: plan.retell.phone_number_management,
+    scenario,
+    call_status: status,
+    disconnection_reason: clean(call.outcome || normalized.outcome),
+    duration_ms: Number(call.duration_ms || normalized.duration_seconds * 1000 || 0),
+    transcript_or_summary: clean(call.summary || normalized.summary),
+    pass_fail_result: /ended|completed|successful/i.test(status) ? "pass" : "pending_call_completion",
+    rollback_monitoring_notes: "Single approved retry after zero-duration not-connected first attempt. No production activation; no follow-up calls without another Jonathan/operator approval.",
+    production_activation_still_requires_separate_approval: true,
+    safety: plan.safety,
+  };
+  const filePath = writeEvidence(options.outputDir, evidence);
+  return {
+    ok: true,
+    status: evidence.pass_fail_result === "pass" ? "pilot_passed" : "pilot_retry_executed",
+    evidence,
+    evidence_path: filePath,
+    safety: plan.safety,
+  };
+}
+
 export function readControlledRetellPilotEvidence(options = {}) {
   const runId = clean(options.runId);
   if (!runId) return { ok: false, reason: "run_id_required" };
@@ -349,5 +573,42 @@ export function readControlledRetellPilotEvidence(options = {}) {
     ok: true,
     evidence: JSON.parse(readFileSync(filePath, "utf8")),
     evidence_path: filePath,
+  };
+}
+
+export function readControlledRetellPilotFinalState(options = {}) {
+  const priorRunId = clean(options.priorRunId || options.runId);
+  const prior = priorRunId ? readEvidenceByRunId(options.outputDir, priorRunId) : null;
+  if (!prior) return { ok: false, reason: "pilot_evidence_not_found" };
+  const attempts = [prior];
+  const retry = retryEvidenceAlreadyExists(options.outputDir, priorRunId);
+  if (retry) attempts.push(retry);
+  const latest = attempts[attempts.length - 1];
+  let status = clean(latest.pass_fail_result) === "pass" ? "pilot_passed" : clean(latest.pass_fail_result);
+  if (!status || status === "pending_call_completion") status = Number(latest.attempt_number) === 2 ? "pilot_retry_executed" : "pilot_failed_not_connected";
+  if (clean(latest.call_status) === "not_connected") status = "pilot_failed_not_connected";
+  return {
+    ok: true,
+    status,
+    attempts: attempts.map((item) => ({
+      run_id: clean(item.run_id),
+      previous_run_id: clean(item.previous_run_id),
+      attempt_number: Number(item.attempt_number || 1),
+      redacted_phone_number: clean(item.redacted_phone_number),
+      from_number: clean(item.from_number),
+      retell_call_id: clean(item.retell_call_id),
+      call_status: clean(item.call_status),
+      pass_fail_result: clean(item.pass_fail_result),
+    })),
+    latest_attempt: {
+      run_id: clean(latest.run_id),
+      attempt_number: Number(latest.attempt_number || 1),
+      call_status: clean(latest.call_status),
+      pass_fail_result: clean(latest.pass_fail_result),
+    },
+    production_activation: {
+      status: "requires_separate_approval",
+      allowed: false,
+    },
   };
 }

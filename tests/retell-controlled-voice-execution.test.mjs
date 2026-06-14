@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -17,7 +17,10 @@ import { createMockServiceDeliveryLiveClient, persistServiceDeliveryRun } from "
 import { runRevenueDailyLoop } from "../src/lib/revenueLoopRunner.mjs";
 import {
   buildControlledRetellPilotPlan,
+  buildControlledRetellPilotRetryPlan,
   executeControlledRetellPilot,
+  executeControlledRetellPilotRetry,
+  readControlledRetellPilotFinalState,
   readControlledRetellPilotEvidence,
 } from "../src/lib/retellControlledPilotRunner.mjs";
 
@@ -468,6 +471,172 @@ test("controlled Retell pilot refuses a second call when evidence already exists
   assert.equal(second.status, "pilot_executed");
   assert.ok(second.blockers.includes("call_limit_already_used"));
   assert.equal(createCalls, 1);
+});
+
+function writePriorPilotEvidence(outputDir, overrides = {}) {
+  const dir = path.join(outputDir, "retell-pilot-evidence");
+  const filePath = path.join(dir, "retell-pilot-devon-13dfa8f3d7.json");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(filePath, JSON.stringify({
+    version: "phase7_retell_controlled_pilot_runner_v1",
+    run_id: "retell-pilot-devon-13dfa8f3d7",
+    timestamp: NOW,
+    attempt_number: 1,
+    test_contact_name: "Devon",
+    redacted_phone_number: "***6243",
+    retell_call_id: "call_attempt_1",
+    from_number: "***5560",
+    call_status: "not_connected",
+    disconnection_reason: "user_declined",
+    duration_ms: 0,
+    transcript_or_summary: "",
+    pass_fail_result: "pilot_failed_not_connected",
+    production_activation_still_requires_separate_approval: true,
+    ...overrides,
+  }, null, 2));
+  return filePath;
+}
+
+function retryRuntimeOptions(outputDir, overrides = {}) {
+  const fetchImpl = async (url, init = {}) => {
+    if (url.endsWith("/v2/list-phone-numbers")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            phone_numbers: [{
+              phone_number_id: "pn_retry_001",
+              phone_number: "+15551235341",
+              phone_number_type: "telnyx",
+              allowed_outbound_country_list: ["US"],
+              outbound_agents: [{ agent_id: "agent_pilot_001" }],
+            }],
+          };
+        },
+      };
+    }
+    if (url.endsWith("/get-agent/agent_pilot_001")) {
+      return {
+        ok: true,
+        async json() {
+          return { agent_id: "agent_pilot_001", agent_name: "Hermes Pilot Receptionist", response_engine: { type: "retell-llm" } };
+        },
+      };
+    }
+    if (url.endsWith("/v2/create-phone-call")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            call_id: "call_retry_001",
+            call_status: "registered",
+            call_analysis: { call_summary: "Retry call registered for Devon." },
+          };
+        },
+      };
+    }
+    throw new Error(`unexpected ${url} ${JSON.stringify(init)}`);
+  };
+  return {
+    now: NOW,
+    outputDir,
+    priorRunId: "retell-pilot-devon-13dfa8f3d7",
+    env: {
+      RETELL_API_KEY: "secret-api-key",
+      RETELL_AGENT_ID: "agent_pilot_001",
+      RETELL_PHONE_NUMBER_ID: "pn_retry_001",
+      RETELL_BASE_URL: "https://api.retellai.test",
+      RETELL_CONTROLLED_PILOT_ENABLED: "true",
+    },
+    testContact: {
+      name: "Devon",
+      phone_number: "+14078816243",
+      consent_note: "Devon gave Jonathan permission to send one OttoServ/Hermes AI test call for Retell testing.",
+      scenario: "Friendly plumbing/HVAC owner retry test.",
+    },
+    retryApproval: {
+      decision: "approved",
+      operator: "Jonathan/operator",
+      approval_id: "approval-retell-pilot-devon-retry-1",
+      scope: "single_controlled_retell_pilot_retry",
+      reason: "Attempt 1 did not connect, zero duration, no transcript.",
+    },
+    fetchImpl,
+    ...overrides,
+  };
+}
+
+test("controlled Retell retry is blocked without explicit operator retry approval", async () => {
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "retell-pilot-retry-no-approval-"));
+  writePriorPilotEvidence(outputDir);
+
+  const plan = await buildControlledRetellPilotRetryPlan(retryRuntimeOptions(outputDir, { retryApproval: {} }));
+
+  assert.equal(plan.ok, false);
+  assert.equal(plan.status, "blocked_missing_retry_approval");
+  assert.ok(plan.blockers.includes("explicit_retry_approval_missing"));
+  assert.equal(plan.safety.no_broad_production_calling, true);
+});
+
+test("controlled Retell retry is blocked if prior call connected", async () => {
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "retell-pilot-retry-connected-"));
+  writePriorPilotEvidence(outputDir, {
+    call_status: "ended",
+    disconnection_reason: "user_hangup",
+    duration_ms: 12000,
+    transcript_or_summary: "Connected and spoke with Devon.",
+    pass_fail_result: "pass",
+  });
+
+  const plan = await buildControlledRetellPilotRetryPlan(retryRuntimeOptions(outputDir));
+
+  assert.equal(plan.ok, false);
+  assert.equal(plan.status, "blocked_prior_attempt_connected");
+  assert.ok(plan.blockers.includes("prior_attempt_connected_or_has_transcript"));
+});
+
+test("controlled Retell retry is ready only for not connected zero-duration no-transcript prior attempt and corrected from number", async () => {
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "retell-pilot-retry-ready-"));
+  writePriorPilotEvidence(outputDir);
+
+  const plan = await buildControlledRetellPilotRetryPlan(retryRuntimeOptions(outputDir));
+
+  assert.equal(plan.ok, true);
+  assert.equal(plan.status, "pilot_retry_ready");
+  assert.equal(plan.retry.attempt_number, 2);
+  assert.equal(plan.retry.corrected_from_number, "***5341");
+  assert.equal(plan.test_contact.name, "Devon");
+  assert.equal(plan.test_contact.redacted_phone_number, "***6243");
+  assert.equal(plan.execution.execute_allowed, true);
+  assert.equal(plan.safety.no_leads_called, true);
+  assert.equal(plan.production_activation.status, "requires_separate_approval");
+});
+
+test("controlled Retell retry writes separate retry evidence and final state can read retry execution", async () => {
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "retell-pilot-retry-exec-"));
+  const originalPath = writePriorPilotEvidence(outputDir);
+  const originalBefore = readFileSync(originalPath, "utf8");
+
+  const result = await executeControlledRetellPilotRetry(retryRuntimeOptions(outputDir));
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "pilot_retry_executed");
+  assert.equal(result.evidence.attempt_number, 2);
+  assert.equal(result.evidence.previous_run_id, "retell-pilot-devon-13dfa8f3d7");
+  assert.equal(result.evidence.redacted_phone_number, "***6243");
+  assert.equal(result.evidence.from_number, "***5341");
+  assert.equal(result.evidence.retell_call_id, "call_retry_001");
+  assert.match(result.evidence.run_id, /^retell-pilot-devon-retry-1-/);
+  assert.notEqual(result.evidence_path, originalPath);
+  assert.equal(readFileSync(originalPath, "utf8"), originalBefore);
+  assert.equal(JSON.stringify(result).includes("secret-api-key"), false);
+  assert.equal(JSON.stringify(result).includes("+14078816243"), false);
+
+  const finalState = readControlledRetellPilotFinalState({ outputDir, priorRunId: "retell-pilot-devon-13dfa8f3d7" });
+  assert.equal(finalState.ok, true);
+  assert.equal(finalState.status, "pilot_retry_executed");
+  assert.equal(finalState.attempts.length, 2);
+  assert.equal(finalState.production_activation.status, "requires_separate_approval");
 });
 
 test("controlled Retell evidence ingestion requires real proof", () => {
