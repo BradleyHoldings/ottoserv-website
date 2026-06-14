@@ -47,6 +47,23 @@ const SAMPLE_LATEST = {
       status: "open",
     },
   ],
+  socialDistributionOps: {
+    status: "blocked_pending_account_confirmation",
+    production_posting_allowed: false,
+    priority_order: ["linkedin", "facebook", "instagram", "tiktok", "x", "threads", "pinterest", "bluesky"],
+    accounts: [
+      {
+        platform: "linkedin",
+        handle: "",
+        profile_url: "",
+        connected_to_blotato: false,
+        login_session_status: "unknown",
+        priority: 1,
+        allowed_actions: ["schedule_or_repurpose_via_blotato_after_approval"],
+        evidence_requirements: ["approved_content_packet_id"],
+      },
+    ],
+  },
 };
 
 const SAMPLE_WO = {
@@ -88,6 +105,9 @@ test("reads autonomous revenue state with health, broken rails, repair packets, 
   assert.ok(state.brokenRails.some((rail) => rail.id === "lead_discovery_rail"));
   assert.equal(state.repairPackets[0].owner, "Codex");
   assert.match(state.nextAction, /repair/i);
+  assert.equal(state.socialDistributionOps.status, "blocked_pending_account_confirmation");
+  assert.equal(state.socialDistributionOps.production_posting_allowed, false);
+  assert.equal(state.socialDistributionOps.accounts[0].platform, "linkedin");
 });
 
 test("missing latest.json returns a safe, non-crashing empty state", async () => {

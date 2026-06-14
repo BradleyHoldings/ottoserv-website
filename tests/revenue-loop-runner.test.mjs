@@ -39,6 +39,22 @@ test("runner writes latest.json, a dated run, and the work-order store into outp
   assert.ok(latest.health, "carries health");
 });
 
+test("runner includes social distribution ops registry without enabling live posting", async () => {
+  const outputDir = tmpOut();
+  const result = await runRevenueDailyLoop({ now: NOW, outputDir, sourceOptions: emptySourceCwd() });
+
+  assert.equal(result.summary.social_distribution_ops.status, "blocked_pending_account_confirmation");
+  assert.equal(result.summary.social_distribution_ops.production_posting_allowed, false);
+
+  const latest = JSON.parse(readFileSync(path.join(outputDir, "latest.json"), "utf8"));
+  assert.equal(latest.socialDistributionOps.status, "blocked_pending_account_confirmation");
+  assert.equal(latest.socialDistributionOps.production_posting_allowed, false);
+  assert.deepEqual(latest.socialDistributionOps.priority_order.slice(0, 4), ["linkedin", "facebook", "instagram", "tiktok"]);
+  assert.equal(latest.socialDistributionOps.tool_roles.blotato.role, "social_distribution_and_repurposing");
+  assert.equal(latest.socialDistributionOps.tool_roles.retell.allowed_use, "approved_calls_only");
+  assert.equal(latest.socialDistributionOps.accounts.length, 8);
+});
+
 test("empty source state degrades safely to repair_first (no throw, honest status)", async () => {
   const outputDir = tmpOut();
   const result = await runRevenueDailyLoop({ now: NOW, outputDir, sourceOptions: emptySourceCwd() });

@@ -82,6 +82,33 @@ export const DISTRIBUTION_STATUSES = [
 
 export const PERFORMANCE_LABELS = ["Dead", "Average", "Promising", "Winner"];
 
+export const OFFICIAL_SOCIAL_ACCOUNT_REGISTRY = [
+  { platform: "linkedin", priority: 1, channel_group: "primary_revenue" },
+  { platform: "facebook", priority: 2, channel_group: "primary_revenue" },
+  { platform: "instagram", priority: 3, channel_group: "primary_revenue" },
+  { platform: "tiktok", priority: 4, channel_group: "primary_revenue" },
+  { platform: "x", priority: 5, channel_group: "active_distribution" },
+  { platform: "threads", priority: 6, channel_group: "active_distribution" },
+  { platform: "pinterest", priority: 7, channel_group: "secondary_republishing" },
+  { platform: "bluesky", priority: 8, channel_group: "secondary_republishing" },
+];
+
+const DEFAULT_SOCIAL_ALLOWED_ACTIONS = [
+  "draft_content_packet",
+  "schedule_or_repurpose_via_blotato_after_approval",
+  "cowork_browser_engagement_after_approval",
+  "capture_conversation_reply_lead_followup_evidence",
+];
+
+const DEFAULT_SOCIAL_EVIDENCE_REQUIREMENTS = [
+  "approved_content_packet_id",
+  "account_handle_confirmation",
+  "blotato_connected_status",
+  "cowork_session_or_browser_evidence",
+  "published_url_or_screenshot",
+  "conversation_reply_lead_followup_log",
+];
+
 export const requiredAirtableFields = [
   "Topic",
   "Content Pillar",
@@ -162,6 +189,114 @@ const PLATFORM_COPY = {
 
 function clean(value) {
   return String(value || "").trim();
+}
+
+function bool(value) {
+  return value === true || clean(value).toLowerCase() === "yes" || clean(value).toLowerCase() === "true";
+}
+
+function normalizePlatform(value = "") {
+  const platform = clean(value).toLowerCase();
+  if (["twitter", "x/twitter"].includes(platform)) return "x";
+  if (["fb", "facebook page", "facebook groups"].includes(platform)) return "facebook";
+  return platform;
+}
+
+function accountOverrideMap(accounts = []) {
+  return new Map(
+    (Array.isArray(accounts) ? accounts : [])
+      .map((account) => [normalizePlatform(account.platform), account])
+      .filter(([platform]) => platform),
+  );
+}
+
+function normalizeLoginSessionStatus(value = "") {
+  const status = clean(value).toLowerCase();
+  return ["unknown", "ready", "blocked"].includes(status) ? status : "unknown";
+}
+
+function accountAllowedActions(platform) {
+  const actions = [...DEFAULT_SOCIAL_ALLOWED_ACTIONS];
+  if (platform === "facebook") actions.push("facebook_page_and_group_engagement_after_approval");
+  if (platform === "linkedin") actions.push("linkedin_comments_replies_and_dm_triage_after_approval");
+  if (platform === "instagram" || platform === "tiktok") actions.push("short_form_reply_comment_and_dm_triage_after_approval");
+  if (platform === "pinterest" || platform === "bluesky") actions.push("secondary_republishing_after_primary_approval");
+  return actions;
+}
+
+export function buildSocialDistributionOpsReadModel(options = {}) {
+  const overrides = accountOverrideMap(options.accounts);
+  const accounts = OFFICIAL_SOCIAL_ACCOUNT_REGISTRY.map((base) => {
+    const override = overrides.get(base.platform) || {};
+    return {
+      platform: base.platform,
+      handle: clean(override.handle),
+      profile_url: clean(override.profile_url || override.profileUrl),
+      connected_to_blotato: bool(override.connected_to_blotato ?? override.connectedToBlotato),
+      login_session_status: normalizeLoginSessionStatus(override.login_session_status || override.loginSessionStatus),
+      priority: base.priority,
+      channel_group: base.channel_group,
+      allowed_actions: Array.isArray(override.allowed_actions || override.allowedActions)
+        ? override.allowed_actions || override.allowedActions
+        : accountAllowedActions(base.platform),
+      evidence_requirements: Array.isArray(override.evidence_requirements || override.evidenceRequirements)
+        ? override.evidence_requirements || override.evidenceRequirements
+        : DEFAULT_SOCIAL_EVIDENCE_REQUIREMENTS,
+    };
+  });
+  const confirmed = accounts.filter((account) => account.handle && account.profile_url);
+  const connected = accounts.filter((account) => account.connected_to_blotato);
+  const readySessions = accounts.filter((account) => account.login_session_status === "ready");
+  const productionPostingAllowed =
+    options.productionPostingApproved === true &&
+    confirmed.length === accounts.length &&
+    connected.length === accounts.length &&
+    readySessions.length === accounts.length;
+
+  return {
+    status: productionPostingAllowed ? "ready_for_approved_distribution" : "blocked_pending_account_confirmation",
+    production_posting_allowed: productionPostingAllowed,
+    priority_order: accounts.map((account) => account.platform),
+    summary: {
+      total_accounts: accounts.length,
+      handles_confirmed: confirmed.length,
+      connected_to_blotato: connected.length,
+      login_sessions_ready: readySessions.length,
+      blocked_sessions: accounts.filter((account) => account.login_session_status === "blocked").length,
+    },
+    tool_roles: {
+      hermes: {
+        role: "growth_orchestrator",
+        responsibility: "prepare_daily_content_engagement_packet_and_track_conversations_replies_leads_followups_next_actions",
+      },
+      blotato: {
+        role: "social_distribution_and_repurposing",
+        boundary: "not_the_whole_growth_engine",
+        allowed_use: "schedule_and_repurpose_approved_content_only",
+      },
+      cowork: {
+        role: "browser_execution_and_evidence",
+        responsibility: "browser_side_posting_comments_replies_dms_groups_and_evidence_when_needed",
+      },
+      retell: {
+        role: "approved_voice_followup",
+        allowed_use: "approved_calls_only",
+      },
+    },
+    growth_loop: [
+      "Hermes prepares daily content and engagement packet.",
+      "Blotato helps schedule and repurpose approved content.",
+      "Cowork handles browser-side posting, comments, replies, DMs, groups, and evidence where needed.",
+      "Hermes tracks conversations, replies, leads, follow-ups, and next actions.",
+      "Retell is used only for approved calls.",
+    ],
+    next_actions: [
+      "Jonathan confirms official account handles and Blotato connection status.",
+      "Verify login/session status for browser-side Cowork execution.",
+      "Keep all live posting, comments, replies, DMs, and calls approval-gated until account readiness is confirmed.",
+    ],
+    accounts,
+  };
 }
 
 function normalizeDateOnly(value) {

@@ -7,7 +7,9 @@ import {
   CONTENT_MONITORING_TOPICS,
   DISTRIBUTION_STATUSES,
   COWORK_QUEUE_VIEW,
+  OFFICIAL_SOCIAL_ACCOUNT_REGISTRY,
   buildAssetGenerationRequests,
+  buildSocialDistributionOpsReadModel,
   buildBlotatoDistributionPayload,
   buildContentOpportunity,
   buildStructuredContentDraft,
@@ -16,6 +18,44 @@ import {
   filterCoworkPostingQueue,
   requiredAirtableFields,
 } from "../src/lib/socialContentEngine.mjs";
+
+test("official OttoServ social registry keeps Blotato as distribution tool, not growth engine", () => {
+  const model = buildSocialDistributionOpsReadModel();
+
+  assert.deepEqual(model.priority_order, [
+    "linkedin",
+    "facebook",
+    "instagram",
+    "tiktok",
+    "x",
+    "threads",
+    "pinterest",
+    "bluesky",
+  ]);
+  assert.equal(model.summary.total_accounts, 8);
+  assert.equal(model.summary.connected_to_blotato, 0);
+  assert.equal(model.status, "blocked_pending_account_confirmation");
+  assert.equal(model.production_posting_allowed, false);
+  assert.equal(model.tool_roles.blotato.role, "social_distribution_and_repurposing");
+  assert.equal(model.tool_roles.hermes.responsibility, "prepare_daily_content_engagement_packet_and_track_conversations_replies_leads_followups_next_actions");
+  assert.equal(model.tool_roles.cowork.responsibility, "browser_side_posting_comments_replies_dms_groups_and_evidence_when_needed");
+  assert.equal(model.tool_roles.retell.allowed_use, "approved_calls_only");
+  assert.ok(model.next_actions.includes("Jonathan confirms official account handles and Blotato connection status."));
+
+  const linkedIn = model.accounts.find((account) => account.platform === "linkedin");
+  assert.equal(linkedIn.priority, 1);
+  assert.equal(linkedIn.connected_to_blotato, false);
+  assert.equal(linkedIn.login_session_status, "unknown");
+  assert.ok(linkedIn.allowed_actions.includes("schedule_or_repurpose_via_blotato_after_approval"));
+  assert.ok(linkedIn.allowed_actions.includes("cowork_browser_engagement_after_approval"));
+  assert.ok(linkedIn.evidence_requirements.includes("approved_content_packet_id"));
+
+  const facebook = model.accounts.find((account) => account.platform === "facebook");
+  assert.equal(facebook.priority, 2);
+  assert.ok(facebook.allowed_actions.includes("facebook_page_and_group_engagement_after_approval"));
+
+  assert.deepEqual(OFFICIAL_SOCIAL_ACCOUNT_REGISTRY.map((account) => account.platform), model.priority_order);
+});
 
 test("required Airtable fields include content engine and Cowork posting fields", () => {
   assert.ok(requiredAirtableFields.includes("Topic"));

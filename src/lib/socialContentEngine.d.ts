@@ -8,6 +8,11 @@ export const CONTENT_MONITORING_TOPICS: {
 export const CONTENT_LIFECYCLE_STATUSES: string[];
 export const DISTRIBUTION_STATUSES: string[];
 export const PERFORMANCE_LABELS: string[];
+export const OFFICIAL_SOCIAL_ACCOUNT_REGISTRY: Array<{
+  platform: string;
+  priority: number;
+  channel_group: string;
+}>;
 export const requiredAirtableFields: string[];
 export const COWORK_QUEUE_VIEW: {
   name: string;
@@ -163,6 +168,35 @@ export type SocialHealthStatus = {
   errors: string[];
 };
 
+export type SocialAccountRegistryItem = {
+  platform: string;
+  handle: string;
+  profile_url: string;
+  connected_to_blotato: boolean;
+  login_session_status: "unknown" | "ready" | "blocked";
+  priority: number;
+  channel_group: string;
+  allowed_actions: string[];
+  evidence_requirements: string[];
+};
+
+export type SocialDistributionOpsReadModel = {
+  status: "blocked_pending_account_confirmation" | "ready_for_approved_distribution";
+  production_posting_allowed: boolean;
+  priority_order: string[];
+  summary: {
+    total_accounts: number;
+    handles_confirmed: number;
+    connected_to_blotato: number;
+    login_sessions_ready: number;
+    blocked_sessions: number;
+  };
+  tool_roles: Record<string, Record<string, string>>;
+  growth_loop: string[];
+  next_actions: string[];
+  accounts: SocialAccountRegistryItem[];
+};
+
 export type SocialEngine = {
   storage: string;
   createDraft(input?: Record<string, unknown>): Promise<SocialWorkflowItem>;
@@ -185,6 +219,7 @@ export function buildStructuredContentDraft(input?: Record<string, unknown>): St
 export function buildContentOpportunity(input?: Record<string, unknown>): ContentOpportunity;
 export function createMemorySocialWorkflowStore(initialItems?: Array<Record<string, unknown>>): Record<string, unknown>;
 export function createSocialEngine(options?: Record<string, unknown>): SocialEngine;
+export function buildSocialDistributionOpsReadModel(options?: Record<string, unknown>): SocialDistributionOpsReadModel;
 export function normalizeSocialWorkflowItem(input?: Record<string, unknown>, options?: Record<string, unknown>): SocialWorkflowItem;
 export function normalizePlatformSocialRecord(record?: Record<string, unknown>): SocialWorkflowItem;
 export function buildAssetGenerationRequests(draft: StructuredContentDraft, options?: Record<string, unknown>): Array<{

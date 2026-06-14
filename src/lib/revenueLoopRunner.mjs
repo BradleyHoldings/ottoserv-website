@@ -57,6 +57,7 @@ import {
   buildHermesTenPhaseGapClosureSprint,
   getDefaultTenPhaseRepoEvidence,
 } from "./hermesTenPhaseGapClosure.mjs";
+import { buildSocialDistributionOpsReadModel } from "./socialContentEngine.mjs";
 
 export function inferCycle(value = new Date().toISOString()) {
   const hour = new Date(value).getHours();
@@ -279,6 +280,10 @@ export async function runRevenueDailyLoop(options = {}) {
     decisions: options.autonomyGraduationReviewDecisions,
     requests: options.autonomyGraduationReviewRequests,
   });
+  const socialDistributionOps = buildSocialDistributionOpsReadModel({
+    accounts: options.socialAccounts,
+    productionPostingApproved: options.socialProductionPostingApproved,
+  });
   const hermesTenPhaseGapClosureSprint = buildHermesTenPhaseGapClosureSprint({
     now,
     repoEvidence: options.tenPhaseRepoEvidence || getDefaultTenPhaseRepoEvidence(),
@@ -295,6 +300,7 @@ export async function runRevenueDailyLoop(options = {}) {
       dailyAutonomousOperatingCycle,
       autonomyGraduationState,
       autonomyGraduationReviewState,
+      socialDistributionOps,
       serviceDeliveryExecution: {
         ...serviceDeliveryExecution,
         voice_service_status: voiceServiceStatus,
@@ -318,6 +324,7 @@ export async function runRevenueDailyLoop(options = {}) {
     dailyAutonomousOperatingCycle,
     autonomyGraduationState,
     autonomyGraduationReviewState,
+    socialDistributionOps,
     hermesTenPhaseGapClosureSprint,
     serviceDelivery,
     serviceDeliveryExecution: {
@@ -396,6 +403,11 @@ export async function runRevenueDailyLoop(options = {}) {
     daily_autonomous_operating_cycle: dailyAutonomousOperatingCycle.report_summary,
     autonomy_graduation_state: autonomyGraduationState.summary,
     autonomy_graduation_review_state: autonomyGraduationReviewState.summary,
+    social_distribution_ops: {
+      status: socialDistributionOps.status,
+      production_posting_allowed: socialDistributionOps.production_posting_allowed,
+      accounts: socialDistributionOps.summary,
+    },
     hermes_10_phase_gap_closure: hermesTenPhaseGapClosureSprint.summary,
     service_delivery_execution: serviceDeliveryExecution.summary,
     voice_service_status: voiceServiceStatus.summary,

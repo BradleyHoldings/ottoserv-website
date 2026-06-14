@@ -186,6 +186,7 @@ export async function readAutonomousRevenueState(options = {}) {
     autonomyGraduationState: data.autonomyGraduationState || null,
     autonomyGraduationReviewState: data.autonomyGraduationReviewState || null,
     hermesTenPhaseGapClosureSprint: data.hermesTenPhaseGapClosureSprint || null,
+    socialDistributionOps: data.socialDistributionOps || null,
   };
 }
 
