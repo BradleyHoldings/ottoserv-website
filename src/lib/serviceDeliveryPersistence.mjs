@@ -1,7 +1,10 @@
 import {
   SERVICE_DELIVERY_CANONICAL_TABLES,
+  buildServiceDeliveryDashboardExport,
   generateImplementationWorkOrders,
+  generateServiceDeliveryPackage,
   getServiceDefinition,
+  normalizeServiceDeliverySignal,
   translateFindingsToOpportunities,
 } from "./serviceDeliverySpine.mjs";
 import { getSupabaseConfig } from "./socialSupabaseStore.mjs";
@@ -547,7 +550,7 @@ function recordToSource(record) {
   if (record?.client || record?.findings) return record;
   return {
     ...record,
-    service_key: clean(record.service_key) || "front_office_leak_check",
+    service_key: clean(record.service_key) || clean(asArray(record.selected_services)[0]) || "front_office_leak_check",
     client: {
       company_name: clean(record.company_name || record.company),
       contact_name: clean(record.contact_name || record.contact),
@@ -566,8 +569,20 @@ export async function runServiceDeliveryOperatingCycle(options = {}) {
   const liveClient = options.liveClient || null;
   const store = options.store || createMemoryServiceDeliveryStore();
   const records = asArray(options.records);
-  const opportunities = records.flatMap((record) => translateFindingsToOpportunities(recordToSource(record), { now }));
-  const workOrders = generateImplementationWorkOrders(opportunities, { now, sequenceStart: Number(options.sequenceStart || 900) });
+  const normalizedRequests = records.map((record) => normalizeServiceDeliverySignal(recordToSource(record), { now }));
+  const deliveryPackages = [];
+  const opportunities = [];
+  const workOrders = [];
+  let sequenceStart = Number(options.sequenceStart || 900);
+  for (const request of normalizedRequests) {
+    const requestOpportunities = translateFindingsToOpportunities(request, { now });
+    const deliveryPackage = generateServiceDeliveryPackage(request, requestOpportunities, { now });
+    const requestWorkOrders = generateImplementationWorkOrders(deliveryPackage, { now, sequenceStart });
+    sequenceStart += requestWorkOrders.length;
+    opportunities.push(...requestOpportunities);
+    deliveryPackages.push(deliveryPackage);
+    workOrders.push(...requestWorkOrders);
+  }
   const byOpportunityId = new Map(opportunities.map((opportunity) => [clean(opportunity.id), opportunity]));
   const approvalCards = [];
   const executionPackets = [];
@@ -593,15 +608,29 @@ export async function runServiceDeliveryOperatingCycle(options = {}) {
     monitoring_metrics: asArray(workOrder.implementation?.monitoring_metrics),
     upsell_paths: asArray(workOrder.implementation?.upsell_paths),
   }));
+  const dashboardExport = buildServiceDeliveryDashboardExport({
+    service_requests: normalizedRequests.map((request) => ({
+      request_id: request.request_id,
+      client: request.client,
+      service_key: request.service_key,
+      status: request.blocked_items.length ? "active_blocked" : "active",
+      next_action: request.safe_autonomous_next_actions[0],
+    })),
+    delivery_packages: deliveryPackages,
+    work_orders: workOrders,
+  }, { now });
 
   return {
     ok: true,
     generated_at: now,
+    normalized_requests: normalizedRequests,
+    delivery_packages: deliveryPackages,
     opportunities,
     workOrders,
     approval_cards: approvalCards,
     execution_packets: executionPackets,
     delivery_status_summaries: summaries,
+    dashboard_export: dashboardExport,
     persistence,
     store,
     summary: {
@@ -612,7 +641,7 @@ export async function runServiceDeliveryOperatingCycle(options = {}) {
       ticket_events: { total: liveStatus?.summary?.ticket_events?.total ?? store.tables.techops_ticket_events.size },
       approvals: { pending: approvalCards.length },
       execution_packets: { queue_ready: executionPackets.filter((packet) => packet.status === "queue_ready").length },
-      delivery_packages: { recoverable: liveStatus?.summary?.delivery_packages?.recoverable ?? store.tables.client_deployments.size },
+      delivery_packages: { total: deliveryPackages.length, recoverable: liveStatus?.summary?.delivery_packages?.recoverable ?? store.tables.client_deployments.size },
       tables_reused: SERVICE_DELIVERY_CANONICAL_TABLES,
     },
   };
