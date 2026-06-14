@@ -44,6 +44,8 @@ REVENUE_CONFIRMATION_PATTERNS = [
     r"^\s*yes[,.]?\s+(please\s+)?(start|confirm|proceed|run)\s*$",
     r"^\s*(confirm|confirmed|approve|approved|proceed)\s*$",
     r"^\s*yes[,.]?\s+please\s+start\s*$",
+    r"^\s*i\s+approve\b.+\b(dm|post|comment|reply|reddit|linkedin|instagram|facebook|x|twitter)\b",
+    r"^\s*approve\b.+\b(dm|post|comment|reply|reddit|linkedin|instagram|facebook|x|twitter)\b",
 ]
 
 EXPLICIT_GOAL_PATTERNS = [
@@ -52,6 +54,24 @@ EXPLICIT_GOAL_PATTERNS = [
     r"^\s*turn\s+this\s+into\s+a\s+goal\b",
     r"^\s*create\s+a\s+work\s+order\s+for\b",
     r"^\s*plan\s+this\s+goal\b",
+]
+
+SOCIAL_DRAFT_PLAN_PATTERNS = [
+    r"\bprepare\b.{0,80}\b(7[- ]day|seven[- ]day)\b.{0,80}\b(content|revenue|engagement)\b.{0,80}\bplan\b",
+    r"\b(7[- ]day|seven[- ]day)\b.{0,80}\b(content|revenue|engagement)\b.{0,80}\bplan\b",
+    r"\bdraft\b.{0,80}\bcowork\b.{0,40}\bhandoff\b",
+    r"\bgenerate\b.{0,40}\bcontent\s+calendar\b",
+    r"\bcreate\b.{0,40}\bengagement\s+plan\b",
+    r"\bprepare\b.{0,40}\bplatform\s+versions\b",
+    r"\bprepare\b.{0,80}\b(draft|content|social|revenue)\b.{0,80}\bplan\b",
+]
+
+DRAFT_ONLY_GUARDRAIL_PATTERNS = [
+    r"\bdo\s+not\s+post\s+live\b",
+    r"\bdo\s+not\s+dm\b",
+    r"\bdo\s+not\s+send\b.{0,40}\bexternally\b",
+    r"\bonly\s+prepare\b.{0,20}\bdraft\b",
+    r"\bdraft\s+only\b",
 ]
 
 EXECUTION_BLOCK_PATTERNS = [
@@ -95,11 +115,87 @@ def _classify_intent(text: str) -> Optional[str]:
     lowered = text.strip().lower()
     if any(re.search(pattern, lowered) for pattern in REVENUE_EXECUTION_PATTERNS):
         return "approved_revenue_execution_request"
+    if any(re.search(pattern, lowered) for pattern in SOCIAL_DRAFT_PLAN_PATTERNS):
+        return "draft_social_revenue_plan"
+    if (
+        any(re.search(pattern, lowered) for pattern in DRAFT_ONLY_GUARDRAIL_PATTERNS)
+        and re.search(r"\b(content|calendar|engagement|platform|cowork|handoff|dm angle|social|revenue)\b", lowered)
+    ):
+        return "draft_social_revenue_plan"
     if any(re.search(pattern, lowered) for pattern in EXECUTION_BLOCK_PATTERNS):
         return "blocked_execution_request"
     if any(re.search(pattern, lowered) for pattern in EXPLICIT_GOAL_PATTERNS):
         return "goal_draft_request"
     return None
+
+
+def _social_revenue_plan_reply() -> str:
+    return """7-Day OttoServ Revenue Content And Engagement Plan
+
+Draft-only guardrail: No live posts, comments, replies, DMs, calls, Stripe actions, n8n actions, or client-facing actions are authorized. This is an internal planning handoff only.
+
+7-Day Plan
+Day 1: Problem framing. Show how missed follow-up leaks revenue. CTA: request the front-office leak check.
+Day 2: Proof thread. Summarize one safe internal evidence point or demo result. CTA: ask for a workflow audit.
+Day 3: Founder/operator post. Explain the cost of manual lead handling and slow response. CTA: book a diagnostic.
+Day 4: Objection handling. Address "we already have a CRM" with OttoServ as the operating layer. CTA: compare current response path.
+Day 5: Mini case/story. Draft an anonymized before/after workflow story. CTA: ask for one bottleneck to map.
+Day 6: Engagement day. Comment/reply on relevant threads with useful diagnostic questions only. CTA: invite public conversation.
+Day 7: Recap and offer. Package the week into a concise revenue-ops checklist. CTA: request the 15-minute leak review.
+
+Platform Variants
+LinkedIn: Operator-focused posts with concrete workflow language, proof, and a clear diagnostic CTA.
+Reddit: Helpful, non-promotional replies first; posts must read as operational advice, not sales copy.
+X/Twitter: Short threads with one sharp claim, one example, and one CTA.
+Facebook/Groups: Practical field-service examples and questions, no spammy pitch language.
+
+Draft DM Angles
+Angle 1: "Saw your post about missed calls/follow-up. I drafted a quick leak-check idea; want me to share it here first?"
+Angle 2: "Your current bottleneck sounds like response-time drift. Draft-only note: OttoServ could map that into a fix list."
+Angle 3: "If useful, I can prepare a no-send workflow audit outline based on the public thread."
+All DM angles remain drafts only until Jonathan explicitly approves a specific recipient, platform, and message.
+
+Cowork Comment/Reply Targets
+Target posts where operators mention missed leads, slow estimates, CRM cleanup, inbound overload, no-show follow-up, or service dispatch gaps.
+Prioritize public comments/replies that ask useful diagnostic questions and do not claim results without evidence.
+Skip targets involving active disputes, sensitive personal data, pricing promises, medical/legal/financial advice, or private community rules against promotion.
+
+CTA
+"Reply with the part of your front office that leaks the most: missed calls, slow follow-up, stale CRM, or no-show recovery. I will map the first fix."
+
+Evidence Requirements
+Source URL or screenshot reference for every target.
+Platform, author handle, timestamp, and why the thread is relevant.
+Draft copy before any approval request.
+Policy/community-rule check for each platform.
+Post-action evidence only after separately approved live execution.
+
+Blockers
+No target list with URLs yet.
+No approved recipients or live message copy.
+No platform-specific community-rule review yet.
+No evidence packet proving claims for case-study language.
+
+Approval Checklist
+Jonathan approves exact platform.
+Jonathan approves exact copy.
+Jonathan approves exact recipient/thread/post target.
+Jonathan confirms send/post/comment/reply timing.
+Hermes records evidence path and rollback/fallback owner.
+Until all are checked for a specific action, execution remains blocked.
+
+File-Based Cowork Handoff Structure
+cowork_social_revenue_plan.md: 7-day calendar, daily objective, CTA, and draft copy.
+cowork_platform_variants.md: LinkedIn, Reddit, X/Twitter, Facebook/group variants.
+cowork_social_targets.json: target URL, platform, handle, relevance reason, risk notes, proposed draft action.
+cowork_dm_angles.md: draft-only DM angles with no recipient execution authority.
+evidence_requirements.json: required proof fields, screenshots/URLs, policy checks, approval evidence.
+blockers.md: missing inputs, unsafe claims, policy gaps, and unavailable targets.
+approval_checklist.md: exact approval fields required before any live action.
+handoff_manifest.json: file list, owner, created_at, draft_only=true, external_actions_taken=false.
+
+Suggested Hermes message after this fix: "Hermes, prepare a draft-only 7-day OttoServ revenue content and engagement plan with platform variants, draft DM angles, Cowork comment/reply targets, CTA, evidence requirements, blockers, approval checklist, and file-based Cowork handoff structure. Do not post live, do not DM anyone, do not comment/reply, do not call, do not trigger n8n or Stripe, and do not send anything externally."
+"""
 
 
 def _redact(text: str) -> str:
@@ -505,6 +601,23 @@ def pre_gateway_dispatch(event: Any = None, gateway: Any = None, session_store: 
             return {
                 "action": "skip",
                 "reason": "telegram_revenue_confirmation_handled",
+            }
+        if intent == "draft_social_revenue_plan":
+            reply = _social_revenue_plan_reply()
+            record = {
+                **base_record,
+                "handler_status": "draft_social_revenue_plan_created",
+                "files_created": False,
+                "external_actions_taken": False,
+                "production_systems_touched": False,
+                "draft_only": True,
+            }
+            sent = _schedule_send(gateway, event, reply)
+            record["telegram_reply_scheduled"] = sent
+            _log(record)
+            return {
+                "action": "skip",
+                "reason": "telegram_social_revenue_plan_drafted",
             }
         data = _run_handler(text)
         summary = _summary_from_handler(data)
