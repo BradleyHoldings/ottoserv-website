@@ -120,6 +120,9 @@ test("ten-phase gap closure sprint report audits every phase with evidence and p
     assert.ok(gap.acceptance_criteria.length >= 1);
     assert.equal(typeof gap.safe_to_fix_now, "boolean");
   }
+  const phase7Gap = report.gap_matrix.find((gap) => gap.phase === 7);
+  assert.equal(phase7Gap.in_repo_control, "evaluateControlledRetellProductionActivationGate");
+  assert.ok(phase7Gap.acceptance_criteria.some((criterion) => /production activation gate/i.test(criterion)));
 
   assert.ok(report.blocked_real_world_actions.some((item) => /Retell|Telnyx|n8n|Stripe|client-facing/i.test(item.action)));
   assert.equal(report.safety.no_live_retell_telnyx_n8n_stripe_or_client_facing_actions, true);

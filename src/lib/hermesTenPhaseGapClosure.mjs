@@ -199,8 +199,14 @@ function baselineGaps(runtime = {}, phaseNumber) {
       priority_bucket: "A",
       business_impact: "Client-facing execution cannot scale until approved credentials and live rail evidence exist.",
       technical_impact: "Retell/Telnyx/n8n/Stripe actions must remain blocked or synthetic until approval and read-back evidence are present.",
-      proposed_fix: "Keep blocked work orders and approval packets visible; run controlled-real acceptance only with explicit operator approval.",
-      acceptance_criteria: ["blocked credential/integration records exist", "no completed status without evidence", "controlled-real test passes"],
+      proposed_fix: "Use the controlled Retell production activation gate to keep live activation blocked until credentials, accepted test-call evidence, rollback, monitoring, client approval, and explicit operator approval are all present.",
+      in_repo_control: "evaluateControlledRetellProductionActivationGate",
+      acceptance_criteria: [
+        "blocked credential/integration records exist",
+        "no completed status without evidence",
+        "controlled-real test passes",
+        "production activation gate reports blocked until every evidence and approval prerequisite is present",
+      ],
       safe_to_fix_now: false,
       completion_blocker: true,
     });

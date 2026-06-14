@@ -9,6 +9,7 @@ import {
   generateControlledRetellExecutionPacket,
   evaluateControlledRetellAction,
   ingestControlledRetellEvidence,
+  evaluateControlledRetellProductionActivationGate,
   writeBackControlledRetellEvidence,
 } from "../src/lib/retellControlledVoiceExecution.mjs";
 import { generateVoiceSetupPacket } from "../src/lib/retellVoiceServiceAutomation.mjs";
@@ -141,6 +142,58 @@ test("production activation, number provisioning, and live routing stay blocked"
   assert.equal(evaluateControlledRetellAction(packet, "number_provisioning").ok, false);
   assert.equal(evaluateControlledRetellAction(packet, "live_routing_change").ok, false);
   assert.equal(evaluateControlledRetellAction(packet, "outbound_customer_call").ok, false);
+});
+
+test("production activation gate requires approval, credentials, test-call evidence, rollback, monitoring, and client approval", async () => {
+  const packet = generateControlledRetellExecutionPacket(approvedPacket(), { now: NOW }).execution_packet;
+  const blocked = await evaluateControlledRetellProductionActivationGate(packet, {
+    env: {},
+    evidence: {},
+    approval: {},
+  });
+
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.status, "blocked_production_activation");
+  assert.ok(blocked.blockers.includes("retell_credentials_missing"));
+  assert.ok(blocked.blockers.includes("accepted_test_call_evidence_missing"));
+  assert.ok(blocked.blockers.includes("explicit_operator_activation_approval_missing"));
+  assert.ok(blocked.blockers.includes("client_launch_approval_missing"));
+  assert.equal(blocked.safety.no_live_action_executed, true);
+
+  const ready = await evaluateControlledRetellProductionActivationGate(packet, {
+    env: {
+      RETELL_API_KEY: "secret-api-key",
+      RETELL_AGENT_ID: "agent_phase6f_acceptance",
+      RETELL_PHONE_NUMBER_ID: "phone_phase6f",
+      RETELL_VOICE_SERVICE_LIVE_EXECUTION: "approved",
+    },
+    evidence: {
+      status: "completed",
+      retell_agent_config_id: "agent_config_phase6f",
+      retell_call_id: "call_phase6f_001",
+      call_status: "ended",
+      call_result: "connected_test",
+      transcript_unavailable_reason: "synthetic fixture omitted full transcript",
+      occurred_at: NOW,
+      approval_id: "approval-retell-6f-001",
+      work_order_id: "WO-RETELL-6F-001",
+      rollback_plan_id: "rollback-phase6f-001",
+      monitoring_plan_id: "monitor-phase6f-001",
+      client_launch_approval_id: "client-approval-phase6f-001",
+    },
+    approval: {
+      decision: "approved",
+      operator: "Jonathan/operator",
+      approval_id: "approval-retell-6f-activation",
+      scope: "production_activation",
+    },
+  });
+
+  assert.equal(ready.ok, true);
+  assert.equal(ready.status, "ready_for_operator_controlled_activation");
+  assert.equal(ready.allowed_actions.production_activation, false);
+  assert.equal(ready.next_action, "operator_may_run_separate_controlled_activation_after_final_live_review");
+  assert.equal(JSON.stringify(ready).includes("secret-api-key"), false);
 });
 
 test("controlled Retell evidence ingestion requires real proof", () => {

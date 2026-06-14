@@ -144,6 +144,92 @@ function missingEvidenceFields(evidence = {}) {
   return missing;
 }
 
+function activationApprovalAccepted(approval = {}) {
+  const decisionApproved = lower(approval.decision) === "approved" || lower(approval.decision) === "approve_bounded_autonomy";
+  return (approved(approval) || decisionApproved)
+    && /jonathan|operator/i.test(clean(approval.operator || approval.decided_by || approval.approved_by))
+    && /production_activation|live_activation|voice_launch/i.test(clean(approval.scope || approval.action || approval.approved_scope));
+}
+
+function activationEvidenceBlockers(evidence = {}) {
+  const blockers = [];
+  if (missingEvidenceFields(evidence).length || lower(evidence.status) !== "completed") {
+    blockers.push("accepted_test_call_evidence_missing");
+  }
+  if (!clean(evidence.rollback_plan_id || evidence.rollback_evidence_id)) {
+    blockers.push("rollback_plan_missing");
+  }
+  if (!clean(evidence.monitoring_plan_id || evidence.monitoring_evidence_id)) {
+    blockers.push("monitoring_plan_missing");
+  }
+  if (!clean(evidence.client_launch_approval_id || evidence.client_approval_id)) {
+    blockers.push("client_launch_approval_missing");
+  }
+  return blockers;
+}
+
+export async function evaluateControlledRetellProductionActivationGate(packet = {}, options = {}) {
+  const env = options.env || process.env;
+  const env_present = envPresence(env);
+  const blockers = [];
+
+  if (!env_present.RETELL_API_KEY || !env_present.RETELL_AGENT_ID || !(env_present.RETELL_PHONE_NUMBER || env_present.RETELL_FROM_NUMBER || env_present.RETELL_PHONE_NUMBER_ID)) {
+    blockers.push("retell_credentials_missing");
+  }
+  if (clean(env.RETELL_VOICE_SERVICE_LIVE_EXECUTION) !== "approved") {
+    blockers.push("live_execution_env_flag_not_approved");
+  }
+  if (!activationApprovalAccepted(options.approval || {})) {
+    blockers.push("explicit_operator_activation_approval_missing");
+  }
+  if (evaluateControlledRetellAction(packet, "production_activation").ok) {
+    blockers.push("production_activation_packet_must_remain_blocked_until_separate_live_runner");
+  }
+  blockers.push(...activationEvidenceBlockers(options.evidence || {}));
+
+  const safePacket = {
+    packet_id: clean(packet.packet_id),
+    related_work_order_id: clean(packet.related_work_order_id),
+    related_approval_id: clean(packet.related_approval_id),
+    service_key: clean(packet.service_key),
+  };
+  const report = {
+    ok: blockers.length === 0,
+    status: blockers.length === 0 ? "ready_for_operator_controlled_activation" : "blocked_production_activation",
+    packet: safePacket,
+    env_present,
+    blockers: [...new Set(blockers)],
+    required_evidence: [
+      ...REQUIRED_EVIDENCE_FIELDS,
+      "transcript_or_transcript_unavailable_reason",
+      "rollback_plan_id",
+      "monitoring_plan_id",
+      "client_launch_approval_id",
+      "explicit_operator_activation_approval",
+      "RETELL_VOICE_SERVICE_LIVE_EXECUTION=approved",
+    ],
+    allowed_actions: {
+      agent_config_preparation: false,
+      sandbox_test_call: false,
+      production_activation: false,
+      number_provisioning: false,
+      live_routing_change: false,
+      outbound_customer_call: false,
+    },
+    next_action: blockers.length === 0
+      ? "operator_may_run_separate_controlled_activation_after_final_live_review"
+      : "collect_missing_activation_evidence_and_operator_approval",
+    safety: {
+      no_live_action_executed: true,
+      no_number_provisioning: true,
+      no_live_routing_change: true,
+      no_outbound_customer_call: true,
+      no_stripe_email_n8n: true,
+    },
+  };
+  return report;
+}
+
 export function ingestControlledRetellEvidence(packet = {}, evidence = {}, options = {}) {
   const now = options.now || new Date().toISOString();
   if (lower(evidence.status) === "completed") {
