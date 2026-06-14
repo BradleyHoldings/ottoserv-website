@@ -246,22 +246,47 @@ function excerptAround(text = "", needle = "", size = 180) {
   return haystack.slice(start, start + size);
 }
 
+function firstTranscriptLine(text = "") {
+  return clean(text).split(/\r?\n/).map(clean).find(Boolean)?.slice(0, 240) || "";
+}
+
+function issueLocationForTranscript(text = "", variables = []) {
+  const firstLine = firstTranscriptLine(text);
+  if (variables.some((item) => firstLine.includes(item))) return "welcome_message";
+  return variables.length ? "prompt_body" : "none";
+}
+
 export function analyzeRetellPilotTranscriptQuality(evidence = {}, options = {}) {
   const transcript = transcriptText(evidence);
   const variables = unresolvedTemplateVariables(transcript);
   const connected = /ended|completed|successful/i.test(clean(evidence.call_status || evidence.status)) && Number(evidence.duration_ms || evidence.duration_seconds || 0) > 0;
   const hasIssue = variables.length > 0;
+  const issueLocation = issueLocationForTranscript(transcript, variables);
   const recommendedPromptFix = "Replace any opening that depends on {{contact_name}} with: \"Hi, this is Morgan from OttoServ. Who am I speaking with?\" Or, only if a name variable is reliably available: \"Hi, this is Morgan from OttoServ. Am I speaking with {contact_name}?\" with a fallback when missing.";
+  const recommendedWelcomeMessage = "Hi, this is Morgan calling from OttoServ. Who am I speaking with?";
   const repairPacket = hasIssue ? {
     id: `retell-script-repair-${slug(evidence.retell_call_id || evidence.run_id || "unknown")}`,
-    issue_type: "unresolved_retell_prompt_variable",
+    issue_type: issueLocation === "welcome_message" ? "unresolved_retell_welcome_message_variable" : "unresolved_retell_prompt_variable",
     severity: "high",
     production_readiness_impact: "blocks_phase7_production_activation",
     affected_call_id: clean(evidence.retell_call_id || evidence.call_id),
     affected_agent_id: clean(evidence.agent_id),
+    retell_field_to_fix: issueLocation === "welcome_message" ? "welcome_message" : "agent_prompt_or_tool_prompt",
     transcript_excerpt: excerptAround(transcript, variables[0]),
     unresolved_variables: variables,
     recommended_prompt_fix: recommendedPromptFix,
+    recommended_welcome_message: recommendedWelcomeMessage,
+    dynamic_variables_guidance: {
+      future_ready_supported_payload_keys: ["contact_name", "business_name", "context"],
+      requirement: "Dynamic variables may be sent in the Retell create-call payload when available, but Welcome Message and prompt text must still include natural fallback wording so raw {{...}} placeholders are never spoken.",
+      production_activation_requires: "welcome_message_fixed_or_dynamic_variables_proven_populated_with_fallback",
+    },
+    acceptance_criteria: [
+      "Welcome Message contains no raw {{...}} placeholders unless Retell proves dynamic variables are populated before speech.",
+      "Opening line has fallback wording when contact_name, first_name, or business_name is missing.",
+      "A controlled follow-up test transcript contains no spoken {{...}} placeholders.",
+      "Production activation remains blocked until this repair is verified.",
+    ],
     live_production_activation_allowed: false,
     route_options: {
       codex_repo_managed_prompt: {
@@ -290,6 +315,7 @@ export function analyzeRetellPilotTranscriptQuality(evidence = {}, options = {})
   return {
     ok: true,
     status: hasIssue ? "script_polish_needed" : connected ? "clean_connected_transcript" : "transcript_not_connected_or_pending",
+    issue_location: issueLocation,
     unresolved_variables: variables,
     pass_fail_result: hasIssue ? "pilot_connected_script_polish_needed" : connected ? "pilot_pass_candidate" : clean(evidence.pass_fail_result || "pending_call_completion"),
     repair_packet: repairPacket,
@@ -297,6 +323,7 @@ export function analyzeRetellPilotTranscriptQuality(evidence = {}, options = {})
       status: "requires_separate_approval",
       allowed: false,
       blocked_by_script_quality: hasIssue,
+      blocked_by_welcome_message: hasIssue && issueLocation === "welcome_message",
     },
   };
 }
@@ -541,6 +568,7 @@ export async function executeControlledRetellPilot(options = {}) {
     idempotency_key: plan.run_id,
     approved_script_ref: "phase7_controlled_retell_pilot_devon",
     approved_angle: scenario,
+    dynamic_variables: options.dynamicVariables,
   });
   const normalized = normalizeRetellCall(call);
   const retellCallId = clean(call.provider_call_id || normalized.provider_call_id);
@@ -606,6 +634,7 @@ export async function executeControlledRetellPilotRetry(options = {}) {
     idempotency_key: plan.run_id,
     approved_script_ref: "phase7_controlled_retell_pilot_devon_retry_1",
     approved_angle: scenario,
+    dynamic_variables: options.dynamicVariables,
   });
   const normalized = normalizeRetellCall(call);
   const status = clean(call.status || normalized.status);

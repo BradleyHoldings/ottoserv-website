@@ -16,6 +16,14 @@ function secondsFromRetell(call = {}) {
   if (call.duration_ms !== undefined) return Math.round(Number(call.duration_ms || 0) / 1000);
   return Number(call.duration || 0);
 }
+function dynamicVariables(value = {}) {
+  const out = {};
+  for (const key of ["contact_name", "business_name", "context"]) {
+    const v = clean(value[key]);
+    if (v) out[key] = v;
+  }
+  return out;
+}
 
 export function readRetellConfig(env = process.env) {
   const fromNumberRef = clean(env.RETELL_PHONE_NUMBER || env.RETELL_FROM_NUMBER || env.RETELL_PHONE_NUMBER_ID);
@@ -54,8 +62,11 @@ export function makeRetellTransport(options = {}) {
           idempotency_key: clean(intent.idempotency_key),
           approved_script_ref: clean(intent.approved_script_ref),
           approved_angle: clean(intent.approved_angle),
+          dynamic_variables_present: Object.keys(dynamicVariables(intent.dynamic_variables)).length > 0,
         },
       };
+      const vars = dynamicVariables(intent.dynamic_variables);
+      if (Object.keys(vars).length) body.retell_llm_dynamic_variables = vars;
       if (!body.from_number) throw new Error("retell_from_number_missing");
       const res = await fetchImpl(`${root}/v2/create-phone-call`, {
         method: "POST",

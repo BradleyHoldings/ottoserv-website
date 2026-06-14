@@ -640,7 +640,7 @@ test("controlled Retell retry writes separate retry evidence and final state can
   assert.equal(finalState.production_activation.status, "requires_separate_approval");
 });
 
-test("Retell transcript with unresolved contact_name marks connected pilot as script polish needed", () => {
+test("Retell prompt-body unresolved variable marks connected pilot as script polish needed", () => {
   const analysis = analyzeRetellPilotTranscriptQuality({
     run_id: "retell-pilot-devon-retry-1-d82f6de0a1",
     retell_call_id: "call_057f1bd039224b5b416fe3d54ce",
@@ -650,19 +650,121 @@ test("Retell transcript with unresolved contact_name marks connected pilot as sc
     call_status: "ended",
     duration_ms: 38852,
     disconnection_reason: "user_hangup",
-    transcript_or_summary: "Hi, this is Morgan from OttoServ. Am I speaking with {{contact_name}}?",
+    transcript_or_summary: "Hi, this is Morgan from OttoServ. Who am I speaking with?\nLater the agent said: I can help {{business_name}} with missed calls.",
   });
 
   assert.equal(analysis.pass_fail_result, "pilot_connected_script_polish_needed");
   assert.equal(analysis.production_activation.allowed, false);
-  assert.ok(analysis.unresolved_variables.includes("{{contact_name}}"));
+  assert.equal(analysis.issue_location, "prompt_body");
+  assert.ok(analysis.unresolved_variables.includes("{{business_name}}"));
   assert.equal(analysis.repair_packet.issue_type, "unresolved_retell_prompt_variable");
   assert.equal(analysis.repair_packet.severity, "high");
   assert.equal(analysis.repair_packet.affected_call_id, "call_057f1bd039224b5b416fe3d54ce");
   assert.equal(analysis.repair_packet.affected_agent_id, "agent_pilot_001");
-  assert.match(analysis.repair_packet.transcript_excerpt, /\{\{contact_name\}\}/);
+  assert.match(analysis.repair_packet.transcript_excerpt, /\{\{business_name\}\}/);
   assert.equal(analysis.repair_packet.live_production_activation_allowed, false);
   assert.equal(JSON.stringify(analysis).includes("+14078816243"), false);
+});
+
+test("Retell opening-line placeholder is classified as Welcome Message startup issue", () => {
+  const analysis = analyzeRetellPilotTranscriptQuality({
+    run_id: "retell-pilot-devon-retry-1-d82f6de0a1",
+    retell_call_id: "call_057f1bd039224b5b416fe3d54ce",
+    agent_id: "agent_pilot_001",
+    redacted_phone_number: "***6243",
+    from_number: "***5341",
+    call_status: "ended",
+    duration_ms: 38852,
+    transcript_or_summary: "Hi, this is Morgan calling from OttoServ. Am I speaking with {{contact_name}}? Devon here.",
+  });
+
+  assert.equal(analysis.pass_fail_result, "pilot_connected_script_polish_needed");
+  assert.equal(analysis.issue_location, "welcome_message");
+  assert.equal(analysis.production_activation.allowed, false);
+  assert.equal(analysis.production_activation.blocked_by_welcome_message, true);
+  assert.equal(analysis.repair_packet.issue_type, "unresolved_retell_welcome_message_variable");
+  assert.equal(analysis.repair_packet.retell_field_to_fix, "welcome_message");
+  assert.equal(
+    analysis.repair_packet.recommended_welcome_message,
+    "Hi, this is Morgan calling from OttoServ. Who am I speaking with?",
+  );
+  assert.ok(analysis.repair_packet.acceptance_criteria.some((item) => /fallback/i.test(item)));
+});
+
+test("dynamic variables are sent in Retell create-call payload when available", async () => {
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "retell-pilot-dynamic-vars-"));
+  let capturedBody = null;
+  const fetchImpl = async (url, init = {}) => {
+    if (url.endsWith("/v2/list-phone-numbers")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            phone_numbers: [{
+              phone_number_id: "pn_pilot_001",
+              phone_number: "+15551235341",
+              phone_number_type: "telnyx",
+              allowed_outbound_country_list: ["US"],
+              outbound_agents: [{ agent_id: "agent_pilot_001" }],
+            }],
+          };
+        },
+      };
+    }
+    if (url.endsWith("/get-agent/agent_pilot_001")) {
+      return {
+        ok: true,
+        async json() {
+          return { agent_id: "agent_pilot_001", agent_name: "Hermes Pilot Receptionist", response_engine: { type: "retell-llm" } };
+        },
+      };
+    }
+    if (url.endsWith("/v2/create-phone-call")) {
+      capturedBody = JSON.parse(init.body);
+      return {
+        ok: true,
+        async json() {
+          return { call_id: "call_dynamic_vars", call_status: "registered" };
+        },
+      };
+    }
+    throw new Error(`unexpected ${url}`);
+  };
+
+  await executeControlledRetellPilot({
+    now: NOW,
+    outputDir,
+    env: {
+      RETELL_API_KEY: "secret-api-key",
+      RETELL_AGENT_ID: "agent_pilot_001",
+      RETELL_PHONE_NUMBER_ID: "pn_pilot_001",
+      RETELL_BASE_URL: "https://api.retellai.test",
+      RETELL_CONTROLLED_PILOT_ENABLED: "true",
+    },
+    testContact: {
+      name: "Devon",
+      phone_number: "+14078816243",
+      consent_note: "Devon gave Jonathan permission to send one OttoServ/Hermes AI test call for Retell testing.",
+      scenario: "Friendly plumbing/HVAC owner test.",
+    },
+    dynamicVariables: {
+      contact_name: "Devon",
+      business_name: "Devon's Plumbing & HVAC",
+      context: "Controlled OttoServ Retell pilot.",
+    },
+    fetchImpl,
+    operatorApproval: {
+      decision: "approved",
+      operator: "Jonathan/operator",
+      approval_id: "approval-retell-pilot-devon",
+      scope: "single_controlled_retell_pilot_call",
+    },
+  });
+
+  assert.equal(capturedBody.metadata.dynamic_variables_present, true);
+  assert.equal(capturedBody.retell_llm_dynamic_variables.contact_name, "Devon");
+  assert.equal(capturedBody.retell_llm_dynamic_variables.business_name, "Devon's Plumbing & HVAC");
+  assert.equal(capturedBody.retell_llm_dynamic_variables.context, "Controlled OttoServ Retell pilot.");
 });
 
 test("clean connected Retell transcript can become pass candidate but still requires separate production approval", () => {
