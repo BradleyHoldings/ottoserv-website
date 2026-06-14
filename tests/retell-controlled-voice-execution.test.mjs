@@ -15,6 +15,11 @@ import {
 import { generateVoiceSetupPacket } from "../src/lib/retellVoiceServiceAutomation.mjs";
 import { createMockServiceDeliveryLiveClient, persistServiceDeliveryRun } from "../src/lib/serviceDeliveryPersistence.mjs";
 import { runRevenueDailyLoop } from "../src/lib/revenueLoopRunner.mjs";
+import {
+  buildControlledRetellPilotPlan,
+  executeControlledRetellPilot,
+  readControlledRetellPilotEvidence,
+} from "../src/lib/retellControlledPilotRunner.mjs";
 
 const NOW = "2026-06-11T20:00:00.000Z";
 
@@ -153,7 +158,7 @@ test("production activation gate requires approval, credentials, test-call evide
   });
 
   assert.equal(blocked.ok, false);
-  assert.equal(blocked.status, "blocked_production_activation");
+  assert.equal(blocked.status, "blocked_missing_credentials");
   assert.ok(blocked.blockers.includes("retell_credentials_missing"));
   assert.ok(blocked.blockers.includes("accepted_test_call_evidence_missing"));
   assert.ok(blocked.blockers.includes("explicit_operator_activation_approval_missing"));
@@ -187,13 +192,282 @@ test("production activation gate requires approval, credentials, test-call evide
       approval_id: "approval-retell-6f-activation",
       scope: "production_activation",
     },
+    testContact: {
+      name: "Devon",
+      phone_number: "+14078816243",
+      consent_note: "Devon gave Jonathan permission to send one test call.",
+      scenario: "Friendly plumbing/HVAC owner test.",
+    },
   });
 
   assert.equal(ready.ok, true);
-  assert.equal(ready.status, "ready_for_operator_controlled_activation");
+  assert.equal(ready.status, "pilot_ready");
   assert.equal(ready.allowed_actions.production_activation, false);
   assert.equal(ready.next_action, "operator_may_run_separate_controlled_activation_after_final_live_review");
   assert.equal(JSON.stringify(ready).includes("secret-api-key"), false);
+});
+
+test("production activation gate distinguishes controlled pilot lifecycle states", async () => {
+  const packet = generateControlledRetellExecutionPacket(approvedPacket(), { now: NOW }).execution_packet;
+  const base = {
+    env: {
+      RETELL_API_KEY: "secret-api-key",
+      RETELL_AGENT_ID: "agent_phase6f_acceptance",
+      RETELL_PHONE_NUMBER_ID: "phone_phase6f",
+      RETELL_VOICE_SERVICE_LIVE_EXECUTION: "approved",
+    },
+    evidence: {
+      status: "completed",
+      retell_agent_config_id: "agent_config_phase6f",
+      retell_call_id: "call_phase6f_001",
+      call_status: "ended",
+      call_result: "connected_test",
+      transcript_unavailable_reason: "synthetic fixture omitted full transcript",
+      occurred_at: NOW,
+      approval_id: "approval-retell-6f-001",
+      work_order_id: "WO-RETELL-6F-001",
+      rollback_plan_id: "rollback-phase6f-001",
+      monitoring_plan_id: "monitor-phase6f-001",
+      client_launch_approval_id: "client-approval-phase6f-001",
+    },
+    approval: {
+      decision: "approved",
+      operator: "Jonathan/operator",
+      approval_id: "approval-retell-6f-activation",
+      scope: "production_activation",
+    },
+  };
+
+  const missingContact = await evaluateControlledRetellProductionActivationGate(packet, base);
+  assert.equal(missingContact.status, "blocked_missing_test_contact_approval");
+  assert.ok(missingContact.blockers.includes("explicit_test_contact_approval_missing"));
+
+  const pilotReady = await evaluateControlledRetellProductionActivationGate(packet, {
+    ...base,
+    testContact: {
+      name: "Devon",
+      phone_number: "+14078816243",
+      consent_note: "Devon gave Jonathan permission to send one test call.",
+      scenario: "Friendly plumbing/HVAC owner test.",
+    },
+  });
+  assert.equal(pilotReady.status, "pilot_ready");
+
+  const pilotExecuted = await evaluateControlledRetellProductionActivationGate(packet, {
+    ...base,
+    testContact: {
+      name: "Devon",
+      phone_number: "+14078816243",
+      consent_note: "Devon gave Jonathan permission to send one test call.",
+      scenario: "Friendly plumbing/HVAC owner test.",
+    },
+    pilotEvidence: {
+      run_id: "retell-pilot-devon",
+      retell_call_id: "call_pilot_001",
+      pass_fail_result: "pending_call_completion",
+    },
+  });
+  assert.equal(pilotExecuted.status, "pilot_executed");
+
+  const pilotPassed = await evaluateControlledRetellProductionActivationGate(packet, {
+    ...base,
+    testContact: {
+      name: "Devon",
+      phone_number: "+14078816243",
+      consent_note: "Devon gave Jonathan permission to send one test call.",
+      scenario: "Friendly plumbing/HVAC owner test.",
+    },
+    pilotEvidence: {
+      run_id: "retell-pilot-devon",
+      retell_call_id: "call_pilot_001",
+      pass_fail_result: "pass",
+    },
+  });
+  assert.equal(pilotPassed.status, "pilot_passed");
+  assert.equal(pilotPassed.production_activation.status, "requires_separate_approval");
+});
+
+test("controlled Retell pilot blocks without credentials or explicit approved test contact", async () => {
+  const blocked = await buildControlledRetellPilotPlan({
+    now: NOW,
+    env: {},
+    testContact: {},
+    operatorApproval: {},
+  });
+
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.status, "blocked_missing_credentials");
+  assert.ok(blocked.blockers.includes("retell_credentials_missing"));
+  assert.ok(blocked.blockers.includes("explicit_test_contact_approval_missing"));
+  assert.equal(blocked.safety.call_limit, 1);
+  assert.equal(blocked.safety.no_broad_production_calling, true);
+  assert.equal(JSON.stringify(blocked).includes("+14078816243"), false);
+});
+
+test("controlled Retell pilot executes exactly one approved call and stores sanitized evidence", async () => {
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "retell-pilot-"));
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    if (url.endsWith("/v2/list-phone-numbers")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            phone_numbers: [{
+              phone_number_id: "pn_pilot_001",
+              phone_number: "+15551234567",
+              phone_number_type: "telnyx",
+              allowed_outbound_country_list: ["US"],
+              outbound_agents: [{ agent_id: "agent_pilot_001" }],
+            }],
+          };
+        },
+      };
+    }
+    if (url.endsWith("/get-agent/agent_pilot_001")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            agent_id: "agent_pilot_001",
+            agent_name: "Hermes Pilot Receptionist",
+            response_engine: { type: "retell-llm" },
+            webhook_events: ["call_ended"],
+          };
+        },
+      };
+    }
+    if (url.endsWith("/v2/create-phone-call")) {
+      calls.push({ url, body: JSON.parse(init.body), headers: init.headers });
+      return {
+        ok: true,
+        async json() {
+          return {
+            call_id: "call_pilot_001",
+            call_status: "registered",
+            call_analysis: { call_summary: "Devon completed the approved receptionist pilot scenario." },
+          };
+        },
+      };
+    }
+    throw new Error(`unexpected ${url}`);
+  };
+
+  const result = await executeControlledRetellPilot({
+    now: NOW,
+    outputDir,
+    env: {
+      RETELL_API_KEY: "secret-api-key",
+      RETELL_AGENT_ID: "agent_pilot_001",
+      RETELL_PHONE_NUMBER_ID: "pn_pilot_001",
+      RETELL_BASE_URL: "https://api.retellai.test",
+      RETELL_CONTROLLED_PILOT_ENABLED: "true",
+    },
+    testContact: {
+      name: "Devon",
+      phone_number: "+14078816243",
+      consent_note: "Devon gave Jonathan permission to send one OttoServ/Hermes AI test call for Retell testing.",
+      scenario: "Pretend the test contact owns a small plumbing/HVAC business.",
+    },
+    operatorApproval: {
+      decision: "approved",
+      operator: "Jonathan/operator",
+      approval_id: "approval-retell-pilot-devon",
+      scope: "single_controlled_retell_pilot_call",
+    },
+    fetchImpl,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "pilot_executed");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].body.to_number, "+14078816243");
+  assert.equal(calls[0].body.from_number, "+15551234567");
+  assert.equal(calls[0].body.override_agent_id, "agent_pilot_001");
+  assert.equal(result.evidence.test_contact_name, "Devon");
+  assert.equal(result.evidence.redacted_phone_number, "***6243");
+  assert.equal(result.evidence.retell_call_id, "call_pilot_001");
+  assert.equal(result.evidence.agent_id, "agent_pilot_001");
+  assert.equal(result.evidence.from_number, "***4567");
+  assert.equal(result.evidence.phone_number_management, "telnyx/imported");
+  assert.equal(result.evidence.pass_fail_result, "pending_call_completion");
+  assert.equal(result.evidence.production_activation_still_requires_separate_approval, true);
+  assert.equal(JSON.stringify(result).includes("secret-api-key"), false);
+  assert.equal(JSON.stringify(result).includes("+14078816243"), false);
+
+  const readBack = readControlledRetellPilotEvidence({ outputDir, runId: result.evidence.run_id });
+  assert.equal(readBack.ok, true);
+  assert.equal(readBack.evidence.retell_call_id, "call_pilot_001");
+  assert.equal(readBack.evidence.redacted_phone_number, "***6243");
+});
+
+test("controlled Retell pilot refuses a second call when evidence already exists for the contact", async () => {
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "retell-pilot-limit-"));
+  let createCalls = 0;
+  const fetchImpl = async (url, init = {}) => {
+    if (url.endsWith("/v2/list-phone-numbers")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            phone_numbers: [{
+              phone_number_id: "pn_pilot_001",
+              phone_number: "+15551234567",
+              phone_number_type: "retell-twilio",
+              allowed_outbound_country_list: ["US"],
+              outbound_agents: [{ agent_id: "agent_pilot_001" }],
+            }],
+          };
+        },
+      };
+    }
+    if (url.endsWith("/get-agent/agent_pilot_001")) {
+      return {
+        ok: true,
+        async json() {
+          return { agent_id: "agent_pilot_001", agent_name: "Hermes Pilot Receptionist", response_engine: { type: "retell-llm" } };
+        },
+      };
+    }
+    if (url.endsWith("/v2/create-phone-call")) {
+      createCalls += 1;
+      return { ok: true, async json() { return { call_id: `call_pilot_00${createCalls}`, call_status: "registered" }; } };
+    }
+    throw new Error(`unexpected ${url} ${JSON.stringify(init)}`);
+  };
+  const options = {
+    now: NOW,
+    outputDir,
+    env: {
+      RETELL_API_KEY: "secret-api-key",
+      RETELL_AGENT_ID: "agent_pilot_001",
+      RETELL_PHONE_NUMBER_ID: "pn_pilot_001",
+      RETELL_BASE_URL: "https://api.retellai.test",
+      RETELL_CONTROLLED_PILOT_ENABLED: "true",
+    },
+    testContact: {
+      name: "Devon",
+      phone_number: "+14078816243",
+      consent_note: "Devon gave Jonathan permission to send one OttoServ/Hermes AI test call for Retell testing.",
+      scenario: "Friendly plumbing/HVAC owner test.",
+    },
+    operatorApproval: {
+      decision: "approved",
+      operator: "Jonathan/operator",
+      approval_id: "approval-retell-pilot-devon",
+      scope: "single_controlled_retell_pilot_call",
+    },
+    fetchImpl,
+  };
+
+  const first = await executeControlledRetellPilot(options);
+  const second = await executeControlledRetellPilot(options);
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, false);
+  assert.equal(second.status, "pilot_executed");
+  assert.ok(second.blockers.includes("call_limit_already_used"));
+  assert.equal(createCalls, 1);
 });
 
 test("controlled Retell evidence ingestion requires real proof", () => {

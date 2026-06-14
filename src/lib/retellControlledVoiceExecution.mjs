@@ -168,6 +168,28 @@ function activationEvidenceBlockers(evidence = {}) {
   return blockers;
 }
 
+function e164(value) {
+  return /^\+[1-9]\d{7,14}$/.test(clean(value));
+}
+
+function pilotContactBlockers(contact = {}) {
+  const blockers = [];
+  if (!clean(contact.name)) blockers.push("test_contact_name_missing");
+  if (!e164(contact.phone_number)) blockers.push("test_contact_phone_e164_missing");
+  if (!clean(contact.consent_note)) blockers.push("test_contact_consent_note_missing");
+  if (!clean(contact.scenario)) blockers.push("test_scenario_missing");
+  return blockers;
+}
+
+function activationGateStatus(blockers = [], pilotEvidence = {}) {
+  if (blockers.includes("retell_credentials_missing")) return "blocked_missing_credentials";
+  if (blockers.includes("retell_phone_number_agent_binding_missing")) return "blocked_missing_phone_number_agent_binding";
+  if (blockers.some((item) => /^test_contact|explicit_test_contact_approval/.test(item))) return "blocked_missing_test_contact_approval";
+  if (clean(pilotEvidence.pass_fail_result) === "pass") return "pilot_passed";
+  if (clean(pilotEvidence.retell_call_id || pilotEvidence.call_id)) return "pilot_executed";
+  return "pilot_ready";
+}
+
 export async function evaluateControlledRetellProductionActivationGate(packet = {}, options = {}) {
   const env = options.env || process.env;
   const env_present = envPresence(env);
@@ -179,6 +201,9 @@ export async function evaluateControlledRetellProductionActivationGate(packet = 
   if (clean(env.RETELL_VOICE_SERVICE_LIVE_EXECUTION) !== "approved") {
     blockers.push("live_execution_env_flag_not_approved");
   }
+  if (options.phoneNumberAgentBinding === false || options.readiness?.retell?.outbound_ready === false || options.readiness?.retell?.agent_exists === false) {
+    blockers.push("retell_phone_number_agent_binding_missing");
+  }
   if (!activationApprovalAccepted(options.approval || {})) {
     blockers.push("explicit_operator_activation_approval_missing");
   }
@@ -186,6 +211,8 @@ export async function evaluateControlledRetellProductionActivationGate(packet = 
     blockers.push("production_activation_packet_must_remain_blocked_until_separate_live_runner");
   }
   blockers.push(...activationEvidenceBlockers(options.evidence || {}));
+  const contactBlockers = pilotContactBlockers(options.testContact || {});
+  if (contactBlockers.length) blockers.push("explicit_test_contact_approval_missing", ...contactBlockers);
 
   const safePacket = {
     packet_id: clean(packet.packet_id),
@@ -193,12 +220,14 @@ export async function evaluateControlledRetellProductionActivationGate(packet = 
     related_approval_id: clean(packet.related_approval_id),
     service_key: clean(packet.service_key),
   };
+  const uniqueBlockers = [...new Set(blockers)];
+  const status = activationGateStatus(uniqueBlockers, options.pilotEvidence || {});
   const report = {
     ok: blockers.length === 0,
-    status: blockers.length === 0 ? "ready_for_operator_controlled_activation" : "blocked_production_activation",
+    status,
     packet: safePacket,
     env_present,
-    blockers: [...new Set(blockers)],
+    blockers: uniqueBlockers,
     required_evidence: [
       ...REQUIRED_EVIDENCE_FIELDS,
       "transcript_or_transcript_unavailable_reason",
@@ -207,7 +236,21 @@ export async function evaluateControlledRetellProductionActivationGate(packet = 
       "client_launch_approval_id",
       "explicit_operator_activation_approval",
       "RETELL_VOICE_SERVICE_LIVE_EXECUTION=approved",
+      "explicit_approved_test_contact",
+      "controlled_pilot_call_evidence",
     ],
+    controlled_pilot: {
+      status,
+      test_contact_name: clean(options.testContact?.name),
+      redacted_phone_number: clean(options.testContact?.phone_number).replace(/\d(?=\d{4})/g, "*"),
+      retell_call_id_present: Boolean(clean(options.pilotEvidence?.retell_call_id || options.pilotEvidence?.call_id)),
+      pass_fail_result: clean(options.pilotEvidence?.pass_fail_result),
+    },
+    production_activation: {
+      status: "requires_separate_approval",
+      allowed: false,
+      reason: "Controlled pilot readiness or success does not activate general production voice automation.",
+    },
     allowed_actions: {
       agent_config_preparation: false,
       sandbox_test_call: false,
